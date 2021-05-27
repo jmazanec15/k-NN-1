@@ -26,7 +26,7 @@ namespace knn_jni {
         // -------------------------- EXCEPTION HANDLING ----------------------------
         // Takes the name of a Java exception type and a message and throws the corresponding exception
         // to the JVM
-        virtual void ThrowJavaException(JNIEnv* env, const char* type = "", const char* message = "") = 0;
+        virtual void ThrowJavaException(JNIEnv* env, const char* type, const char* message) = 0;
 
         // Checks if an exception occurred in the JVM and if so throws a C++ exception
         // This should be called after some calls to JNI functions
@@ -84,33 +84,35 @@ namespace knn_jni {
 
         virtual int GetJavaFloatArrayLength(JNIEnv *env, jfloatArray arrayJ) = 0;
 
+        // ---------------------------- Direct calls to JNIEnv ----------------------------
+
         virtual void DeleteLocalRef(JNIEnv *env, jobject obj) = 0;
+
+        virtual jsize GetArrayLength(JNIEnv *env, jarray array) = 0;
 
         virtual jbyte * GetByteArrayElements(JNIEnv *env, jbyteArray array, jboolean * isCopy) = 0;
 
         virtual jfloat * GetFloatArrayElements(JNIEnv *env, jfloatArray array, jboolean * isCopy) = 0;
 
-        virtual void ReleaseByteArrayElements(JNIEnv *env, jbyteArray array, jbyte *elems, int mode) = 0;
-
-        virtual void ReleaseFloatArrayElements(JNIEnv *env, jfloatArray array, jfloat *elems, int mode) = 0;
-
-        virtual jobjectArray NewObjectArray(JNIEnv *env, jsize len, jclass clazz, jobject init) = 0;
-
-        virtual void SetObjectArrayElement(JNIEnv *env, jobjectArray array, jsize index, jobject val) = 0;
-
-        virtual jobject NewObject(JNIEnv *env, jclass clazz, jmethodID methodId, ...) = 0;
-
-        virtual void SetByteArrayRegion(JNIEnv *env, jbyteArray array, jsize start, jsize len, const jbyte * buf) = 0;
-
         virtual jint * GetIntArrayElements(JNIEnv *env, jintArray array, jboolean * isCopy) = 0;
 
         virtual jobject GetObjectArrayElement(JNIEnv *env, jobjectArray array, jsize index) = 0;
 
-        virtual jsize GetArrayLength(JNIEnv *env, jarray array) = 0;
+        virtual jobject NewObject(JNIEnv *env, jclass clazz, jmethodID methodId, ...) = 0;
+
+        virtual jobjectArray NewObjectArray(JNIEnv *env, jsize len, jclass clazz, jobject init) = 0;
+
+        virtual jbyteArray NewByteArray(JNIEnv *env, jsize len) = 0;
+
+        virtual void ReleaseByteArrayElements(JNIEnv *env, jbyteArray array, jbyte *elems, int mode) = 0;
+
+        virtual void ReleaseFloatArrayElements(JNIEnv *env, jfloatArray array, jfloat *elems, int mode) = 0;
 
         virtual void ReleaseIntArrayElements(JNIEnv *env, jintArray array, jint *elems, jint mode) = 0;
 
-        virtual jbyteArray NewByteArray(JNIEnv *env, jsize len) = 0;
+        virtual void SetObjectArrayElement(JNIEnv *env, jobjectArray array, jsize index, jobject val) = 0;
+
+        virtual void SetByteArrayRegion(JNIEnv *env, jbyteArray array, jsize start, jsize len, const jbyte * buf) = 0;
 
         // --------------------------------------------------------------------------
     };
@@ -138,20 +140,21 @@ namespace knn_jni {
         int GetJavaIntArrayLength(JNIEnv *env, jintArray arrayJ);
         int GetJavaBytesArrayLength(JNIEnv *env, jbyteArray arrayJ);
         int GetJavaFloatArrayLength(JNIEnv *env, jfloatArray arrayJ);
+
         void DeleteLocalRef(JNIEnv *env, jobject obj);
         jbyte * GetByteArrayElements(JNIEnv *env, jbyteArray array, jboolean * isCopy);
         jfloat * GetFloatArrayElements(JNIEnv *env, jfloatArray array, jboolean * isCopy);
-        void ReleaseByteArrayElements(JNIEnv *env, jbyteArray array, jbyte *elems, int mode);
-        void ReleaseFloatArrayElements(JNIEnv *env, jfloatArray array, jfloat *elems, int mode);
-        jobjectArray NewObjectArray(JNIEnv *env, jsize len, jclass clazz, jobject init);
-        void SetObjectArrayElement(JNIEnv *env, jobjectArray array, jsize index, jobject val);
-        jobject NewObject(JNIEnv *env, jclass clazz, jmethodID methodId, ...);
-        void SetByteArrayRegion(JNIEnv *env, jbyteArray array, jsize start, jsize len, const jbyte * buf);
         jint * GetIntArrayElements(JNIEnv *env, jintArray array, jboolean * isCopy);
         jobject GetObjectArrayElement(JNIEnv *env, jobjectArray array, jsize index);
         jsize GetArrayLength(JNIEnv *env, jarray array);
-        void ReleaseIntArrayElements(JNIEnv *env, jintArray array, jint *elems, jint mode);
+        jobject NewObject(JNIEnv *env, jclass clazz, jmethodID methodId, ...);
+        jobjectArray NewObjectArray(JNIEnv *env, jsize len, jclass clazz, jobject init);
         jbyteArray NewByteArray(JNIEnv *env, jsize len);
+        void ReleaseByteArrayElements(JNIEnv *env, jbyteArray array, jbyte *elems, int mode);
+        void ReleaseFloatArrayElements(JNIEnv *env, jfloatArray array, jfloat *elems, int mode);
+        void ReleaseIntArrayElements(JNIEnv *env, jintArray array, jint *elems, jint mode);
+        void SetObjectArrayElement(JNIEnv *env, jobjectArray array, jsize index, jobject val);
+        void SetByteArrayRegion(JNIEnv *env, jbyteArray array, jsize start, jsize len, const jbyte * buf);
     };
 
     // ------------------------------- CONSTANTS --------------------------------
