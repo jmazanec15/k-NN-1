@@ -69,7 +69,7 @@ void knn_jni::nmslib_wrapper::CreateIndex(knn_jni::JNIUtilInterface * jniUtil, J
         auto m = jniUtil->ConvertJavaObjectToCppInteger(env, parametersCpp["m"]);
         indexParameters.push_back("M=" + std::to_string(m));
     }
-    env->DeleteLocalRef(parametersJ);
+    jniUtil->DeleteLocalRef(env, parametersJ);
 
     // Get the path to save the index
     std::string indexPathCpp(jniUtil->ConvertJavaStringToCppString(env, indexPathJ));
@@ -95,7 +95,7 @@ void knn_jni::nmslib_wrapper::CreateIndex(knn_jni::JNIUtilInterface * jniUtil, J
     int* idsCpp;
     try {
         // Read in data set
-        idsCpp = env->GetIntArrayElements(idsJ, nullptr);
+        idsCpp = jniUtil->GetIntArrayElements(env, idsJ, nullptr);
         if (idsCpp == nullptr) {
             jniUtil->HasExceptionInStack(env);
             throw std::runtime_error("Unable to get ids array");
@@ -104,23 +104,23 @@ void knn_jni::nmslib_wrapper::CreateIndex(knn_jni::JNIUtilInterface * jniUtil, J
         float* floatArrayCpp;
         jfloatArray floatArrayJ;
         for (int i = 0; i < numVectors; i++) {
-            floatArrayJ = (jfloatArray)env->GetObjectArrayElement(vectorsJ, i);
+            floatArrayJ = (jfloatArray)jniUtil->GetObjectArrayElement(env, vectorsJ, i);
             jniUtil->HasExceptionInStack(env);
 
-            if (dim != env->GetArrayLength(floatArrayJ)) {
+            if (dim != jniUtil->GetArrayLength(env, floatArrayJ)) {
                 throw std::runtime_error("Dimension of vectors is inconsistent");
             }
 
-            floatArrayCpp = env->GetFloatArrayElements(floatArrayJ, nullptr);
+            floatArrayCpp = jniUtil->GetFloatArrayElements(env, floatArrayJ, nullptr);
             if (floatArrayCpp == nullptr) {
                 throw std::runtime_error("Unable to read float array");
             }
 
             dataset.push_back(new similarity::Object(idsCpp[i], -1, dim*sizeof(float), floatArrayCpp));
-            env->ReleaseFloatArrayElements(floatArrayJ, floatArrayCpp, JNI_ABORT);
+            jniUtil->ReleaseFloatArrayElements(env, floatArrayJ, floatArrayCpp, JNI_ABORT);
             jniUtil->HasExceptionInStack(env);
         }
-        env->ReleaseIntArrayElements(idsJ, idsCpp, JNI_ABORT);
+        jniUtil->ReleaseIntArrayElements(env, idsJ, idsCpp, JNI_ABORT);
         jniUtil->HasExceptionInStack(env);
 
         std::unique_ptr<similarity::Index<float>> index;
@@ -136,7 +136,7 @@ void knn_jni::nmslib_wrapper::CreateIndex(knn_jni::JNIUtilInterface * jniUtil, J
             delete it;
         }
 
-        env->ReleaseIntArrayElements(idsJ, idsCpp, JNI_ABORT);
+        jniUtil->ReleaseIntArrayElements(env, idsJ, idsCpp, JNI_ABORT);
         jniUtil->HasExceptionInStack(env);
         throw;
     }
@@ -199,7 +199,7 @@ jobjectArray knn_jni::nmslib_wrapper::QueryIndex(knn_jni::JNIUtilInterface * jni
 
     int dim	= jniUtil->GetJavaFloatArrayLength(env, queryVectorJ);
 
-    float* rawQueryvector = env->GetFloatArrayElements(queryVectorJ, nullptr); // Have to call release on this
+    float* rawQueryvector = jniUtil->GetFloatArrayElements(env, queryVectorJ, nullptr); // Have to call release on this
     if (rawQueryvector == nullptr) {
         jniUtil->HasExceptionInStack(env);
         throw std::runtime_error("Unable to get float elements from query vector");
@@ -209,11 +209,11 @@ jobjectArray knn_jni::nmslib_wrapper::QueryIndex(knn_jni::JNIUtilInterface * jni
     try {
         queryObject.reset(new similarity::Object(-1, -1, dim*sizeof(float), rawQueryvector));
     } catch (...) {
-        env->ReleaseFloatArrayElements(queryVectorJ, rawQueryvector, JNI_ABORT);
+        jniUtil->ReleaseFloatArrayElements(env, queryVectorJ, rawQueryvector, JNI_ABORT);
         jniUtil->HasExceptionInStack(env);
         throw;
     }
-    env->ReleaseFloatArrayElements(queryVectorJ, rawQueryvector, JNI_ABORT);
+    jniUtil->ReleaseFloatArrayElements(env, queryVectorJ, rawQueryvector, JNI_ABORT);
 
     similarity::KNNQuery<float> knnQuery(*(indexWrapper->space), queryObject.get(), kJ);
     indexWrapper->index->Search(&knnQuery);
@@ -224,7 +224,7 @@ jobjectArray knn_jni::nmslib_wrapper::QueryIndex(knn_jni::JNIUtilInterface * jni
     jclass resultClass = jniUtil->FindClass(env,"org/opensearch/knn/index/KNNQueryResult");
     jmethodID allArgs = jniUtil->FindMethod(env, resultClass, "<init>", "(IF)V");
 
-    jobjectArray results = env->NewObjectArray(resultSize, resultClass, nullptr);
+    jobjectArray results = jniUtil->NewObjectArray(env, resultSize, resultClass, nullptr);
     if (results == nullptr) {
         jniUtil->HasExceptionInStack(env);
         throw std::runtime_error("Unable to allocate results array");
@@ -236,12 +236,12 @@ jobjectArray knn_jni::nmslib_wrapper::QueryIndex(knn_jni::JNIUtilInterface * jni
     for(int i = 0; i < resultSize; ++i) {
         distance = neighbors->TopDistance();
         id = neighbors->Pop()->id();
-        result = env->NewObject(resultClass, allArgs, id, distance);
+        result = jniUtil->NewObject(env, resultClass, allArgs, id, distance);
         jniUtil->HasExceptionInStack(env);
         if (result == nullptr) {
             throw std::runtime_error("Unable to create object");
         }
-        env->SetObjectArrayElement(results, i, result);
+        jniUtil->SetObjectArrayElement(env, results, i, result);
         jniUtil->HasExceptionInStack(env);
     }
     return results;

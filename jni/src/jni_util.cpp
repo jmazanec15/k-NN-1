@@ -295,6 +295,62 @@ int knn_jni::JNIUtil::GetJavaFloatArrayLength(JNIEnv *env, jfloatArray arrayJ) {
     return length;
 }
 
+void knn_jni::JNIUtil::DeleteLocalRef(JNIEnv *env, jobject obj) {
+    env->DeleteLocalRef(obj);
+}
+
+jbyte * knn_jni::JNIUtil::GetByteArrayElements(JNIEnv *env, jbyteArray array, jboolean * isCopy) {
+    return env->GetByteArrayElements(array, isCopy);
+}
+
+jfloat * knn_jni::JNIUtil::GetFloatArrayElements(JNIEnv *env, jfloatArray array, jboolean * isCopy) {
+    return env->GetFloatArrayElements(array, isCopy);
+}
+
+void knn_jni::JNIUtil::ReleaseByteArrayElements(JNIEnv *env, jbyteArray array, jbyte *elems, int mode) {
+    env->ReleaseByteArrayElements(array, elems, mode);
+}
+
+void knn_jni::JNIUtil::ReleaseFloatArrayElements(JNIEnv *env, jfloatArray array, jfloat *elems, int mode) {
+    env->ReleaseFloatArrayElements(array, elems, mode);
+}
+
+jobjectArray knn_jni::JNIUtil::NewObjectArray(JNIEnv *env, jsize len, jclass clazz, jobject init) {
+    return env->NewObjectArray(len, clazz, init);
+}
+
+void knn_jni::JNIUtil::SetObjectArrayElement(JNIEnv *env, jobjectArray array, jsize index, jobject val) {
+    env->SetObjectArrayElement(array, index, val);
+}
+
+jobject knn_jni::JNIUtil::NewObject(JNIEnv *env, jclass clazz, jmethodID methodId, ...) {
+    return env->NewObject(clazz, methodId);
+}
+
+void knn_jni::JNIUtil::SetByteArrayRegion(JNIEnv *env, jbyteArray array, jsize start, jsize len, const jbyte * buf) {
+    env->SetByteArrayRegion(array, start, len, buf);
+}
+
+jint * knn_jni::JNIUtil::GetIntArrayElements(JNIEnv *env, jintArray array, jboolean * isCopy) {
+    return env->GetIntArrayElements(array, isCopy);
+}
+
+jobject knn_jni::JNIUtil::GetObjectArrayElement(JNIEnv *env, jobjectArray array, jsize index) {
+    return env->GetObjectArrayElement(array, index);
+}
+
+jsize knn_jni::JNIUtil::GetArrayLength(JNIEnv *env, jarray array) {
+    return env->GetArrayLength(array);
+}
+
+void knn_jni::JNIUtil::ReleaseIntArrayElements(JNIEnv *env, jintArray array, jint *elems, jint mode) {
+    env->ReleaseIntArrayElements(array, elems, mode);
+}
+
+jbyteArray knn_jni::JNIUtil::NewByteArray(JNIEnv *env, jsize len) {
+    return env->NewByteArray(len);
+}
+
 jobject knn_jni::GetJObjectFromMapOrThrow(std::unordered_map<std::string, jobject> map, std::string key) {
     if(map.find(key) == map.end()) {
         throw std::runtime_error(key + " not found");

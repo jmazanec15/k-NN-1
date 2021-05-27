@@ -85,9 +85,9 @@ void knn_jni::faiss_wrapper::CreateIndex(knn_jni::JNIUtilInterface * jniUtil, JN
         jobject subParametersJ = parametersCpp[knn_jni::PARAMETERS];
         auto subParametersCpp = jniUtil->ConvertJavaMapToCppMap(env, subParametersJ);
         SetExtraParameters(jniUtil, env, subParametersCpp, indexWriter.get());
-        env->DeleteLocalRef(subParametersJ);
+        jniUtil->DeleteLocalRef(env, subParametersJ);
     }
-    env->DeleteLocalRef(parametersJ);
+    jniUtil->DeleteLocalRef(env, parametersJ);
 
     // Check that the index does not need to be trained
     if(!indexWriter->is_trained) {
@@ -134,7 +134,7 @@ void knn_jni::faiss_wrapper::CreateIndexFromTemplate(knn_jni::JNIUtilInterface *
 
     // Get vector of bytes from jbytearray
     int indexBytesCount = jniUtil->GetJavaBytesArrayLength(env, templateIndexJ);
-    jbyte * indexBytesJ = env->GetByteArrayElements(templateIndexJ, nullptr);
+    jbyte * indexBytesJ = jniUtil->GetByteArrayElements(env, templateIndexJ, nullptr);
     if (indexBytesJ == nullptr) {
         jniUtil->HasExceptionInStack(env);
         throw std::runtime_error("Unable able to get byte array for template index");
@@ -144,7 +144,7 @@ void knn_jni::faiss_wrapper::CreateIndexFromTemplate(knn_jni::JNIUtilInterface *
     for (int i = 0; i < indexBytesCount; i++) {
         vectorIoReader.data.push_back((uint8_t) indexBytesJ[i]);
     }
-    env->ReleaseByteArrayElements(templateIndexJ, indexBytesJ, JNI_ABORT);
+    jniUtil->ReleaseByteArrayElements(env, templateIndexJ, indexBytesJ, JNI_ABORT);
 
     // Create faiss index
     std::unique_ptr<faiss::Index> indexWriter;
@@ -185,7 +185,7 @@ jobjectArray knn_jni::faiss_wrapper::QueryIndex(knn_jni::JNIUtilInterface * jniU
     int dim	= jniUtil->GetJavaFloatArrayLength(env, queryVectorJ);
     std::vector<float> dis(kJ * dim);
     std::vector<faiss::Index::idx_t> ids(kJ * dim);
-    float* rawQueryvector = env->GetFloatArrayElements(queryVectorJ, nullptr); // Have to call release on this
+    float* rawQueryvector = jniUtil->GetFloatArrayElements(env, queryVectorJ, nullptr); // Have to call release on this
     if (rawQueryvector == nullptr) {
         jniUtil->HasExceptionInStack(env);
         throw std::runtime_error("Unable to get float elements from query vector");
@@ -195,11 +195,11 @@ jobjectArray knn_jni::faiss_wrapper::QueryIndex(knn_jni::JNIUtilInterface * jniU
         indexReader->search(1, rawQueryvector, kJ, dis.data(), ids.data());
         jniUtil->HasExceptionInStack(env);
     } catch (...) {
-        env->ReleaseFloatArrayElements(queryVectorJ, rawQueryvector, JNI_ABORT);
+        jniUtil->ReleaseFloatArrayElements(env, queryVectorJ, rawQueryvector, JNI_ABORT);
         jniUtil->HasExceptionInStack(env);
         throw;
     }
-    env->ReleaseFloatArrayElements(queryVectorJ, rawQueryvector, JNI_ABORT);
+    jniUtil->ReleaseFloatArrayElements(env, queryVectorJ, rawQueryvector, JNI_ABORT);
 
     // If there are not k results, the results will be padded with -1. Find the first -1, and set result size to that
     // index
@@ -212,7 +212,7 @@ jobjectArray knn_jni::faiss_wrapper::QueryIndex(knn_jni::JNIUtilInterface * jniU
     jclass resultClass = jniUtil->FindClass(env,"org/opensearch/knn/index/KNNQueryResult");
     jmethodID allArgs = jniUtil->FindMethod(env, resultClass, "<init>", "(IF)V");
 
-    jobjectArray results = env->NewObjectArray(resultSize, resultClass, nullptr);
+    jobjectArray results = jniUtil->NewObjectArray(env, resultSize, resultClass, nullptr);
     jniUtil->HasExceptionInStack(env);
     if (results == nullptr) {
         throw std::runtime_error("Unable to allocate results array");
@@ -220,12 +220,12 @@ jobjectArray knn_jni::faiss_wrapper::QueryIndex(knn_jni::JNIUtilInterface * jniU
 
     jobject result;
     for(int i = 0; i < resultSize; ++i) {
-        result = env->NewObject(resultClass, allArgs, ids[i], dis[i]);
+        result = jniUtil->NewObject(env, resultClass, allArgs, ids[i], dis[i]);
         if (result == nullptr) {
             jniUtil->HasExceptionInStack(env);
             throw std::runtime_error("Unable to create result");
         }
-        env->SetObjectArrayElement(results, i, result);
+        jniUtil->SetObjectArrayElement(env, results, i, result);
         jniUtil->HasExceptionInStack(env);
     }
     return results;
@@ -267,7 +267,7 @@ jbyteArray knn_jni::faiss_wrapper::TrainIndex(knn_jni::JNIUtilInterface * jniUti
         jobject subParametersJ = parametersCpp[knn_jni::PARAMETERS];
         auto subParametersCpp = jniUtil->ConvertJavaMapToCppMap(env, subParametersJ);
         SetExtraParameters(jniUtil, env, subParametersCpp, indexWriter.get());
-        env->DeleteLocalRef(subParametersJ);
+        jniUtil->DeleteLocalRef(env, subParametersJ);
     }
 
     // Train index if needed
@@ -276,7 +276,7 @@ jbyteArray knn_jni::faiss_wrapper::TrainIndex(knn_jni::JNIUtilInterface * jniUti
     if(!indexWriter->is_trained) {
         InternalTrainIndex(indexWriter.get(), numVectors, trainingVectorsPointerCpp->data());
     }
-    env->DeleteLocalRef(parametersJ);
+    jniUtil->DeleteLocalRef(env, parametersJ);
 
     // Now that indexWriter is trained, we just load the bytes into an array and return
     faiss::VectorIOWriter vectorIoWriter;
@@ -290,8 +290,8 @@ jbyteArray knn_jni::faiss_wrapper::TrainIndex(knn_jni::JNIUtilInterface * jniUti
         jbytesBuffer[c++] = (jbyte) b;
     }
 
-    jbyteArray ret = env->NewByteArray(vectorIoWriter.data.size());
-    env->SetByteArrayRegion(ret, 0, vectorIoWriter.data.size(), jbytesBuffer.get());
+    jbyteArray ret = jniUtil->NewByteArray(env, vectorIoWriter.data.size());
+    jniUtil->SetByteArrayRegion(env, ret, 0, vectorIoWriter.data.size(), jbytesBuffer.get());
     return ret;
 }
 
