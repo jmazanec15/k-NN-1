@@ -19,66 +19,97 @@
 #include <unordered_map>
 
 namespace knn_jni {
-    // -------------------------- EXCEPTION HANDLING ----------------------------
-    // Takes the name of a Java exception type and a message and throws the corresponding exception
-    // to the JVM
-    void ThrowJavaException(JNIEnv* env, const char* type = "", const char* message = "");
 
-    // Checks if an exception occurred in the JVM and if so throws a C++ exception
-    // This should be called after some calls to JNI functions
-    void HasExceptionInStack(JNIEnv* env);
+    // Interface for making calls to JNI
+    class JNIUtilInterface {
+    public:
+        // -------------------------- EXCEPTION HANDLING ----------------------------
+        // Takes the name of a Java exception type and a message and throws the corresponding exception
+        // to the JVM
+        virtual void ThrowJavaException(JNIEnv* env, const char* type = "", const char* message = "") = 0;
 
-    // HasExceptionInStack with ability to specify message
-    void HasExceptionInStack(JNIEnv* env, const std::string& message);
+        // Checks if an exception occurred in the JVM and if so throws a C++ exception
+        // This should be called after some calls to JNI functions
+        virtual void HasExceptionInStack(JNIEnv* env) = 0;
 
-    // Catches a C++ exception and throws the corresponding exception to the JVM
-    void CatchCppExceptionAndThrowJava(JNIEnv* env);
+        // HasExceptionInStack with ability to specify message
+        virtual void HasExceptionInStack(JNIEnv* env, const std::string& message) = 0;
 
-    // --------------------------------------------------------------------------
+        // Catches a C++ exception and throws the corresponding exception to the JVM
+        virtual void CatchCppExceptionAndThrowJava(JNIEnv* env) = 0;
+        // --------------------------------------------------------------------------
 
-    // ------------------------------ JAVA FINDERS ------------------------------
-    // Find a java class given a particular name
-    jclass FindClass(JNIEnv * env, const std::string& className);
+        // ------------------------------ JAVA FINDERS ------------------------------
+        // Find a java class given a particular name
+        virtual jclass FindClass(JNIEnv * env, const std::string& className) = 0;
 
-    // Find a java method given a particular class, name and signature
-    jmethodID FindMethod(JNIEnv * env, jclass jClass, const std::string& methodName,
-                         const std::string& methodSignature);
+        // Find a java method given a particular class, name and signature
+        virtual jmethodID FindMethod(JNIEnv * env, jclass jClass, const std::string& methodName,
+                                     const std::string& methodSignature) = 0;
 
-    // --------------------------------------------------------------------------
+        // --------------------------------------------------------------------------
 
-    // ------------------------- JAVA TO CPP CONVERTERS -------------------------
-    // Returns cpp copied string from the Java string and releases the JNI Resource
-    std::string ConvertJavaStringToCppString(JNIEnv * env, jstring javaString);
+        // ------------------------- JAVA TO CPP CONVERTERS -------------------------
+        // Returns cpp copied string from the Java string and releases the JNI Resource
+        virtual std::string ConvertJavaStringToCppString(JNIEnv * env, jstring javaString) = 0;
 
-    // Converts a java map to a cpp unordered_map<string, jobject>
-    std::unordered_map<std::string, jobject> ConvertJavaMapToCppMap(JNIEnv *env, jobject parametersJ);
+        // Converts a java map to a cpp unordered_map<string, jobject>
+        //TODO: My concern with this function is that it will make a lot of calls between the JVM. A few options
+        // to explore are:
+        // 1. Passing a json string and parsing it in CPP layer
+        // 2. Caching some of the method and class calls
+        virtual std::unordered_map<std::string, jobject> ConvertJavaMapToCppMap(JNIEnv *env, jobject parametersJ) = 0;
 
-    // Convert a java object to cpp string, if applicable
-    std::string ConvertJavaObjectToCppString(JNIEnv *env, jobject objectJ);
+        // Convert a java object to cpp string, if applicable
+        virtual std::string ConvertJavaObjectToCppString(JNIEnv *env, jobject objectJ) = 0;
 
-    // Convert a java object to a cpp integer, if applicable
-    int ConvertJavaObjectToCppInteger(JNIEnv *env, jobject objectJ);
+        // Convert a java object to a cpp integer, if applicable
+        virtual int ConvertJavaObjectToCppInteger(JNIEnv *env, jobject objectJ) = 0;
 
-    std::vector<float> Convert2dJavaObjectArrayToCppFloatVector(JNIEnv *env, jobjectArray array2dJ, int dim);
+        virtual std::vector<float> Convert2dJavaObjectArrayToCppFloatVector(JNIEnv *env, jobjectArray array2dJ,
+                                                                            int dim) = 0;
 
-    std::vector<int64_t> ConvertJavaIntArrayToCppIntVector(JNIEnv *env, jintArray arrayJ);
+        virtual std::vector<int64_t> ConvertJavaIntArrayToCppIntVector(JNIEnv *env, jintArray arrayJ) = 0;
 
-    // --------------------------------------------------------------------------
+        // --------------------------------------------------------------------------
 
-    // ------------------------------ MISC HELPERS ------------------------------
-    int GetInnerDimensionOf2dJavaFloatArray(JNIEnv *env, jobjectArray array2dJ);
+        // ------------------------------ MISC HELPERS ------------------------------
+        virtual int GetInnerDimensionOf2dJavaFloatArray(JNIEnv *env, jobjectArray array2dJ) = 0;
 
-    int GetJavaObjectArrayLength(JNIEnv *env, jobjectArray arrayJ);
+        virtual int GetJavaObjectArrayLength(JNIEnv *env, jobjectArray arrayJ) = 0;
 
-    int GetJavaIntArrayLength(JNIEnv *env, jintArray arrayJ);
+        virtual int GetJavaIntArrayLength(JNIEnv *env, jintArray arrayJ) = 0;
 
-    int GetJavaBytesArrayLength(JNIEnv *env, jbyteArray arrayJ);
+        virtual int GetJavaBytesArrayLength(JNIEnv *env, jbyteArray arrayJ) = 0;
 
-    int GetJavaFloatArrayLength(JNIEnv *env, jfloatArray arrayJ);
+        virtual int GetJavaFloatArrayLength(JNIEnv *env, jfloatArray arrayJ) = 0;
+        // --------------------------------------------------------------------------
+    };
 
     jobject GetJObjectFromMapOrThrow(std::unordered_map<std::string, jobject> map, std::string key);
 
-    // --------------------------------------------------------------------------
+    // Class that implements JNIUtilInterface methods
+    class JNIUtil: public JNIUtilInterface {
+    public:
+        void ThrowJavaException(JNIEnv* env, const char* type = "", const char* message = "");
+        void HasExceptionInStack(JNIEnv* env);
+        void HasExceptionInStack(JNIEnv* env, const std::string& message);
+        void CatchCppExceptionAndThrowJava(JNIEnv* env);
+        jclass FindClass(JNIEnv * env, const std::string& className);
+        jmethodID FindMethod(JNIEnv * env, jclass jClass, const std::string& methodName,
+                             const std::string& methodSignature);
+        std::string ConvertJavaStringToCppString(JNIEnv * env, jstring javaString);
+        std::unordered_map<std::string, jobject> ConvertJavaMapToCppMap(JNIEnv *env, jobject parametersJ);
+        std::string ConvertJavaObjectToCppString(JNIEnv *env, jobject objectJ);
+        int ConvertJavaObjectToCppInteger(JNIEnv *env, jobject objectJ);
+        std::vector<float> Convert2dJavaObjectArrayToCppFloatVector(JNIEnv *env, jobjectArray array2dJ, int dim);
+        std::vector<int64_t> ConvertJavaIntArrayToCppIntVector(JNIEnv *env, jintArray arrayJ);
+        int GetInnerDimensionOf2dJavaFloatArray(JNIEnv *env, jobjectArray array2dJ);
+        int GetJavaObjectArrayLength(JNIEnv *env, jobjectArray arrayJ);
+        int GetJavaIntArrayLength(JNIEnv *env, jintArray arrayJ);
+        int GetJavaBytesArrayLength(JNIEnv *env, jbyteArray arrayJ);
+        int GetJavaFloatArrayLength(JNIEnv *env, jfloatArray arrayJ);
+    };
 
     // ------------------------------- CONSTANTS --------------------------------
     extern const std::string FAISS_NAME;
