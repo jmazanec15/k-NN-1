@@ -26,8 +26,7 @@ void knn_jni::JNIUtil::ThrowJavaException(JNIEnv* env, const char* type, const c
     // If newExcCls isn't found, NoClassDefFoundError will be thrown
 }
 
-void knn_jni::JNIUtil::HasExceptionInStack(JNIEnv* env)
-{
+void knn_jni::JNIUtil::HasExceptionInStack(JNIEnv* env) {
     this->HasExceptionInStack(env, "Exception in jni occurred");
 }
 
@@ -147,7 +146,7 @@ std::string knn_jni::JNIUtil::ConvertJavaStringToCppString(JNIEnv * env, jstring
 
     const char *cString = env->GetStringUTFChars(javaString, nullptr);
     if (cString == nullptr) {
-        this->HasExceptionInStack(env);
+        this->HasExceptionInStack(env, "Unable to convert java string to cpp string");
 
         // Will only reach here if there is no exception in the stack, but the call failed
         throw std::runtime_error("Unable to convert java string to cpp string");
@@ -188,7 +187,7 @@ std::vector<float> knn_jni::JNIUtil::Convert2dJavaObjectArrayToCppFloatVector(JN
     std::vector<float> floatVectorCpp;
     for (int i = 0; i < numVectors; ++i) {
         auto vectorArray = (jfloatArray)env->GetObjectArrayElement(array2dJ, i);
-        this->HasExceptionInStack(env);
+        this->HasExceptionInStack(env, "Unable to get object array element");
 
         if (dim != env->GetArrayLength(vectorArray)) {
             throw std::runtime_error("Dimension of vectors is inconsistent");
@@ -217,11 +216,11 @@ std::vector<int64_t> knn_jni::JNIUtil::ConvertJavaIntArrayToCppIntVector(JNIEnv 
     }
 
     int numElements = env->GetArrayLength(arrayJ);
-    this->HasExceptionInStack(env);
+    this->HasExceptionInStack(env, "Unable to get array length");
 
     int* arrayCpp = env->GetIntArrayElements(arrayJ, nullptr);
     if (arrayCpp == nullptr) {
-        this->HasExceptionInStack(env);
+        this->HasExceptionInStack(env, "Unable to get integer array elements");
         throw std::runtime_error("Unable to get integer array elements");
     }
 
@@ -300,35 +299,70 @@ void knn_jni::JNIUtil::DeleteLocalRef(JNIEnv *env, jobject obj) {
 }
 
 jbyte * knn_jni::JNIUtil::GetByteArrayElements(JNIEnv *env, jbyteArray array, jboolean * isCopy) {
-    return env->GetByteArrayElements(array, isCopy);
+    jbyte * byteArray = env->GetByteArrayElements(array, nullptr);
+    if (byteArray == nullptr) {
+        this->HasExceptionInStack(env, "Unable able to get byte array");
+        throw std::runtime_error("Unable able to get byte array");
+    }
+
+    return byteArray;
 }
 
 jfloat * knn_jni::JNIUtil::GetFloatArrayElements(JNIEnv *env, jfloatArray array, jboolean * isCopy) {
-    return env->GetFloatArrayElements(array, isCopy);
+    float* floatArray = env->GetFloatArrayElements(array, nullptr);
+    if (floatArray == nullptr) {
+        this->HasExceptionInStack(env, "Unable to get float elements");
+        throw std::runtime_error("Unable to get float elements");
+    }
+
+    return floatArray;
 }
 
 jint * knn_jni::JNIUtil::GetIntArrayElements(JNIEnv *env, jintArray array, jboolean * isCopy) {
-    return env->GetIntArrayElements(array, isCopy);
+    // Lets check for error here
+    jint * intArray =  env->GetIntArrayElements(array, isCopy);
+    if (intArray == nullptr) {
+        this->HasExceptionInStack(env, "Unable to get int array");
+        throw std::runtime_error("Unable to get int array");
+    }
+
+    return intArray;
 }
 
 jobject knn_jni::JNIUtil::GetObjectArrayElement(JNIEnv *env, jobjectArray array, jsize index) {
-    return env->GetObjectArrayElement(array, index);
-}
-
-jsize knn_jni::JNIUtil::GetArrayLength(JNIEnv *env, jarray array) {
-    return env->GetArrayLength(array);
+    jobject object = env->GetObjectArrayElement(array, index);
+    this->HasExceptionInStack(env, "Unable to get object");
+    return object;
 }
 
 jobject knn_jni::JNIUtil::NewObject(JNIEnv *env, jclass clazz, jmethodID methodId, int id, float distance) {
-    return env->NewObject(clazz, methodId, id, distance);
+    jobject object = env->NewObject(clazz, methodId, id, distance);
+    if (object == nullptr) {
+        this->HasExceptionInStack(env, "Unable to create object");
+        throw std::runtime_error("Unable to create object");
+    }
+
+    return object;
 }
 
 jobjectArray knn_jni::JNIUtil::NewObjectArray(JNIEnv *env, jsize len, jclass clazz, jobject init) {
-    return env->NewObjectArray(len, clazz, init);
+    jobjectArray objectArray = env->NewObjectArray(len, clazz, init);
+    if (objectArray == nullptr) {
+        this->HasExceptionInStack(env, "Unable to allocate object array");
+        throw std::runtime_error("Unable to allocate object array");
+    }
+
+    return objectArray;
 }
 
 jbyteArray knn_jni::JNIUtil::NewByteArray(JNIEnv *env, jsize len) {
-    return env->NewByteArray(len);
+    jbyteArray  byteArray = env->NewByteArray(len);
+    if (byteArray == nullptr) {
+        this->HasExceptionInStack(env, "Unable to allocate byte array");
+        throw std::runtime_error("Unable to allocate byte array");
+    }
+
+    return byteArray;
 }
 
 void knn_jni::JNIUtil::ReleaseByteArrayElements(JNIEnv *env, jbyteArray array, jbyte *elems, int mode) {
@@ -345,10 +379,12 @@ void knn_jni::JNIUtil::ReleaseIntArrayElements(JNIEnv *env, jintArray array, jin
 
 void knn_jni::JNIUtil::SetObjectArrayElement(JNIEnv *env, jobjectArray array, jsize index, jobject val) {
     env->SetObjectArrayElement(array, index, val);
+    this->HasExceptionInStack(env, "Unable to set object array element");
 }
 
 void knn_jni::JNIUtil::SetByteArrayRegion(JNIEnv *env, jbyteArray array, jsize start, jsize len, const jbyte * buf) {
     env->SetByteArrayRegion(array, start, len, buf);
+    this->HasExceptionInStack(env, "Unable to set byte array region");
 }
 
 jobject knn_jni::GetJObjectFromMapOrThrow(std::unordered_map<std::string, jobject> map, std::string key) {
@@ -373,6 +409,7 @@ const std::string knn_jni::L1 = "l1";
 const std::string knn_jni::LINF = "linf";
 const std::string knn_jni::COSINESIMIL = "cosinesimil";
 const std::string knn_jni::INNER_PRODUCT = "innerproduct";
+const std::string knn_jni::NEG_DOT_PRODUCT = "negdotprod";
 
 const std::string knn_jni::NPROBES = "nprobes";
 const std::string knn_jni::COARSE_QUANTIZER = "coarse_quantizer";

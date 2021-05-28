@@ -135,10 +135,6 @@ void knn_jni::faiss_wrapper::CreateIndexFromTemplate(knn_jni::JNIUtilInterface *
     // Get vector of bytes from jbytearray
     int indexBytesCount = jniUtil->GetJavaBytesArrayLength(env, templateIndexJ);
     jbyte * indexBytesJ = jniUtil->GetByteArrayElements(env, templateIndexJ, nullptr);
-    if (indexBytesJ == nullptr) {
-        jniUtil->HasExceptionInStack(env);
-        throw std::runtime_error("Unable able to get byte array for template index");
-    }
 
     faiss::VectorIOReader vectorIoReader;
     for (int i = 0; i < indexBytesCount; i++) {
@@ -185,18 +181,12 @@ jobjectArray knn_jni::faiss_wrapper::QueryIndex(knn_jni::JNIUtilInterface * jniU
     int dim	= jniUtil->GetJavaFloatArrayLength(env, queryVectorJ);
     std::vector<float> dis(kJ * dim);
     std::vector<faiss::Index::idx_t> ids(kJ * dim);
-    float* rawQueryvector = jniUtil->GetFloatArrayElements(env, queryVectorJ, nullptr); // Have to call release on this
-    if (rawQueryvector == nullptr) {
-        jniUtil->HasExceptionInStack(env);
-        throw std::runtime_error("Unable to get float elements from query vector");
-    }
+    float* rawQueryvector = jniUtil->GetFloatArrayElements(env, queryVectorJ, nullptr);
 
     try {
         indexReader->search(1, rawQueryvector, kJ, dis.data(), ids.data());
-        jniUtil->HasExceptionInStack(env);
     } catch (...) {
         jniUtil->ReleaseFloatArrayElements(env, queryVectorJ, rawQueryvector, JNI_ABORT);
-        jniUtil->HasExceptionInStack(env);
         throw;
     }
     jniUtil->ReleaseFloatArrayElements(env, queryVectorJ, rawQueryvector, JNI_ABORT);
@@ -213,20 +203,11 @@ jobjectArray knn_jni::faiss_wrapper::QueryIndex(knn_jni::JNIUtilInterface * jniU
     jmethodID allArgs = jniUtil->FindMethod(env, resultClass, "<init>", "(IF)V");
 
     jobjectArray results = jniUtil->NewObjectArray(env, resultSize, resultClass, nullptr);
-    jniUtil->HasExceptionInStack(env);
-    if (results == nullptr) {
-        throw std::runtime_error("Unable to allocate results array");
-    }
 
     jobject result;
     for(int i = 0; i < resultSize; ++i) {
         result = jniUtil->NewObject(env, resultClass, allArgs, ids[i], dis[i]);
-        if (result == nullptr) {
-            jniUtil->HasExceptionInStack(env);
-            throw std::runtime_error("Unable to create result");
-        }
         jniUtil->SetObjectArrayElement(env, results, i, result);
-        jniUtil->HasExceptionInStack(env);
     }
     return results;
 }

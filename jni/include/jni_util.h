@@ -88,8 +88,6 @@ namespace knn_jni {
 
         virtual void DeleteLocalRef(JNIEnv *env, jobject obj) = 0;
 
-        virtual jsize GetArrayLength(JNIEnv *env, jarray array) = 0;
-
         virtual jbyte * GetByteArrayElements(JNIEnv *env, jbyteArray array, jboolean * isCopy) = 0;
 
         virtual jfloat * GetFloatArrayElements(JNIEnv *env, jfloatArray array, jboolean * isCopy) = 0;
@@ -146,7 +144,6 @@ namespace knn_jni {
         jfloat * GetFloatArrayElements(JNIEnv *env, jfloatArray array, jboolean * isCopy);
         jint * GetIntArrayElements(JNIEnv *env, jintArray array, jboolean * isCopy);
         jobject GetObjectArrayElement(JNIEnv *env, jobjectArray array, jsize index);
-        jsize GetArrayLength(JNIEnv *env, jarray array);
         jobject NewObject(JNIEnv *env, jclass clazz, jmethodID methodId, int id, float distance);
         jobjectArray NewObjectArray(JNIEnv *env, jsize len, jclass clazz, jobject init);
         jbyteArray NewByteArray(JNIEnv *env, jsize len);
@@ -173,6 +170,7 @@ namespace knn_jni {
     extern const std::string LINF;
     extern const std::string COSINESIMIL;
     extern const std::string INNER_PRODUCT;
+    extern const std::string NEG_DOT_PRODUCT;
 
     extern const std::string NPROBES;
     extern const std::string COARSE_QUANTIZER;
