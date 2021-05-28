@@ -319,8 +319,8 @@ jsize knn_jni::JNIUtil::GetArrayLength(JNIEnv *env, jarray array) {
     return env->GetArrayLength(array);
 }
 
-jobject knn_jni::JNIUtil::NewObject(JNIEnv *env, jclass clazz, jmethodID methodId, ...) {
-    return env->NewObject(clazz, methodId);
+jobject knn_jni::JNIUtil::NewObject(JNIEnv *env, jclass clazz, jmethodID methodId, int id, float distance) {
+    return env->NewObject(clazz, methodId, id, distance);
 }
 
 jobjectArray knn_jni::JNIUtil::NewObjectArray(JNIEnv *env, jsize len, jclass clazz, jobject init) {
