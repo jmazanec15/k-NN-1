@@ -76,7 +76,7 @@ public interface ModelDao {
      * @param model Model to be indexed
      * @param listener  handles index response
      */
-    void put(String modelId, Model model, ActionListener<IndexResponse> listener);
+    void put(String modelId, Model model, ActionListener<IndexResponse> listener) throws IOException;
 
     /**
      * Put a model into the system index. Non-blocking. When no id is passed in, OpenSearch will generate the id
@@ -85,7 +85,7 @@ public interface ModelDao {
      * @param model Model to be indexed
      * @param listener  handles index response
      */
-    void put(Model model, ActionListener<IndexResponse> listener);
+    void put(Model model, ActionListener<IndexResponse> listener) throws IOException;
 
     /**
      * Get a model from the system index. Call blocks.
@@ -170,7 +170,7 @@ public interface ModelDao {
         }
 
         @Override
-        public void put(String modelId, Model model, ActionListener<IndexResponse> listener) {
+        public void put(String modelId, Model model, ActionListener<IndexResponse> listener) throws IOException {
             String base64Model = Base64.getEncoder().encodeToString(model.getModelBlob());
 
             Map<String, Object> parameters = ImmutableMap.of(
@@ -184,11 +184,21 @@ public interface ModelDao {
             indexRequestBuilder.setId(modelId);
             indexRequestBuilder.setSource(parameters);
 
-            put(indexRequestBuilder, listener);
+            // Fail if the id already exists. Models are not updateable
+            indexRequestBuilder.setOpType(DocWriteRequest.OpType.CREATE);
+            indexRequestBuilder.setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE);
+
+            if (!isCreated()) {
+                create(ActionListener.wrap(createIndexResponse -> indexRequestBuilder.execute(listener),
+                        listener::onFailure));
+                return;
+            }
+
+            indexRequestBuilder.execute(listener);
         }
 
         @Override
-        public void put(Model model, ActionListener<IndexResponse> listener) {
+        public void put(Model model, ActionListener<IndexResponse> listener) throws IOException {
             String base64Model = Base64.getEncoder().encodeToString(model.getModelBlob());
 
             Map<String, Object> parameters = ImmutableMap.of(
@@ -201,26 +211,21 @@ public interface ModelDao {
             IndexRequestBuilder indexRequestBuilder = client.prepareIndex(MODEL_INDEX_NAME, "_doc");
             indexRequestBuilder.setSource(parameters);
 
-            put(indexRequestBuilder, listener);
-        }
-
-        private void put(IndexRequestBuilder indexRequestBuilder, ActionListener<IndexResponse> listener) {
-            if (!isCreated()) {
-                throw new IllegalStateException("Cannot put model in index before index has been initialized");
-            }
-
             // Fail if the id already exists. Models are not updateable
             indexRequestBuilder.setOpType(DocWriteRequest.OpType.CREATE);
             indexRequestBuilder.setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE);
+
+            if (!isCreated()) {
+                create(ActionListener.wrap(createIndexResponse -> indexRequestBuilder.execute(listener),
+                        listener::onFailure));
+                return;
+            }
+
             indexRequestBuilder.execute(listener);
         }
 
         @Override
         public Model get(String modelId) throws ExecutionException, InterruptedException {
-            if (!isCreated()) {
-                throw new IllegalStateException("Cannot get model \"" + modelId + "\". Model index does not exist.");
-            }
-
             /*
                 GET /<model_index>/<modelId>?_local
             */
@@ -256,7 +261,8 @@ public interface ModelDao {
         @Override
         public void delete(String modelId, ActionListener<DeleteResponse> listener) {
             if (!isCreated()) {
-                throw new IllegalStateException("Cannot delete model \"" + modelId + "\". Model index does not exist.");
+                logger.info("Cannot delete model \"" + modelId + "\". Model index does not exist.");
+                return;
             }
 
             DeleteRequestBuilder deleteRequestBuilder = new DeleteRequestBuilder(client, DeleteAction.INSTANCE,

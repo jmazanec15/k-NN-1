@@ -42,7 +42,7 @@ import static org.opensearch.knn.common.KNNConstants.MODEL_INDEX_NAME;
 public class ModelDaoTests extends KNNSingleNodeTestCase {
 
     public void testCreate() throws IOException, InterruptedException {
-        int attempts = 20;
+        int attempts = 3;
         final CountDownLatch inProgressLatch = new CountDownLatch(attempts);
 
         ActionListener<CreateIndexResponse> indexCreationListener = ActionListener.wrap(response -> {
@@ -71,7 +71,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
         assertTrue(modelDao.isCreated());
     }
 
-    public void testPut_withId() throws InterruptedException {
+    public void testPut_withId() throws InterruptedException, IOException {
         ModelDao modelDao = ModelDao.OpenSearchKNNModelDao.getInstance();
         String modelId = "efbsdhcvbsd";
         byte [] modelBlob = "hello".getBytes();
@@ -107,7 +107,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
         assertTrue(inProgressLatch2.await(100, TimeUnit.SECONDS));
     }
 
-    public void testPut_withoutId() throws InterruptedException {
+    public void testPut_withoutId() throws InterruptedException, IOException {
         ModelDao modelDao = ModelDao.OpenSearchKNNModelDao.getInstance();
         byte [] modelBlob = "hello".getBytes();
         int dimension = 2;
@@ -134,7 +134,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
         int dimension = 2;
 
         // model index doesnt exist
-        expectThrows(IllegalStateException.class, () -> modelDao.get(modelId));
+        expectThrows(ExecutionException.class, () -> modelDao.get(modelId));
 
         // model id doesnt exist
         createIndex(MODEL_INDEX_NAME);
@@ -152,8 +152,8 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
         byte[] modelBlob = "hello".getBytes();
         int dimension = 2;
 
-        // model index doesnt exist
-        expectThrows(IllegalStateException.class, () -> modelDao.delete(modelId, null));
+        // model index doesnt exist --> nothing should happen
+        modelDao.delete(modelId, null);
 
         // model id doesnt exist
         createIndex(MODEL_INDEX_NAME);
