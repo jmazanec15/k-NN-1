@@ -15,7 +15,7 @@ import org.opensearch.cluster.routing.ShardRouting;
 import org.opensearch.cluster.routing.ShardsIterator;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.index.IndexService;
-import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
+import org.opensearch.knn.index.engine.memory.NativeMemoryCacheManager;
 import org.opensearch.rest.RestStatus;
 
 import java.io.IOException;

@@ -18,7 +18,12 @@ import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.SpaceType;
-import org.opensearch.knn.index.util.KNNEngine;
+import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.models.Model;
+import org.opensearch.knn.index.engine.models.ModelCache;
+import org.opensearch.knn.index.engine.models.ModelDao;
+import org.opensearch.knn.index.engine.models.ModelMetadata;
+import org.opensearch.knn.index.engine.models.ModelState;
 
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
@@ -26,7 +31,7 @@ import java.util.concurrent.ExecutionException;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
-import static org.opensearch.knn.index.KNNSettings.MODEL_CACHE_SIZE_LIMIT_SETTING;
+import static org.opensearch.knn.settings.KNNSettings.MODEL_CACHE_SIZE_LIMIT_SETTING;
 import static org.opensearch.knn.common.KNNConstants.BYTES_PER_KILOBYTES;
 
 public class ModelCacheTests extends KNNTestCase {

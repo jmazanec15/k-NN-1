@@ -6,6 +6,8 @@
 package org.opensearch.knn.index;
 
 import org.opensearch.knn.KNNRestTestCase;
+import org.opensearch.knn.settings.KNNSettings;
+import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.plugin.stats.StatNames;
 import org.apache.http.util.EntityUtils;
 import org.opensearch.client.Response;

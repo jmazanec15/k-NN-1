@@ -12,8 +12,11 @@ import org.opensearch.common.xcontent.XContentParser;
 import org.opensearch.index.Index;
 import org.opensearch.index.mapper.NumberFieldMapper;
 import org.opensearch.index.query.QueryShardContext;
-import org.opensearch.knn.indices.ModelDao;
-import org.opensearch.knn.indices.ModelMetadata;
+import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
+import org.opensearch.knn.index.query.KNNQuery;
+import org.opensearch.knn.index.query.KNNQueryBuilder;
+import org.opensearch.knn.index.engine.models.ModelDao;
+import org.opensearch.knn.index.engine.models.ModelMetadata;
 
 import java.io.IOException;
 

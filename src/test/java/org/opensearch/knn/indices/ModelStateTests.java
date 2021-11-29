@@ -13,6 +13,7 @@ package org.opensearch.knn.indices;
 
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.index.engine.models.ModelState;
 
 import java.io.IOException;
 

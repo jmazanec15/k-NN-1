@@ -6,9 +6,11 @@
 package org.opensearch.knn.plugin.script;
 
 import org.opensearch.knn.KNNTestCase;
-import org.opensearch.knn.index.KNNVectorFieldMapper;
+import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.index.mapper.NumberFieldMapper;
+import org.opensearch.knn.index.script.KNNScoringSpace;
+import org.opensearch.knn.index.script.KNNScoringSpaceFactory;
 
 import java.util.ArrayList;
 import java.util.List;

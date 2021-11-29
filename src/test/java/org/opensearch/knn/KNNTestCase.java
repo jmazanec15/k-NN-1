@@ -5,7 +5,7 @@
 
 package org.opensearch.knn;
 
-import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
+import org.opensearch.knn.index.engine.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.plugin.stats.KNNCounter;
 import org.opensearch.common.bytes.BytesReference;
 import org.opensearch.common.xcontent.XContentBuilder;

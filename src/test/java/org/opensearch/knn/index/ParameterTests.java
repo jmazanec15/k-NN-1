@@ -14,8 +14,11 @@ package org.opensearch.knn.index;
 import com.google.common.collect.ImmutableMap;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.common.ValidationException;
-import org.opensearch.knn.index.Parameter.IntegerParameter;
-import org.opensearch.knn.index.Parameter.MethodComponentContextParameter;
+import org.opensearch.knn.index.engine.Parameter;
+import org.opensearch.knn.index.engine.Parameter.IntegerParameter;
+import org.opensearch.knn.index.engine.Parameter.MethodComponentContextParameter;
+import org.opensearch.knn.index.engine.MethodComponent;
+import org.opensearch.knn.index.engine.MethodComponentContext;
 
 import java.util.Map;
 

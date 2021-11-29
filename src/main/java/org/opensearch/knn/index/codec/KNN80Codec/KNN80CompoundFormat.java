@@ -6,7 +6,6 @@
 package org.opensearch.knn.index.codec.KNN80Codec;
 
 import org.opensearch.knn.common.KNNConstants;
-import org.opensearch.knn.index.codec.KNNCodecUtil;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.lucene.codecs.Codec;
@@ -15,7 +14,7 @@ import org.apache.lucene.codecs.CompoundFormat;
 import org.apache.lucene.index.SegmentInfo;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.IOContext;
-import org.opensearch.knn.index.util.KNNEngine;
+import org.opensearch.knn.index.engine.KNNEngine;
 
 import java.io.IOException;
 import java.util.HashSet;

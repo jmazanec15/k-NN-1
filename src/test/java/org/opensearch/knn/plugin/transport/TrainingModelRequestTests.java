@@ -24,13 +24,13 @@ import org.opensearch.common.collect.ImmutableOpenMap;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.common.KNNConstants;
-import org.opensearch.knn.index.KNNMethodContext;
-import org.opensearch.knn.index.KNNVectorFieldMapper;
+import org.opensearch.knn.index.engine.KNNMethodContext;
+import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.index.SpaceType;
-import org.opensearch.knn.index.util.KNNEngine;
-import org.opensearch.knn.indices.ModelDao;
-import org.opensearch.knn.indices.ModelMetadata;
-import org.opensearch.knn.indices.ModelState;
+import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.models.ModelDao;
+import org.opensearch.knn.index.engine.models.ModelMetadata;
+import org.opensearch.knn.index.engine.models.ModelState;
 
 import java.io.IOException;
 import java.time.ZoneOffset;
@@ -40,7 +40,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
-import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 

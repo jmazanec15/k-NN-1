@@ -17,10 +17,10 @@ import org.opensearch.action.ActionListener;
 import org.opensearch.action.index.IndexResponse;
 import org.opensearch.index.shard.ShardId;
 import org.opensearch.knn.KNNSingleNodeTestCase;
-import org.opensearch.knn.indices.Model;
-import org.opensearch.knn.indices.ModelDao;
-import org.opensearch.knn.training.TrainingJob;
-import org.opensearch.knn.training.TrainingJobRunner;
+import org.opensearch.knn.index.engine.models.Model;
+import org.opensearch.knn.index.engine.models.ModelDao;
+import org.opensearch.knn.index.engine.models.TrainingJob;
+import org.opensearch.knn.index.engine.models.TrainingJobRunner;
 import org.opensearch.threadpool.ThreadPool;
 
 import java.io.IOException;
@@ -30,7 +30,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import static org.mockito.Matchers.any;
-import static org.mockito.Matchers.anyString;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;

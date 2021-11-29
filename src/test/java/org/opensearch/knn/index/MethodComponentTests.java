@@ -15,6 +15,9 @@ import com.google.common.collect.ImmutableMap;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.common.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
+import org.opensearch.knn.index.engine.MethodComponent;
+import org.opensearch.knn.index.engine.MethodComponentContext;
+import org.opensearch.knn.index.engine.Parameter;
 
 import java.io.IOException;
 import java.util.Map;

@@ -13,13 +13,14 @@ package org.opensearch.knn.index;
 
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.knn.KNNTestCase;
-import org.opensearch.knn.index.util.KNNEngine;
+import org.opensearch.knn.index.engine.KNNEngine;
 import com.google.common.collect.ImmutableMap;
-import org.opensearch.common.ValidationException;
 import org.opensearch.common.xcontent.ToXContent;
 import org.opensearch.common.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.index.mapper.MapperParsingException;
+import org.opensearch.knn.index.engine.KNNMethodContext;
+import org.opensearch.knn.index.engine.MethodComponentContext;
 
 import java.io.IOException;
 import java.util.Collections;

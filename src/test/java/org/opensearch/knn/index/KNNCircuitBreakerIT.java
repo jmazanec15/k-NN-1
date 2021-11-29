@@ -9,11 +9,12 @@ import org.opensearch.knn.KNNRestTestCase;
 import org.apache.http.util.EntityUtils;
 import org.opensearch.client.Response;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.knn.index.query.KNNQueryBuilder;
 
 import java.util.Collections;
 import java.util.Map;
 
-import static org.opensearch.knn.index.KNNCircuitBreaker.CB_TIME_INTERVAL;
+import static org.opensearch.knn.index.engine.memory.KNNCircuitBreaker.CB_TIME_INTERVAL;
 
 /**
  * Integration tests to test Circuit Breaker functionality

@@ -17,18 +17,18 @@ import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.knn.KNNSingleNodeTestCase;
 import org.opensearch.knn.index.SpaceType;
-import org.opensearch.knn.index.util.KNNEngine;
-import org.opensearch.knn.indices.Model;
-import org.opensearch.knn.indices.ModelCache;
-import org.opensearch.knn.indices.ModelDao;
-import org.opensearch.knn.indices.ModelMetadata;
-import org.opensearch.knn.indices.ModelState;
+import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.models.Model;
+import org.opensearch.knn.index.engine.models.ModelCache;
+import org.opensearch.knn.index.engine.models.ModelDao;
+import org.opensearch.knn.index.engine.models.ModelMetadata;
+import org.opensearch.knn.index.engine.models.ModelState;
 
 import java.util.concurrent.ExecutionException;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
-import static org.opensearch.knn.index.KNNSettings.MODEL_CACHE_SIZE_LIMIT_SETTING;
+import static org.opensearch.knn.settings.KNNSettings.MODEL_CACHE_SIZE_LIMIT_SETTING;
 
 public class RemoveModelFromCacheTransportActionTests extends KNNSingleNodeTestCase {
 

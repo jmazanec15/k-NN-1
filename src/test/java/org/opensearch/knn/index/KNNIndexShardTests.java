@@ -9,7 +9,8 @@ import org.opensearch.knn.KNNSingleNodeTestCase;
 import org.opensearch.index.IndexService;
 import org.opensearch.index.engine.Engine;
 import org.opensearch.index.shard.IndexShard;
-import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
+import org.opensearch.knn.index.engine.memory.NativeMemoryCacheManager;
+import org.opensearch.knn.index.shard.KNNIndexShard;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -17,7 +18,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
-import static org.opensearch.knn.index.memory.NativeMemoryCacheManager.GRAPH_COUNT;
+import static org.opensearch.knn.index.engine.memory.NativeMemoryCacheManager.GRAPH_COUNT;
 
 
 public class KNNIndexShardTests extends KNNSingleNodeTestCase {

@@ -13,6 +13,8 @@ import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.store.Directory;
+import org.opensearch.knn.index.script.KNNVectorDVLeafFieldData;
+import org.opensearch.knn.index.script.KNNVectorIndexFieldData;
 import org.opensearch.search.aggregations.support.CoreValuesSourceType;
 import org.junit.Before;
 

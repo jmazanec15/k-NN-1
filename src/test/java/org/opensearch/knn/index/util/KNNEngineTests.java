@@ -13,6 +13,8 @@ package org.opensearch.knn.index.util;
 
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.KNNLibrary;
 
 public class KNNEngineTests extends KNNTestCase {
     /**

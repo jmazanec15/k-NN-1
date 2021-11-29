@@ -7,12 +7,12 @@ package org.opensearch.knn;
 
 import org.opensearch.common.bytes.BytesReference;
 import org.opensearch.common.xcontent.XContentHelper;
-import org.opensearch.knn.index.KNNQueryBuilder;
-import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
-import org.opensearch.knn.index.memory.NativeMemoryLoadStrategy;
-import org.opensearch.knn.indices.ModelDao;
-import org.opensearch.knn.indices.ModelMetadata;
-import org.opensearch.knn.indices.ModelState;
+import org.opensearch.knn.index.query.KNNQueryBuilder;
+import org.opensearch.knn.index.engine.memory.NativeMemoryCacheManager;
+import org.opensearch.knn.index.engine.memory.NativeMemoryLoadStrategy;
+import org.opensearch.knn.index.engine.models.ModelDao;
+import org.opensearch.knn.index.engine.models.ModelMetadata;
+import org.opensearch.knn.index.engine.models.ModelState;
 import org.opensearch.knn.plugin.KNNPlugin;
 import org.opensearch.knn.plugin.stats.KNNCounter;
 import org.opensearch.action.admin.indices.mapping.put.PutMappingRequest;

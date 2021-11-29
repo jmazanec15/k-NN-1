@@ -21,6 +21,7 @@ import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.index.query.MatchAllQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.functionscore.ScriptScoreQueryBuilder;
+import org.opensearch.knn.index.script.KNNScoringScriptEngine;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.script.Script;
 

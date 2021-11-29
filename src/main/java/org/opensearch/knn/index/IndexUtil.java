@@ -15,8 +15,9 @@ import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.cluster.metadata.MappingMetadata;
 import org.opensearch.common.ValidationException;
 import org.opensearch.knn.common.KNNConstants;
-import org.opensearch.knn.indices.ModelDao;
-import org.opensearch.knn.indices.ModelMetadata;
+import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
+import org.opensearch.knn.index.engine.models.ModelDao;
+import org.opensearch.knn.index.engine.models.ModelMetadata;
 
 import java.io.File;
 import java.util.Map;

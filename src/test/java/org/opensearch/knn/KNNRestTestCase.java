@@ -11,13 +11,13 @@ import com.google.common.primitives.Floats;
 import org.apache.commons.lang.StringUtils;
 import org.opensearch.common.bytes.BytesReference;
 import org.opensearch.common.xcontent.XContentHelper;
-import org.opensearch.knn.index.KNNQueryBuilder;
-import org.opensearch.knn.index.KNNSettings;
-import org.opensearch.knn.indices.ModelDao;
-import org.opensearch.knn.indices.ModelMetadata;
-import org.opensearch.knn.indices.ModelState;
+import org.opensearch.knn.index.query.KNNQueryBuilder;
+import org.opensearch.knn.settings.KNNSettings;
+import org.opensearch.knn.index.engine.models.ModelDao;
+import org.opensearch.knn.index.engine.models.ModelMetadata;
+import org.opensearch.knn.index.engine.models.ModelState;
 import org.opensearch.knn.plugin.KNNPlugin;
-import org.opensearch.knn.plugin.script.KNNScoringScriptEngine;
+import org.opensearch.knn.index.script.KNNScoringScriptEngine;
 import org.apache.http.util.EntityUtils;
 import org.junit.AfterClass;
 import org.junit.Before;
@@ -70,7 +70,7 @@ import static org.opensearch.knn.common.KNNConstants.MODEL_STATE;
 import static org.opensearch.knn.common.KNNConstants.MODEL_TIMESTAMP;
 import static org.opensearch.knn.common.KNNConstants.TRAIN_FIELD_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.TRAIN_INDEX_PARAMETER;
-import static org.opensearch.knn.index.memory.NativeMemoryCacheManager.GRAPH_COUNT;
+import static org.opensearch.knn.index.engine.memory.NativeMemoryCacheManager.GRAPH_COUNT;
 import static org.opensearch.knn.plugin.stats.StatNames.INDICES_IN_CACHE;
 
 /**

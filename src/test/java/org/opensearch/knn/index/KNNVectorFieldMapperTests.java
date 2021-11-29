@@ -17,10 +17,14 @@ import org.opensearch.index.IndexSettings;
 import org.opensearch.index.mapper.ContentPath;
 import org.opensearch.index.mapper.Mapper;
 import org.opensearch.index.mapper.MapperService;
-import org.opensearch.knn.index.util.KNNEngine;
-import org.opensearch.knn.indices.ModelDao;
-import org.opensearch.knn.indices.ModelMetadata;
-import org.opensearch.knn.indices.ModelState;
+import org.opensearch.knn.settings.KNNSettings;
+import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
+import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.models.ModelDao;
+import org.opensearch.knn.index.engine.models.ModelMetadata;
+import org.opensearch.knn.index.engine.models.ModelState;
+import org.opensearch.knn.index.engine.KNNMethodContext;
+import org.opensearch.knn.index.engine.MethodComponentContext;
 
 import java.io.IOException;
 import java.time.ZoneOffset;

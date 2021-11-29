@@ -19,9 +19,9 @@ import org.opensearch.client.ResponseException;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.index.SpaceType;
-import org.opensearch.knn.index.util.KNNEngine;
-import org.opensearch.knn.indices.ModelMetadata;
-import org.opensearch.knn.indices.ModelState;
+import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.models.ModelMetadata;
+import org.opensearch.knn.index.engine.models.ModelState;
 import org.opensearch.knn.plugin.KNNPlugin;
 import org.opensearch.rest.RestStatus;
 

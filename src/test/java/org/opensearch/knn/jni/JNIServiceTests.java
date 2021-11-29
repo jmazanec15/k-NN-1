@@ -17,11 +17,12 @@ import org.junit.BeforeClass;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.TestUtils;
 import org.opensearch.knn.common.KNNConstants;
-import org.opensearch.knn.index.KNNMethodContext;
-import org.opensearch.knn.index.KNNQueryResult;
-import org.opensearch.knn.index.MethodComponentContext;
+import org.opensearch.knn.index.engine.jni.JNIService;
+import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.KNNMethodContext;
+import org.opensearch.knn.index.engine.MethodComponentContext;
+import org.opensearch.knn.index.query.KNNQueryResult;
 import org.opensearch.knn.index.SpaceType;
-import org.opensearch.knn.index.util.KNNEngine;
 
 import java.io.IOException;
 import java.net.URL;

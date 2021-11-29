@@ -15,13 +15,12 @@ import org.apache.http.util.EntityUtils;
 import org.opensearch.action.DocWriteResponse;
 import org.opensearch.client.Request;
 import org.opensearch.client.Response;
-import org.opensearch.client.ResponseException;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.index.SpaceType;
-import org.opensearch.knn.index.util.KNNEngine;
-import org.opensearch.knn.indices.ModelMetadata;
-import org.opensearch.knn.indices.ModelState;
+import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.models.ModelMetadata;
+import org.opensearch.knn.index.engine.models.ModelState;
 import org.opensearch.knn.plugin.KNNPlugin;
 import org.opensearch.knn.plugin.transport.DeleteModelResponse;
 import org.opensearch.rest.RestStatus;
@@ -29,16 +28,9 @@ import org.opensearch.rest.RestStatus;
 import java.io.IOException;
 import java.util.Map;
 
-import static org.opensearch.knn.common.KNNConstants.DIMENSION;
-import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
-import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
 import static org.opensearch.knn.common.KNNConstants.MODELS;
-import static org.opensearch.knn.common.KNNConstants.MODEL_DESCRIPTION;
-import static org.opensearch.knn.common.KNNConstants.MODEL_ERROR;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.common.KNNConstants.MODEL_INDEX_NAME;
-import static org.opensearch.knn.common.KNNConstants.MODEL_STATE;
-import static org.opensearch.knn.common.KNNConstants.MODEL_TIMESTAMP;
 
 /**
  * Integration tests to check the correctness of {@link org.opensearch.knn.plugin.rest.RestDeleteModelHandler}

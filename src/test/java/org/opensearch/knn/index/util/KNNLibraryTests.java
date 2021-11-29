@@ -13,17 +13,19 @@ package org.opensearch.knn.index.util;
 
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.common.KNNConstants;
-import org.opensearch.knn.index.KNNMethod;
-import org.opensearch.knn.index.KNNMethodContext;
-import org.opensearch.knn.index.MethodComponent;
-import org.opensearch.knn.index.MethodComponentContext;
-import org.opensearch.knn.index.Parameter;
+import org.opensearch.knn.index.engine.KNNMethod;
+import org.opensearch.knn.index.engine.KNNMethodContext;
+import org.opensearch.knn.index.engine.MethodComponent;
+import org.opensearch.knn.index.engine.MethodComponentContext;
+import org.opensearch.knn.index.engine.Parameter;
 import org.opensearch.knn.index.SpaceType;
 import com.google.common.collect.ImmutableMap;
 import org.opensearch.common.ValidationException;
 import org.opensearch.common.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
-import org.opensearch.knn.index.util.KNNLibrary.Faiss.MethodAsMapBuilder;
+import org.opensearch.knn.index.engine.KNNLibrary;
+import org.opensearch.knn.index.engine.KNNLibrary.Faiss.MethodAsMapBuilder;
+import org.opensearch.knn.index.engine.KNNEngine;
 
 import java.io.IOException;
 import java.util.Collections;

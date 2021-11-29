@@ -18,6 +18,9 @@ import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.store.Directory;
 import org.opensearch.index.fielddata.ScriptDocValues;
 import org.junit.Before;
+import org.opensearch.knn.index.mapper.VectorField;
+import org.opensearch.knn.index.script.KNNVectorDVLeafFieldData;
+import org.opensearch.knn.index.script.KNNVectorScriptDocValues;
 
 import java.io.IOException;
 

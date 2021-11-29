@@ -14,14 +14,17 @@ package org.opensearch.knn.indices;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.SpaceType;
-import org.opensearch.knn.index.util.KNNEngine;
+import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.models.Model;
+import org.opensearch.knn.index.engine.models.ModelMetadata;
+import org.opensearch.knn.index.engine.models.ModelState;
 
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.HashMap;
 import java.util.Map;
 
-import static org.opensearch.knn.index.KNNVectorFieldMapper.MAX_DIMENSION;
+import static org.opensearch.knn.index.mapper.KNNVectorFieldMapper.MAX_DIMENSION;
 
 public class ModelTests extends KNNTestCase {
 
