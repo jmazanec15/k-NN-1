@@ -216,6 +216,21 @@ testClusters.integTest {
             debugPort += 1
         }
     }
+
+    plugin(provider({
+        new RegularFile() {
+            @Override
+            File getAsFile() { fileTree("src/test/resources/lang-painless").getSingleFile() }
+        }
+    }))
+
+    nodes.each { node ->
+        def plugins = node.plugins
+        def firstPlugin = plugins.get(0)
+        plugins.remove(0)
+        plugins.add(firstPlugin)
+    }
+
     systemProperty("java.library.path", "$rootDir/jni/release")
 }
 
