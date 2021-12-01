@@ -202,7 +202,7 @@ integTest {
 }
 
 testClusters.integTest {
-    testDistribution = "ARCHIVE"
+    testDistribution = "INTEG_TEST"
     plugin(project.tasks.bundlePlugin.archiveFile)
     // Cluster shrink exception thrown if we try to set numberOfNodes to 1, so only apply if > 1
     if (_numNodes > 1) numberOfNodes = _numNodes
@@ -217,7 +217,7 @@ testClusters.integTest {
         }
     }
 
-    plugin(provider({
+    module(provider({
         new RegularFile() {
             @Override
             File getAsFile() { fileTree("src/test/resources/lang-painless").getSingleFile() }
