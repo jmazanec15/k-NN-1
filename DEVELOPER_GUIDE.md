@@ -2,7 +2,12 @@
   - [Getting Started](#getting-started)
     - [Fork OpenSearch k-NN Repo](#fork-opensearch-k-nn-repo)
     - [Install Prerequisites](#install-prerequisites)
-      - [JDK 14](#jdk-14)
+      - [JDK 11](#jdk-11)
+      - [JDK 8 and 14](#jdk-8-and-14)
+      - [Runtime JDK](#runtime-jdk)
+      - [Cmake](#cmake)
+      - [Faiss Depenedencies](#faiss-dependencies)
+      - [Environment](#environment)
   - [Use an Editor](#use-an-editor)
     - [IntelliJ IDEA](#intellij-idea)
   - [Build](#build)
@@ -11,7 +16,7 @@
   - [Run OpenSearch k-NN](#run-opensearch-k-nn)
     - [Run Single-node Cluster Locally](#run-single-node-cluster-locally)
     - [Run Multi-node Cluster Locally](#run-multi-node-cluster-locally)
-  - [Debugging](#debugging)
+    - [Debugging](#debugging)
   - [Backwards Compatibility Testing](#backwards-compatibility-testing)
     - [Adding new tests](#adding-new-tests)
   - [Submitting Changes](#submitting-changes)
@@ -33,19 +38,28 @@ git clone https://github.com/[your username]/OpenSearch.git
 
 ### Install Prerequisites
 
-#### JDK 14
+#### JDK 11
 
-OpenSearch builds using Java 14 at a minimum. This means you must have a JDK 14 installed with the environment variable 
-`JAVA_HOME` referencing the path to Java home for your JDK 14 installation, e.g. `JAVA_HOME=/usr/lib/jvm/jdk-14`.
+OpenSearch builds using Java 11 at a minimum. This means you must have a JDK 11 installed with the environment variable `JAVA_HOME` referencing the path to Java home for your JDK 11 installation, e.g. `JAVA_HOME=/usr/lib/jvm/jdk-11`.
 
-One easy way to get Java 14 on *nix is to use [sdkman](https://sdkman.io/).
+Download Java 11 from [here](https://adoptium.net/releases.html?variant=openjdk11).
 
-```bash
-curl -s "https://get.sdkman.io" | bash
-source ~/.sdkman/bin/sdkman-init.sh
-sdk install java 14.0.2-open
-sdk use java 14.0.2-open
-```
+#### JDK 8 and 14
+
+To run the full suite of tests, download and install [JDK 8](https://adoptium.net/releases.html?variant=openjdk8) 
+and [JDK 14](https://jdk.java.net/archive/) and set `JAVA8_HOME`, `JAVA11_HOME`, and `JAVA14_HOME`. They are required 
+by the [backwards compatibility test](./TESTING.md#testing-backwards-compatibility).
+
+#### Runtime JDK
+
+By default, the test tasks use bundled JDK runtime, configured in `buildSrc/version.properties` and set to JDK 17 (LTS). 
+Other kind of test tasks (integration, cluster, ... ) use the same runtime as `JAVA_HOME`. However, since OpenSearch 
+supports JDK 8 as the runtime, the build supports compiling with JDK 11 and testing on a different version of JDK 
+runtime. To do this, set `RUNTIME_JAVA_HOME` pointing to the Java home of another JDK installation, e.g. 
+`RUNTIME_JAVA_HOME=/usr/lib/jvm/jdk-8`. Alternatively, the runtime JDK version could be provided as the command line 
+argument, using combination of `runtime.java=<major JDK version>` property and `JAVA<major JDK version>_HOME` 
+environment variable, for example `./gradlew -Druntime.java=17 ...` (in this case, the tooling expects `JAVA17_HOME` 
+environment variable to be set).
 
 #### CMake
 
