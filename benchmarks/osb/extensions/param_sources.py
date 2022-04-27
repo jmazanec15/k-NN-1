@@ -4,6 +4,7 @@
 # this file be licensed under the Apache-2.0 license or a
 # compatible open source license.
 import copy
+import random
 
 from .data_set import Context, HDF5DataSet, DataSet, BigANNVectorDataSet
 from .util import bulk_transform, parse_string_parameter, parse_int_parameter, \
@@ -14,6 +15,27 @@ def register(registry):
     registry.register_param_source(
         "bulk-from-data-set", BulkVectorsFromDataSetParamSource
     )
+
+    registry.register_param_source(
+        "random-knn-query", random_knn_query
+    )
+
+
+def random_knn_query(track, params, **kwargs):
+    vector = [random.random() for _ in range(params["dimension"])]
+    return {
+        "body": {
+            "size": params["k"],
+            "query": {
+                "knn": {
+                    params["field_name"]: {
+                        "vector": vector,
+                        "k": params["k"]
+                    }
+                }
+            }
+        }
+    }
 
 
 class BulkVectorsFromDataSetParamSource:
