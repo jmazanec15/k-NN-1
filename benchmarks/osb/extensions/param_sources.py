@@ -24,6 +24,7 @@ def register(registry):
 def random_knn_query(track, params, **kwargs):
     vector = [random.random() for _ in range(params["dimension"])]
     return {
+        "index": params["index"],
         "body": {
             "size": params["k"],
             "query": {

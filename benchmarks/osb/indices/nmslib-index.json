@@ -3,6 +3,8 @@
     "index": {
       "knn": true,
       "knn.algo_param.ef_search":  {{ hnsw_ef_search }},
+      "knn.algo_param.ef_construction":  {{ hnsw_ef_construction }},
+      "knn.algo_param.m":  {{ hnsw_m }},
       "number_of_shards": {{ target_index_primary_shards }},
       "number_of_replicas": {{ target_index_replica_shards }}
     }
@@ -11,16 +13,7 @@
     "properties": {
       "target_field": {
         "type": "knn_vector",
-        "dimension": {{ target_index_dimension }},
-        "method": {
-          "name": "hnsw",
-          "space_type": "{{ target_index_space_type }}",
-          "engine": "nmslib",
-          "parameters": {
-            "ef_construction": {{ hnsw_ef_construction }},
-            "m": {{ hnsw_m }}
-          }
-        }
+        "dimension": {{ target_index_dimension }}
       }
     }
   }
