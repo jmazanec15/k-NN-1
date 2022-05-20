@@ -1,6 +1,6 @@
 {% import "benchmark.helpers" as benchmark with context %}
 {
-    "name": "query-load-test-71",
+    "name": "no-train-test",
     "default": true,
     "schedule": [
         {

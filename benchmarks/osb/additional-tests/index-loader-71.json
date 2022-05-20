@@ -1,6 +1,6 @@
 {% import "benchmark.helpers" as benchmark with context %}
 {
-    "name": "index-loader",
+    "name": "no-train-test",
     "default": true,
     "schedule": [
         {
@@ -35,7 +35,7 @@
                 "bulk_size": {{ target_index_bulk_size }},
                 "data_set_format": "{{ target_index_bulk_index_data_set_format }}",
                 "data_set_path": "{{ target_index_bulk_index_data_set_path }}",
-                "num_vectors": 10000
+                "num_vectors": 100000
             },
             "clients": {{ target_index_bulk_index_clients }}
         },
