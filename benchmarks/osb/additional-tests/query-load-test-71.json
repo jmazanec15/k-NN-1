@@ -1,0 +1,22 @@
+{% import "benchmark.helpers" as benchmark with context %}
+{
+    "name": "query-load-test-71",
+    "default": true,
+    "schedule": [
+        {
+            "operation": {
+                "name": "query-knn",
+                "operation-type": "search",
+                "index": "{{ target_index_name }}",
+                "param-source": "random-knn-query",
+                "k": 1,
+                "dimension": {{ target_index_dimension }},
+                "field_name": "{{ target_field_name }}"
+            },
+            "clients": 10,
+            "iterations": 100000,
+            "target-throughput": 300,
+            "warmup-iterations": 100
+        }
+    ]
+}

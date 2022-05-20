@@ -25,6 +25,10 @@ def random_knn_query(track, params, **kwargs):
     vector = [random.random() for _ in range(params["dimension"])]
     return {
         "index": params["index"],
+        "request-params": {
+            "stored_fields": "_none_",
+            "docvalue_fields": ["_id"]
+        },
         "body": {
             "size": params["k"],
             "query": {
