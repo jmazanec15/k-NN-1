@@ -31,7 +31,8 @@ def register(registry):
 class MSearchRunner:
     async def __call__(self, opensearch, params):
         queries = params["queries"]
-        return await opensearch.msearch(body=queries)
+        await opensearch.msearch(body=queries)
+        return len(queries), "queries"
 
     def __repr__(self, *args, **kwargs):
         return "custom-msearch"
