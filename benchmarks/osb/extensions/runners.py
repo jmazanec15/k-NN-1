@@ -23,6 +23,19 @@ def register(registry):
     registry.register_runner(
         "delete-model", DeleteModelRunner(), async_runner=True
     )
+    registry.register_runner(
+        "custom-msearch", MSearchRunner(), async_runner=True
+    )
+
+
+class MSearchRunner:
+    async def __call__(self, opensearch, params):
+        queries = params["queries"]
+        output = await opensearch.msearch(body=queries)
+        return output
+
+    def __repr__(self, *args, **kwargs):
+        return "custom-msearch"
 
 
 class BulkVectorsFromDataSetRunner:

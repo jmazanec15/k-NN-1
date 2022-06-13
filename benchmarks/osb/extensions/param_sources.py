@@ -25,6 +25,10 @@ def register(registry):
         "knn-query-from-random", RandomQuerySource
     )
 
+    registry.register_param_source(
+        "knn-batch-query-from-random", BatchQueryVectorsFromRandomParamSource
+    )
+
 
 class VectorsFromDataSetParamSource(ABC):
     """ Abstract class that can read vectors from a data set and partition the
@@ -180,6 +184,42 @@ class QueryVectorsFromDataSetParamSource(VectorsFromDataSetParamSource):
         return data_set.read(self.VECTOR_READ_BATCH_SIZE)
 
 
+class BatchQueryVectorsFromRandomParamSource:
+    """ Batch Query parameter source for k-NN. Queries are randomly generated.
+    Can be configured.
+
+    {"index" : "test"}
+    {"query" : {"match_all" : {}}, "from" : 0, "size" : 10}
+    {"index" : "test", "search_type" : "dfs_query_then_fetch"}
+    {"query" : {"match_all" : {}}}
+
+    Attributes:
+        index_name: Name of the index to generate the query for
+        field_name: Name of the field to generate the query for
+        k: The number of results to return for the search
+        dimension: Dimension of vectors to produce
+    """
+
+    VECTOR_BATCH_SIZE = 200
+    def __init__(self, workload, params, **kwargs):
+        self.index_name = parse_string_parameter("index", params)
+        self.field_name = parse_string_parameter("field", params)
+        self.k = parse_int_parameter("k", params)
+        self.dimension = parse_int_parameter("dimension", params)
+
+    def partition(self, partition_index, total_partitions):
+        return self
+
+    def params(self):
+        """
+        Returns: A query parameter with a randomly generated vector
+        """
+        vectors = [[random.random() for _ in range(self.dimension)] for _ in
+                   range(BatchQueryVectorsFromRandomParamSource.VECTOR_BATCH_SIZE)]
+        return _build_bulk_query(self.index_name, self.field_name, self.k,
+                                 vectors)
+
+
 class BulkVectorsFromDataSetParamSource(VectorsFromDataSetParamSource):
     """ Create bulk index requests from a data set of vectors.
 
@@ -213,6 +253,34 @@ class BulkVectorsFromDataSetParamSource(VectorsFromDataSetParamSource):
             "retries": self.retries,
             "size": size
         }
+
+
+def _build_bulk_query(index_name: str, field_name: str, k: int, vectors):
+    queries = list()
+    for v in vectors:
+        queries.append({
+            "index_name": index_name,
+            "request-params": {
+                "_source": {
+                    "exclude": [field_name]
+                }
+            }
+        })
+        queries.append({
+                "size": k,
+                "query": {
+                    "knn": {
+                        field_name: {
+                            "vector": v,
+                            "k": k
+                        }
+                    }
+                }
+        })
+
+    return {
+        "queries": queries,
+    }
 
 
 def _build_query_body(index_name: str, field_name: str, k: int, vector) -> dict:
