@@ -1,6 +1,6 @@
 {% import "benchmark.helpers" as benchmark with context %}
 {
-    "name": "train-test",
+    "name": "msearch",
     "default": false,
     "schedule": [
         {
