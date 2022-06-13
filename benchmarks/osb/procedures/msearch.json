@@ -12,7 +12,7 @@
                 "k": {{ query_k }},
                 "dimension": {{ target_index_dimension }},
                 "field": "{{ target_field_name }}",
-                "batch_size": {{  }}
+                "batch_size": {{ query_batch_size }}
             },
             "clients": {{ query_clients }},
             "iterations": {{ queries_per_client }},
