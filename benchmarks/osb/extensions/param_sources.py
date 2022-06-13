@@ -201,11 +201,16 @@ class BatchQueryVectorsFromRandomParamSource:
     """
 
     VECTOR_BATCH_SIZE = 200
+    RANDOM_MIN = -100000.0
+    RANDOM_MAX = 100000
+
     def __init__(self, workload, params, **kwargs):
         self.index_name = parse_string_parameter("index", params)
         self.field_name = parse_string_parameter("field", params)
         self.k = parse_int_parameter("k", params)
         self.dimension = parse_int_parameter("dimension", params)
+        self.batch_size = parse_int_parameter("batch_size", params,
+                                              BatchQueryVectorsFromRandomParamSource.VECTOR_BATCH_SIZE)
 
     def partition(self, partition_index, total_partitions):
         return self
@@ -214,8 +219,10 @@ class BatchQueryVectorsFromRandomParamSource:
         """
         Returns: A query parameter with a randomly generated vector
         """
-        vectors = [[random.random() for _ in range(self.dimension)] for _ in
-                   range(BatchQueryVectorsFromRandomParamSource.VECTOR_BATCH_SIZE)]
+        vectors = [[random.uniform(
+            BatchQueryVectorsFromRandomParamSource.RANDOM_MIN,
+            BatchQueryVectorsFromRandomParamSource.RANDOM_MAX)
+            for _ in range(self.dimension)] for _ in range(self.batch_size)]
         return _build_bulk_query(self.index_name, self.field_name, self.k,
                                  vectors)
 
@@ -258,15 +265,9 @@ class BulkVectorsFromDataSetParamSource(VectorsFromDataSetParamSource):
 def _build_bulk_query(index_name: str, field_name: str, k: int, vectors):
     queries = list()
     for v in vectors:
+        queries.append({"index": index_name})
         queries.append({
-            "index_name": index_name,
-            "request-params": {
-                "_source": {
-                    "exclude": [field_name]
-                }
-            }
-        })
-        queries.append({
+                "_source": {"exclude": [field_name]},
                 "size": k,
                 "query": {
                     "knn": {
@@ -279,7 +280,7 @@ def _build_bulk_query(index_name: str, field_name: str, k: int, vectors):
         })
 
     return {
-        "queries": queries,
+        "queries": queries
     }
 
 
