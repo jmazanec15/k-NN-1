@@ -1,0 +1,6 @@
+{
+  "query_k": 10,
+  "query_clients": 10,
+  "query_data_set_format": "bigann",
+  "query_data_set_path": "/home/ec2-user/data/query.public.10K.u8bin"
+}
