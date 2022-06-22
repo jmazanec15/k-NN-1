@@ -29,5 +29,11 @@
   "train_index_data_set_format": "",
   "train_index_data_set_path": "",
   "train_index_num_vectors": 1,
-  "train_index_bulk_index_clients": 1
+  "train_index_bulk_index_clients": 1,
+
+
+    "query_k": 10,
+  "query_clients": 10,
+  "query_data_set_format": "bigann",
+  "query_data_set_path": "/home/ec2-user/data/query.public.10K.u8bin"
 }
