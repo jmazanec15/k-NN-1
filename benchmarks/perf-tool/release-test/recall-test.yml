@@ -1,0 +1,16 @@
+endpoint: URL
+test_name: recall_test
+test_id: "Test recall"
+num_runs: 1
+show_runs: false
+steps:
+  - name: query
+    k: 10
+    r: 1
+    calculate_recall: true
+    index_name: target_index
+    field_name: target_field
+    dataset_format: bigann
+    dataset_path: /home/ec2-user/data/query.public.10K.u8bin
+    neighbors_format: bigann
+    neighbors_path: /home/ec2-user/data/public_query_gt100.bin
