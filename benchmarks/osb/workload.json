@@ -13,5 +13,5 @@
         }
     ],
     "operations": {{ benchmark.collect(parts="operations/*.json") }},
-    "test_procedures": [{{ benchmark.collect(parts="release-procedures/*.json") }}]
+    "test_procedures": [{{ benchmark.collect(parts="release-testing/*.json") }}]
 }
