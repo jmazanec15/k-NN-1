@@ -5,6 +5,8 @@
 
 package org.opensearch.knn.index;
 
+import org.apache.lucene.document.KnnVectorField;
+import org.apache.lucene.index.VectorSimilarityFunction;
 import org.opensearch.common.Strings;
 import org.opensearch.common.ValidationException;
 import org.opensearch.common.xcontent.XContentFactory;
@@ -68,7 +70,7 @@ import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
  */
 public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
 
-    private static Logger logger = LogManager.getLogger(KNNVectorFieldMapper.class);
+    private static final Logger logger = LogManager.getLogger(KNNVectorFieldMapper.class);
 
     public static final String CONTENT_TYPE = "knn_vector";
     public static final String KNN_FIELD = "knn_field";
@@ -204,6 +206,21 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
 
             KNNMethodContext knnMethodContext = this.knnMethodContext.getValue();
             if (knnMethodContext != null) {
+
+                //TODO: Make this better in the future. Here we are going to make a whole new mapper
+                if (knnMethodContext.getEngine().equals(KNNEngine.LUCENE)) {
+                    return new LuceneFieldMapper(
+                            name,
+                            new KNNVectorFieldType(buildFullName(context), meta.getValue(), dimension.getValue()),
+                            multiFieldsBuilder.build(this, context),
+                            copyTo.build(),
+                            ignoreMalformed(context),
+                            stored.get(),
+                            hasDocValues.get(),
+                            knnMethodContext
+                    );
+                }
+
                 return new MethodFieldMapper(
                     name,
                     new KNNVectorFieldType(buildFullName(context), meta.getValue(), dimension.getValue()),
@@ -268,7 +285,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
 
         // Use a supplier here because in {@link org.opensearch.knn.KNNPlugin#getMappers()} the ModelDao has not yet
         // been initialized
-        private Supplier<ModelDao> modelDaoSupplier;
+        private final Supplier<ModelDao> modelDaoSupplier;
 
         public TypeParser(Supplier<ModelDao> modelDaoSupplier) {
             this.modelDaoSupplier = modelDaoSupplier;
@@ -636,6 +653,93 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             }
 
             this.fieldType.freeze();
+        }
+    }
+
+    protected static class LuceneFieldMapper extends KNNVectorFieldMapper {
+
+        private LuceneFieldMapper(
+                String simpleName,
+                KNNVectorFieldType mappedFieldType,
+                MultiFields multiFields,
+                CopyTo copyTo,
+                Explicit<Boolean> ignoreMalformed,
+                boolean stored,
+                boolean hasDocValues,
+                KNNMethodContext knnMethodContext
+        ) {
+            super(simpleName, mappedFieldType, multiFields, copyTo, ignoreMalformed, stored, hasDocValues);
+
+            this.knnMethod = knnMethodContext;
+
+            this.fieldType = new FieldType();
+
+            this.fieldType.setTokenized(false);
+            this.fieldType.setIndexOptions(IndexOptions.NONE);
+            this.fieldType.setVectorDimensionsAndSimilarityFunction(dimension, VectorSimilarityFunction.EUCLIDEAN);
+            this.fieldType.freeze();
+        }
+
+        @Override
+        protected void parseCreateField(ParseContext context, int dimension) throws IOException {
+
+            context.path().add(simpleName());
+
+            ArrayList<Float> vector = new ArrayList<>();
+            XContentParser.Token token = context.parser().currentToken();
+            float value;
+            if (token == XContentParser.Token.START_ARRAY) {
+                token = context.parser().nextToken();
+                while (token != XContentParser.Token.END_ARRAY) {
+                    value = context.parser().floatValue();
+
+                    if (Float.isNaN(value)) {
+                        throw new IllegalArgumentException("KNN vector values cannot be NaN");
+                    }
+
+                    if (Float.isInfinite(value)) {
+                        throw new IllegalArgumentException("KNN vector values cannot be infinity");
+                    }
+
+                    vector.add(value);
+                    token = context.parser().nextToken();
+                }
+            } else if (token == XContentParser.Token.VALUE_NUMBER) {
+                value = context.parser().floatValue();
+
+                if (Float.isNaN(value)) {
+                    throw new IllegalArgumentException("KNN vector values cannot be NaN");
+                }
+
+                if (Float.isInfinite(value)) {
+                    throw new IllegalArgumentException("KNN vector values cannot be infinity");
+                }
+
+                vector.add(value);
+                context.parser().nextToken();
+            } else if (token == XContentParser.Token.VALUE_NULL) {
+                context.path().remove();
+                return;
+            }
+
+            if (dimension != vector.size()) {
+                String errorMessage = String.format("Vector dimension mismatch. Expected: %d, Given: %d", dimension, vector.size());
+                throw new IllegalArgumentException(errorMessage);
+            }
+
+            float[] array = new float[vector.size()];
+            int i = 0;
+            for (Float f : vector) {
+                array[i++] = f;
+            }
+
+            KnnVectorField point = new KnnVectorField(name(), array, fieldType);
+
+            context.doc().add(point);
+            if (fieldType.stored()) {
+                context.doc().add(new StoredField(name(), point.toString()));
+            }
+            context.path().remove();
         }
     }
 
