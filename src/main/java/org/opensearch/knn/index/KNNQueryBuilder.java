@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.index;
 
+import org.apache.lucene.search.KnnVectorQuery;
 import org.opensearch.index.mapper.NumberFieldMapper;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
@@ -195,7 +196,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
     }
 
     @Override
-    protected Query doToQuery(QueryShardContext context) throws IOException {
+    protected Query doToQuery(QueryShardContext context) {
 
         MappedFieldType mappedFieldType = context.fieldMapper(this.fieldName);
 
@@ -204,6 +205,10 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         }
 
         int dimension = ((KNNVectorFieldMapper.KNNVectorFieldType) mappedFieldType).getDimension();
+
+        if (((KNNVectorFieldMapper.KNNVectorFieldType) mappedFieldType).isLucene) {
+            return new KnnVectorQuery(this.fieldName, vector, k);
+        }
 
         // If the dimension is not set, then the only valid route forward is if the field uses a model
         if (dimension == -1) {

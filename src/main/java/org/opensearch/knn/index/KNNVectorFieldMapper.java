@@ -211,7 +211,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 if (knnMethodContext.getEngine().equals(KNNEngine.LUCENE)) {
                     return new LuceneFieldMapper(
                             name,
-                            new KNNVectorFieldType(buildFullName(context), meta.getValue(), dimension.getValue()),
+                            new KNNVectorFieldType(buildFullName(context), meta.getValue(), dimension.getValue(), true),
                             multiFieldsBuilder.build(this, context),
                             copyTo.build(),
                             ignoreMalformed(context),
@@ -317,15 +317,22 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
 
         int dimension;
         String modelId;
+        public boolean isLucene;
 
         public KNNVectorFieldType(String name, Map<String, String> meta, int dimension) {
+            this(name, meta, dimension, false);
+        }
+
+        public KNNVectorFieldType(String name, Map<String, String> meta, int dimension, boolean isLucene) {
             this(name, meta, dimension, null);
+            this.isLucene = isLucene;
         }
 
         public KNNVectorFieldType(String name, Map<String, String> meta, int dimension, String modelId) {
             super(name, false, false, true, TextSearchInfo.NONE, meta);
             this.dimension = dimension;
             this.modelId = modelId;
+            this.isLucene = false;
         }
 
         @Override
