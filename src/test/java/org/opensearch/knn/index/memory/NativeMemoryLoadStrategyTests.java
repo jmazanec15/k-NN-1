@@ -19,7 +19,7 @@ import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.index.KNNQueryResult;
 import org.opensearch.knn.index.SpaceType;
-import org.opensearch.knn.index.util.KNNEngine;
+import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.training.TrainingDataConsumer;
 import org.opensearch.knn.training.VectorReader;
 import org.opensearch.watcher.ResourceWatcherService;

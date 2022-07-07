@@ -9,7 +9,7 @@
  * GitHub history for details.
  */
 
-package org.opensearch.knn.index.util;
+package org.opensearch.knn.index.engine;
 
 import org.opensearch.common.ValidationException;
 import org.opensearch.knn.index.KNNMethod;
@@ -42,8 +42,8 @@ public enum KNNEngine implements KNNLibrary {
         this.knnLibrary = knnLibrary;
     }
 
-    private String name;
-    private KNNLibrary knnLibrary;
+    private final String name;
+    private final KNNLibrary knnLibrary;
 
     /**
      * Get the engine

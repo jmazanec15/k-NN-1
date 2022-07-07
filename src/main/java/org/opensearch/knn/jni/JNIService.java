@@ -12,7 +12,7 @@
 package org.opensearch.knn.jni;
 
 import org.opensearch.knn.index.KNNQueryResult;
-import org.opensearch.knn.index.util.KNNEngine;
+import org.opensearch.knn.index.engine.KNNEngine;
 
 import java.util.Map;
 

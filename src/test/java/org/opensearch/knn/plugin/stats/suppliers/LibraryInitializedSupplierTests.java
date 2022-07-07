@@ -15,7 +15,7 @@ import org.opensearch.common.ValidationException;
 import org.opensearch.knn.index.KNNMethod;
 import org.opensearch.knn.index.KNNMethodContext;
 import org.opensearch.knn.index.SpaceType;
-import org.opensearch.knn.index.util.KNNLibrary;
+import org.opensearch.knn.index.engine.KNNLibrary;
 import org.opensearch.test.OpenSearchTestCase;
 
 import java.util.Map;

@@ -21,7 +21,7 @@ import org.opensearch.knn.index.KNNMethodContext;
 import org.opensearch.knn.index.KNNQueryResult;
 import org.opensearch.knn.index.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
-import org.opensearch.knn.index.util.KNNEngine;
+import org.opensearch.knn.index.engine.KNNEngine;
 
 import java.io.IOException;
 import java.net.URL;

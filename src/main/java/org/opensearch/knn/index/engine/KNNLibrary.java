@@ -1,0 +1,121 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * The OpenSearch Contributors require contributions made to
+ * this file be licensed under the Apache-2.0 license or a
+ * compatible open source license.
+ *
+ * Modifications Copyright OpenSearch Contributors. See
+ * GitHub history for details.
+ */
+
+package org.opensearch.knn.index.engine;
+
+import org.opensearch.common.ValidationException;
+import org.opensearch.knn.index.KNNMethod;
+import org.opensearch.knn.index.KNNMethodContext;
+import org.opensearch.knn.index.SpaceType;
+
+import java.util.Map;
+
+/**
+ * KNNLibrary is an interface that helps the plugin communicate with k-NN libraries
+ */
+public interface KNNLibrary {
+
+    /**
+     * Gets the library's latest build version
+     *
+     * @return the string representing the library's latest build version
+     */
+    String getLatestBuildVersion();
+
+    /**
+     * Gets the library's latest version
+     *
+     * @return the string representing the library's latest version
+     */
+    String getLatestLibVersion();
+
+    /**
+     * Gets the extension that files written with this library should have
+     *
+     * @return extension
+     */
+    String getExtension();
+
+    /**
+     * Gets the compound extension that files written with this library should have
+     *
+     * @return compound extension
+     */
+    String getCompoundExtension();
+
+    /**
+     * Gets a particular KNN method that the library supports. This should throw an exception if the method is not
+     * supported by the library.
+     *
+     * @param methodName name of the method to be looked up
+     * @return KNNMethod in the library corresponding to the method name
+     */
+    KNNMethod getMethod(String methodName);
+
+    /**
+     * Generate the Lucene score from the rawScore returned by the library. With k-NN, often times the library
+     * will return a score where the lower the score, the better the result. This is the opposite of how Lucene scores
+     * documents.
+     *
+     * @param rawScore  returned by the library
+     * @param spaceType spaceType used to compute the score
+     * @return Lucene score for the rawScore
+     */
+    float score(float rawScore, SpaceType spaceType);
+
+    /**
+     * Validate the knnMethodContext for the given library. A ValidationException should be thrown if the method is
+     * deemed invalid.
+     *
+     * @param knnMethodContext to be validated
+     * @return ValidationException produced by validation errors; null if no validations errors.
+     */
+    ValidationException validateMethod(KNNMethodContext knnMethodContext);
+
+    /**
+     * Returns whether training is required or not from knnMethodContext for the given library.
+     *
+     * @param knnMethodContext methodContext
+     * @return true if training is required; false otherwise
+     */
+    boolean isTrainingRequired(KNNMethodContext knnMethodContext);
+
+    /**
+     * Estimate overhead of KNNMethodContext in Kilobytes.
+     *
+     * @param knnMethodContext to estimate size for
+     * @param dimension        to estimate size for
+     * @return size overhead estimate in KB
+     */
+    int estimateOverheadInKB(KNNMethodContext knnMethodContext, int dimension);
+
+    /**
+     * Generate method as map that can be used to configure the knn index from the jni
+     *
+     * @param knnMethodContext to generate parameter map from
+     * @return parameter map
+     */
+    Map<String, Object> getMethodAsMap(KNNMethodContext knnMethodContext);
+
+    /**
+     * Getter for initialized
+     *
+     * @return whether library has been initialized
+     */
+    Boolean isInitialized();
+
+    /**
+     * Set initialized to true
+     *
+     * @param isInitialized whether library has been initialized
+     */
+    void setInitialized(Boolean isInitialized);
+}
