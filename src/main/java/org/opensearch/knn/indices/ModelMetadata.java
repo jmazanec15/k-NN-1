@@ -89,7 +89,7 @@ public class ModelMetadata implements Writeable, ToXContentObject {
     ) {
         this.knnEngine = Objects.requireNonNull(knnEngine, "knnEngine must not be null");
         this.spaceType = Objects.requireNonNull(spaceType, "spaceType must not be null");
-        if (dimension <= 0 || dimension >= MAX_DIMENSION) {
+        if (dimension <= 0 || dimension > MAX_DIMENSION) {
             throw new IllegalArgumentException(
                 "Dimension \"" + dimension + "\" is invalid. Value must be greater " + "than 0 and less than " + MAX_DIMENSION
             );
