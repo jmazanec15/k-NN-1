@@ -181,7 +181,7 @@ public class KNNWeight extends Weight {
             .collect(Collectors.toMap(KNNQueryResult::getId, result -> knnEngine.score(result.getScore(), spaceType)));
         int maxDoc = Collections.max(scores.keySet()) + 1;
         DocIdSetBuilder docIdSetBuilder = new DocIdSetBuilder(maxDoc);
-        DocIdSetBuilder.BulkAdder setAdder = docIdSetBuilder.grow(maxDoc);
+        DocIdSetBuilder.BulkAdder setAdder = docIdSetBuilder.grow(results.length);
         Arrays.stream(results).forEach(result -> setAdder.add(result.getId()));
         DocIdSetIterator docIdSetIter = docIdSetBuilder.build().iterator();
         return new KNNScorer(this, docIdSetIter, scores, boost);
