@@ -5,17 +5,22 @@
 
 package org.opensearch.knn.index;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.ScoreMode;
 import org.apache.lucene.search.Weight;
 
 import java.io.IOException;
+import java.time.Instant;
 
 /**
  * Class for representing the KNN query
  */
 public class KNNQuery extends Query {
+
+    private static Logger logger = LogManager.getLogger(KNNQuery.class);
 
     private final String field;
     private final float[] queryVector;
@@ -53,10 +58,13 @@ public class KNNQuery extends Query {
      */
     @Override
     public Weight createWeight(IndexSearcher searcher, ScoreMode scoreMode, float boost) throws IOException {
+        logger.info(String.format("%s %s: %d ms", "Weight Creation", "Start", Instant.now().getNano()));
         if (!KNNSettings.isKNNPluginEnabled()) {
             throw new IllegalStateException("KNN plugin is disabled. To enable update knn.plugin.enabled to true");
         }
-        return new KNNWeight(this, boost);
+        KNNWeight knnWeight = new KNNWeight(this, boost);
+        logger.info(String.format("%s %s: %d ms", "Weight Creation", "End", Instant.now().getNano()));
+        return knnWeight;
     }
 
     @Override

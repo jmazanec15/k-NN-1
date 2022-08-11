@@ -34,6 +34,7 @@ import org.opensearch.knn.plugin.stats.KNNCounter;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -83,6 +84,7 @@ public class KNNWeight extends Weight {
 
     @Override
     public Scorer scorer(LeafReaderContext context) throws IOException {
+            logger.info(String.format("%s %s: %d ms", "Scorer generation", "Start", Instant.now().getNano()));
             SegmentReader reader = (SegmentReader) FilterLeafReader.unwrap(context.reader());
             String directory = ((FSDirectory) FilterDirectory.unwrap(reader.directory())).getDirectory().toString();
 
@@ -158,7 +160,9 @@ public class KNNWeight extends Weight {
                     throw new RuntimeException("Index has already been closed");
                 }
 
+                logger.info(String.format("%s %s: %d ms", "JNIService time", "Start", Instant.now().getNano()));
                 results = JNIService.queryIndex(indexAllocation.getMemoryAddress(), knnQuery.getQueryVector(), knnQuery.getK(), knnEngine.getName());
+                logger.info(String.format("%s %s: %d ms", "JNIService time", "End", Instant.now().getNano()));
             } catch (Exception e) {
                 GRAPH_QUERY_ERRORS.increment();
                 throw new RuntimeException(e);
@@ -184,7 +188,9 @@ public class KNNWeight extends Weight {
             DocIdSetBuilder.BulkAdder setAdder = docIdSetBuilder.grow(maxDoc);
             Arrays.stream(results).forEach(result -> setAdder.add(result.getId()));
             DocIdSetIterator docIdSetIter = docIdSetBuilder.build().iterator();
-            return new KNNScorer(this, docIdSetIter, scores, boost);
+            KNNScorer knnScorer = new KNNScorer(this, docIdSetIter, scores, boost);
+            logger.info(String.format("%s %s: %d ms", "Scorer generation", "End", Instant.now().getNano()));
+            return knnScorer;
     }
 
     @Override

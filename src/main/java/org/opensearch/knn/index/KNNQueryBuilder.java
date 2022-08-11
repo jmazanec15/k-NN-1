@@ -24,6 +24,7 @@ import org.opensearch.index.query.AbstractQueryBuilder;
 import org.opensearch.index.query.QueryShardContext;
 
 import java.io.IOException;
+import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
 
@@ -105,6 +106,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
     }
 
     public static KNNQueryBuilder fromXContent(XContentParser parser) throws IOException {
+        logger.info(String.format("%s %s: %d ms", "Query Parsing", "Start", Instant.now().getNano()));
         String fieldName = null;
         List<Object> vector = null;
         float boost = AbstractQueryBuilder.DEFAULT_BOOST;
@@ -150,6 +152,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         KNNQueryBuilder knnQuery = new KNNQueryBuilder(fieldName, ObjectsToFloats(vector), k);
         knnQuery.queryName(queryName);
         knnQuery.boost(boost);
+        logger.info(String.format("%s %s: %d ms", "Query Parsing", "End", Instant.now().getNano()));
         return knnQuery;
     }
 
@@ -192,7 +195,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
 
     @Override
     protected Query doToQuery(QueryShardContext context) throws IOException {
-
+        logger.info(String.format("%s %s: %d ms", "Query Construction", "Start", Instant.now().getNano()));
         MappedFieldType mappedFieldType = context.fieldMapper(this.fieldName);
 
         if (!(mappedFieldType instanceof KNNVectorFieldMapper.KNNVectorFieldType)) {
@@ -221,7 +224,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
             throw new IllegalArgumentException("Query vector has invalid dimension: " + vector.length +
                     ". Dimension should be: " + dimension);
         }
-
+        logger.info(String.format("%s %s: %d ms", "Query Construction", "End", Instant.now().getNano()));
         return new KNNQuery(this.fieldName, vector, k, context.index().getName());
     }
 
