@@ -24,6 +24,11 @@
 #include <string>
 #include <vector>
 
+#include <iostream>
+#include <chrono>
+
+
+
 
 // Translate space type to faiss metric
 faiss::MetricType TranslateSpaceToMetric(const std::string& spaceType);
@@ -192,11 +197,14 @@ jobjectArray knn_jni::faiss_wrapper::QueryIndex(knn_jni::JNIUtilInterface * jniU
         throw std::runtime_error("Invalid pointer to index");
     }
 
+    auto get_data_start = std::chrono::system_clock::now();
     int dim	= jniUtil->GetJavaFloatArrayLength(env, queryVectorJ);
     std::vector<float> dis(kJ * dim);
     std::vector<faiss::Index::idx_t> ids(kJ * dim);
     float* rawQueryvector = jniUtil->GetFloatArrayElements(env, queryVectorJ, nullptr);
+    auto get_data_end = std::chrono::system_clock::now();
 
+    auto search_start = std::chrono::system_clock::now();
     try {
         indexReader->search(1, rawQueryvector, kJ, dis.data(), ids.data());
     } catch (...) {
@@ -204,9 +212,11 @@ jobjectArray knn_jni::faiss_wrapper::QueryIndex(knn_jni::JNIUtilInterface * jniU
         throw;
     }
     jniUtil->ReleaseFloatArrayElements(env, queryVectorJ, rawQueryvector, JNI_ABORT);
+    auto search_end = std::chrono::system_clock::now();
 
     // If there are not k results, the results will be padded with -1. Find the first -1, and set result size to that
     // index
+    auto process_results_start = std::chrono::system_clock::now();
     int resultSize = kJ;
     auto it = std::find(ids.begin(), ids.end(), -1);
     if (it != ids.end()) {
@@ -223,6 +233,16 @@ jobjectArray knn_jni::faiss_wrapper::QueryIndex(knn_jni::JNIUtilInterface * jniU
         result = jniUtil->NewObject(env, resultClass, allArgs, ids[i], dis[i]);
         jniUtil->SetObjectArrayElement(env, results, i, result);
     }
+    auto process_results_end = std::chrono::system_clock::now();
+
+    auto get_time = std::chrono::duration_cast<std::chrono::nanoseconds>(get_data_end - get_data_start).count();
+    auto search_time = std::chrono::duration_cast<std::chrono::nanoseconds>(search_end - search_start).count();
+    auto process_time = std::chrono::duration_cast<std::chrono::nanoseconds>(process_results_end - process_results_start).count();
+
+    std::cout << "Get Data " << get_time << " ms" << std::endl;
+    std::cout << "Search faiss " << search_time  << " ms" << std::endl;
+    std::cout << "Process Result " << process_time << " ms" <<  std::endl;
+    std::cout.flush();
     return results;
 }
 
