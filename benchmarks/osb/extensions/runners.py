@@ -22,6 +22,9 @@ def register(registry):
     registry.register_runner(
         "delete-model", DeleteModelRunner(), async_runner=True
     )
+    registry.register_runner(
+        "knn-warmup", WarmupRunner(), async_runner=True
+    )
 
 
 class BulkVectorsFromDataSetRunner:
@@ -119,3 +122,35 @@ class DeleteModelRunner:
 
     def __repr__(self, *args, **kwargs):
         return "delete-model"
+
+
+class WarmupRunner:
+
+    async def noop(self):
+        pass
+
+    async def __call__(self, opensearch, params):
+
+        engine = parse_string_parameter("engine", params)
+        retries = parse_int_parameter("retries", params, 0) + 1
+        index = parse_string_parameter("index", params)
+
+        # skip warmup for lucene
+        if engine == "lucene":
+            logging.getLogger(__name__)\
+                    .warning("Engine is lucene")
+
+        uri = "/_plugins/_knn/warmup/{}".format(index)
+        for _ in range(retries):
+            try:
+                await opensearch.transport.perform_request("GET", uri, params={"ignore": [400, 404]})
+                return
+            except ConnectionTimeout:
+                logging.getLogger(__name__)\
+                    .warning("Warmup timed out. Retrying")
+
+        raise TimeoutError("Failed to Warmup the index in specified number "
+                           "of retries: {}".format(retries))
+
+    def __repr__(self, *args, **kwargs):
+        return "warmup"

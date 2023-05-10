@@ -6,12 +6,7 @@
         {
             "name": "{{ target_index_name }}",
             "body": "{{ target_index_body }}"
-        },
-        {
-            "name": "{{ train_index_name }}",
-            "body": "{{ train_index_body }}"
         }
     ],
-    "operations": {{ benchmark.collect(parts="operations/*.json") }},
     "test_procedures": [{{ benchmark.collect(parts="procedures/*.json") }}]
 }

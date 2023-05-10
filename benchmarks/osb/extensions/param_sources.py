@@ -5,7 +5,7 @@
 # compatible open source license.
 import copy
 from abc import ABC, abstractmethod
-
+import random
 from .data_set import Context, HDF5DataSet, DataSet, BigANNVectorDataSet
 from .util import bulk_transform, parse_string_parameter, parse_int_parameter, \
     ConfigurationError
@@ -19,6 +19,11 @@ def register(registry):
     registry.register_param_source(
         "knn-query-from-data-set", QueryVectorsFromDataSetParamSource
     )
+
+    registry.register_param_source(
+        "random-knn-query-param-source", QueryVectorsFromRandomParamSource
+    )
+
 
 
 class VectorsFromDataSetParamSource(ABC):
@@ -143,6 +148,64 @@ class QueryVectorsFromDataSetParamSource(VectorsFromDataSetParamSource):
 
     def _batch_read(self, data_set: DataSet):
         return list(data_set.read(self.VECTOR_READ_BATCH_SIZE))
+
+    def _build_query_body(self, index_name: str, field_name: str, k: int,
+                          vector) -> dict:
+        """Builds a k-NN query that can be used to execute an approximate nearest
+        neighbor search against a k-NN plugin index
+        Args:
+            index_name: name of index to search
+            field_name: name of field to search
+            k: number of results to return
+            vector: vector used for query
+        Returns:
+            A dictionary containing the body used for search, a set of request
+            parameters to attach to the search and the name of the index.
+        """
+        return {
+            "index": index_name,
+            "request-params": {
+                "_source": {
+                    "exclude": [field_name]
+                }
+            },
+            "body": {
+                "size": k,
+                "query": {
+                    "knn": {
+                        field_name: {
+                            "vector": vector,
+                            "k": k
+                        }
+                    }
+                }
+            }
+        }
+
+
+class QueryVectorsFromRandomParamSource:
+    """ Query parameter source for k-NN. Queries are created from random.
+
+    Attributes:
+        k: The number of results to return for the search
+    """
+
+    def __init__(self, workload, params, **kwargs):
+        self.k = parse_int_parameter("k", params)
+        self.dimension = parse_int_parameter("dimension", params)
+
+        self.index_name: str = parse_string_parameter("index", params)
+        self.field_name: str = parse_string_parameter("field", params)
+
+    def partition(self, partition_index, total_partitions):
+        return self
+
+    def params(self):
+        """
+        Returns: A query parameter with a vector from random src
+        """
+        vector = [random.random() for _ in range(self.dimension)]
+        return self._build_query_body(self.index_name, self.field_name, self.k, vector)
 
     def _build_query_body(self, index_name: str, field_name: str, k: int,
                           vector) -> dict:
