@@ -18,6 +18,9 @@
   "hnsw_ef_construction": 100,
   "hnsw_m": 16,
 
+  "query_min_value": -10.0,
+  "query_max_value": -10.0,
+
   "query_clients": 10,
   "query_per_clients": 10
 }

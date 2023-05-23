@@ -59,6 +59,20 @@ def parse_int_parameter(key: str, params: dict, default: int = None) -> int:
     raise ConfigurationError("Value must be a int for param {}".format(key))
 
 
+def parse_float_parameter(key: str, params: dict, default: float = None) -> float:
+    if key not in params:
+        if default:
+            return default
+        raise ConfigurationError(
+            "Value cannot be None for param {}".format(key)
+        )
+
+    if type(params[key]) is float:
+        return params[key]
+
+    raise ConfigurationError("Value must be a float for param {}".format(key))
+
+
 class ConfigurationError(Exception):
     """Exception raised for errors configuration.
 

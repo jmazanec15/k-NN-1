@@ -75,7 +75,9 @@
                 "param-source": "random-knn-query-param-source",
                 "k": {{ hnsw_ef_search }},
                 "dimension": {{ target_index_dimension }},
-                "field": "{{ target_field_name }}"
+                "field": "{{ target_field_name }}",
+                "min_value": {{ query_min_value }},
+                "max_value": {{ query_max_value }}
             },
             "clients": {{ query_clients }},
             "iterations": {{ query_per_clients }},

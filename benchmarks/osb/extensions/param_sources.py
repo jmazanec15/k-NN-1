@@ -8,7 +8,7 @@ from abc import ABC, abstractmethod
 import random
 from .data_set import Context, HDF5DataSet, DataSet, BigANNVectorDataSet
 from .util import bulk_transform, parse_string_parameter, parse_int_parameter, \
-    ConfigurationError
+    ConfigurationError, parse_float_parameter
 
 
 def register(registry):
@@ -196,6 +196,8 @@ class QueryVectorsFromRandomParamSource:
 
         self.index_name: str = parse_string_parameter("index", params)
         self.field_name: str = parse_string_parameter("field", params)
+        self.min_val: float = parse_float_parameter("min_value", params)
+        self.max_val: float = parse_float_parameter("max_value", params)
 
     def partition(self, partition_index, total_partitions):
         return self
@@ -204,7 +206,7 @@ class QueryVectorsFromRandomParamSource:
         """
         Returns: A query parameter with a vector from random src
         """
-        vector = [random.random() for _ in range(self.dimension)]
+        vector = [random.uniform(self.min_val, self.max_val) for _ in range(self.dimension)]
         return self._build_query_body(self.index_name, self.field_name, self.k, vector)
 
     def _build_query_body(self, index_name: str, field_name: str, k: int,
