@@ -166,7 +166,10 @@ class QueryVectorsFromDataSetParamSource(VectorsFromDataSetParamSource):
             "index": index_name,
             "request-params": {
                 "_source": {
-                    "exclude": [field_name]
+                    "_source": False,
+                    "docvalue_fields": ["_id"],
+                    "stored_fields": "_none_",
+                    "filter_path": ["hits.hits.fields.id"]
                 }
             },
             "body": {
@@ -226,7 +229,10 @@ class QueryVectorsFromRandomParamSource:
             "index": index_name,
             "request-params": {
                 "_source": {
-                    "exclude": [field_name]
+                    "_source": False,
+                    "docvalue_fields": ["_id"],
+                    "stored_fields": "_none_",
+                    "filter_path": ["hits.hits.fields.id"]
                 }
             },
             "body": {
