@@ -82,14 +82,6 @@
             "clients": {{ query_clients }},
             "iterations": {{ query_per_clients }},
             "target-throughput": 10000000
-        },
-        {
-            "operation": {
-                "name": "delete-target-index-end",
-                "operation-type": "delete-index",
-                "only-if-exists": true,
-                "index": "{{ target_index_name }}"
-            }
         }
     ]
 }
