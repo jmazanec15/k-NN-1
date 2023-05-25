@@ -3,7 +3,8 @@
     "index": {
       "knn": true,
       "number_of_shards": {{ target_index_primary_shards }},
-      "number_of_replicas": {{ target_index_replica_shards }}
+      "number_of_replicas": {{ target_index_replica_shards }}, 
+      "refresh_interval": "{{ refresh_interval }}"
     }
   },
   "mappings": {
