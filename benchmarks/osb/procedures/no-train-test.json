@@ -35,8 +35,9 @@
                 "bulk_size": {{ target_index_bulk_size }},
                 "data_set_format": "{{ target_index_bulk_index_data_set_format }}",
                 "data_set_path": "{{ target_index_bulk_index_data_set_path }}",
-                "num_vectors": {{ target_index_num_vectors }}
-            },
+                "num_vectors": {{ target_index_num_vectors }},
+                "request-timeout": {{ target_index_bulk_timeout }}
+        },
             "clients": {{ target_index_bulk_index_clients }},
             "target-throughput": 10000000
         },
