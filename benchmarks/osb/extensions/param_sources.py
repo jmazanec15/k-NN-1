@@ -169,7 +169,7 @@ class QueryVectorsFromDataSetParamSource(VectorsFromDataSetParamSource):
                     "_source": False,
                     "docvalue_fields": ["_id"],
                     "stored_fields": "_none_",
-                    "filter_path": ["hits.hits.fields.id"]
+                    "filter_path": ["hits.hits.fields._id"]
                 }
             },
             "body": {
@@ -232,7 +232,7 @@ class QueryVectorsFromRandomParamSource:
                     "_source": False,
                     "docvalue_fields": ["_id"],
                     "stored_fields": "_none_",
-                    "filter_path": ["hits.hits.fields.id"]
+                    "filter_path": ["hits.hits.fields._id"]
                 }
             },
             "body": {
