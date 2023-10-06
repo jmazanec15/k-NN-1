@@ -34,7 +34,7 @@ class Step:
     def __init__(self, step_config: StepConfig):
         self.step_config = step_config
 
-    def _action(self):
+    async def _action(self):
         """Step logic/behavior to be executed and profiled."""
         pass
 
@@ -42,7 +42,7 @@ class Step:
         """Gets the measures for a particular test"""
         pass
 
-    def execute(self) -> List[Dict[str, Any]]:
+    async def execute(self) -> List[Dict[str, Any]]:
         """Execute step logic while profiling various measures.
 
         Returns:
@@ -51,9 +51,9 @@ class Step:
         action = self._action
 
         # profile the action with measure decorators - add if necessary
-        action = getattr(profile, 'took')(action)
+        action = profile.took(action) # getattr(profile, 'took')(action)
 
-        result = action()
+        result = await action()
         if isinstance(result, dict):
             return [{'label': self.label, **result}]
 

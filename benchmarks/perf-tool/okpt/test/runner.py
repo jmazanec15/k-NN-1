@@ -73,7 +73,7 @@ class TestRunner:
                 ' (available) / ' + str(svmem.total) + ' (total)',
         }
 
-    def execute(self) -> Dict[str, Any]:
+    async def execute(self) -> Dict[str, Any]:
         """Runs the tests and aggregates the results.
 
         Returns:
@@ -87,7 +87,7 @@ class TestRunner:
             logging.info(
                 f'Running test {i + 1} of {self.test_config.num_runs}'
             )
-            runs.append(self.test.execute())
+            runs.append(await self.test.execute())
 
         logging.info('Finished running tests.')
         aggregate = _aggregate_runs(runs)

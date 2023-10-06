@@ -17,7 +17,7 @@ from okpt.io.utils import reader, writer
 from okpt.test import runner
 
 
-def main():
+async def main():
     """Main function of entry module."""
     cli_args = args.get_args()
     output = cli_args.output
@@ -35,7 +35,7 @@ def main():
 
         # run tests
         test_runner = runner.TestRunner(test_config=test_config)
-        test_result = test_runner.execute()
+        test_result = await test_runner.execute()
 
         # write test results
         logging.debug(

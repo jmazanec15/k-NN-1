@@ -68,11 +68,11 @@ def took(f: Callable):
     """
 
     @functools.wraps(f)
-    def wrapper(*args, **kwargs):
+    async def wrapper(*args, **kwargs):
         """Wrapper function."""
         timer = _Timer()
         timer.start()
-        result = f(*args, **kwargs)
+        result = await f(*args, **kwargs)
         time_took = timer.end()
 
         # if result already has a `took` field, don't modify the result

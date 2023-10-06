@@ -6,5 +6,12 @@
 """Script for user to run the testing tool."""
 
 import okpt.main
+import asyncio
 
-okpt.main.main()
+if __name__ == "__main__":
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    loop.run_until_complete(okpt.main.main())
+    loop.close() 
+
+

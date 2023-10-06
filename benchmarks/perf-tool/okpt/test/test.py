@@ -174,15 +174,15 @@ class Test:
     def setup(self):
         _ = [step.execute() for step in self.setup_steps]
 
-    def _run_steps(self):
+    async def _run_steps(self):
         step_results = []
-        _ = [step_results.extend(step.execute()) for step in self.test_steps]
+        _ = [step_results.extend(await step.execute()) for step in self.test_steps]
         return step_results
 
     def _cleanup(self):
         _ = [step.execute() for step in self.cleanup_steps]
 
-    def execute(self):
-        results = self._run_steps()
+    async def execute(self):
+        results = await self._run_steps()
         self._cleanup()
         return _aggregate_steps(results)
