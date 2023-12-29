@@ -547,7 +547,7 @@ class RandomQueryStep(OpenSearchStep):
                                              {}, None)
         self.query_count = parse_int_param('query_count',
                                             step_config.config, {},
-                                            self.dataset.size())
+                                            1000)
         self.dim = parse_int_param('dimension',
                                             step_config.config, {},
                                             None)
