@@ -13,6 +13,7 @@ from abc import abstractmethod
 from typing import Any, Dict, List
 
 import numpy as np
+import random
 import requests
 import time
 
@@ -435,6 +436,7 @@ class BaseQueryStep(OpenSearchStep):
     def __init__(self, step_config: StepConfig):
         super().__init__(step_config)
         self.k = parse_int_param('k', step_config.config, {}, 100)
+        self.size = parse_int_param('size', step_config.config, {}, self.k)
         self.r = parse_int_param('r', step_config.config, {}, 1)
         self.index_name = parse_string_param('index_name', step_config.config,
                                              {}, None)
@@ -518,11 +520,64 @@ class QueryStep(BaseQueryStep):
 
     def get_body(self, vec):
         return {
-            'size': self.k,
+            'size': self.size,
             'query': {
                 'knn': {
                     self.field_name: {
                         'vector': vec,
+                        'k': self.k
+                    }
+                }
+            }
+        }
+
+
+class RandomQueryStep(OpenSearchStep):
+    """See base class."""
+
+    label = 'random_query'
+
+    def __init__(self, step_config: StepConfig):
+        super().__init__(step_config)
+        self.k = parse_int_param('k', step_config.config, {}, 100)
+        self.size = parse_int_param('size', step_config.config, {}, self.k)
+        self.index_name = parse_string_param('index_name', step_config.config,
+                                             {}, None)
+        self.field_name = parse_string_param('field_name', step_config.config,
+                                             {}, None)
+        self.query_count = parse_int_param('query_count',
+                                            step_config.config, {},
+                                            self.dataset.size())
+        self.dim = parse_int_param('dimension',
+                                            step_config.config, {},
+                                            None)
+        self.min_rand = -1000.0
+        self.max_rand = 1000.0
+
+    def _action(self):
+        results = {}
+        query_responses = []
+        for _ in range(self.query_count):
+            query_responses.append(
+                query_index(self.opensearch, self.index_name,
+                            self.get_body() , [self.field_name]))
+
+        results['took'] = [
+            float(query_response['took']) for query_response in query_responses
+        ]
+
+        return results
+
+    def _get_measures(self) -> List[str]:
+        return ['took']
+
+    def get_body(self):
+        return {
+            'size': self.size,
+            'query': {
+                'knn': {
+                    self.field_name: {
+                        'vector': [random.uniform(self.min_rand, self.max_rand) for _ in range(self.dim)],
                         'k': self.k
                     }
                 }

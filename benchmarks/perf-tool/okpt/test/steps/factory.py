@@ -10,7 +10,7 @@ from okpt.test.steps.base import Step, StepConfig
 
 from okpt.test.steps.steps import CreateIndexStep, DisableRefreshStep, RefreshIndexStep, DeleteIndexStep, \
     TrainModelStep, DeleteModelStep, ForceMergeStep, ClearCacheStep, IngestStep, IngestMultiFieldStep, \
-    QueryStep, QueryWithFilterStep, GetStatsStep, WarmupStep
+    QueryStep, QueryWithFilterStep, GetStatsStep, WarmupStep, RandomQueryStep
 
 
 def create_step(step_config: StepConfig) -> Step:
@@ -42,5 +42,7 @@ def create_step(step_config: StepConfig) -> Step:
         return GetStatsStep(step_config)
     elif step_config.step_name == WarmupStep.label:
         return WarmupStep(step_config)
+    elif step_config.step_name == RandomQueryStep.label:
+        return RandomQueryStep(step_config)
 
     raise ConfigurationError(f'Invalid step {step_config.step_name}')
