@@ -12,6 +12,7 @@
 package org.opensearch.knn.jni;
 
 import org.apache.commons.lang.ArrayUtils;
+import org.opensearch.knn.index.memory.SharedModelInfo;
 import org.opensearch.knn.index.query.KNNQueryResult;
 import org.opensearch.knn.index.util.KNNEngine;
 
@@ -86,6 +87,22 @@ public class JNIService {
 
         if (KNNEngine.FAISS.getName().equals(engineName)) {
             return FaissService.loadIndex(indexPath);
+        }
+
+        throw new IllegalArgumentException("LoadIndex not supported for provided engine");
+    }
+
+    public static SharedModelInfo loadIndexAndSharedModelInfo(String indexPath, Map<String, Object> parameters, String engineName) {
+        if (KNNEngine.FAISS.getName().equals(engineName)) {
+            return FaissService.loadIndexAndSharedModelInfo(indexPath);
+        }
+
+        throw new IllegalArgumentException("loadIndexAndSharedModelInfo not supported for provided engine");
+    }
+
+    public static long loadIndex(String indexPath, Map<String, Object> parameters, String engineName, long sharedModelInfoAddress) {
+        if (KNNEngine.FAISS.getName().equals(engineName)) {
+            return FaissService.loadIndex(indexPath, sharedModelInfoAddress);
         }
 
         throw new IllegalArgumentException("LoadIndex not supported for provided engine");
@@ -181,5 +198,14 @@ public class JNIService {
      */
     public static void freeVectors(long vectorsPointer) {
         FaissService.freeVectors(vectorsPointer);
+    }
+
+    public static void freeSharedMemory(long sharedMemoryPointer, String engineName) {
+        if (KNNEngine.FAISS.getName().equals(engineName)) {
+            FaissService.freeSharedMemory(sharedMemoryPointer);
+            return;
+        }
+
+        throw new IllegalArgumentException("FreeSharedMemory not supported for provided engine");
     }
 }

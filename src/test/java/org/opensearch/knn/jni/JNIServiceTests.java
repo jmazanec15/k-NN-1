@@ -22,6 +22,7 @@ import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.TestUtils;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNMethodContext;
+import org.opensearch.knn.index.memory.SharedModelInfo;
 import org.opensearch.knn.index.query.KNNQueryResult;
 import org.opensearch.knn.index.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
@@ -1112,5 +1113,118 @@ public class JNIServiceTests extends KNNTestCase {
 
         long pointer = JNIService.loadIndex(tmpFile1.toAbsolutePath().toString(), Collections.emptyMap(), FAISS_NAME);
         assertNotEquals(0, pointer);
+    }
+
+    @SneakyThrows
+    public void testSharedModelInfoUseCase() {
+
+        long trainPointer = JNIService.transferVectors(0, testData.indexData.vectors);
+        assertNotEquals(0, trainPointer);
+
+        SpaceType spaceType = SpaceType.L2;
+        KNNMethodContext knnMethodContext = new KNNMethodContext(
+            KNNEngine.FAISS,
+            spaceType,
+            new MethodComponentContext(
+                METHOD_IVF,
+                ImmutableMap.of(
+                    METHOD_PARAMETER_NLIST,
+                    16,
+                    METHOD_ENCODER_PARAMETER,
+                    new MethodComponentContext(ENCODER_PQ, ImmutableMap.of(ENCODER_PARAMETER_PQ_M, 16, ENCODER_PARAMETER_PQ_CODE_SIZE, 8))
+                )
+            )
+        );
+
+        String description = knnMethodContext.getKnnEngine().getMethodAsMap(knnMethodContext).get(INDEX_DESCRIPTION_PARAMETER).toString();
+        assertEquals("IVF16,PQ16x8", description);
+
+        Map<String, Object> parameters = ImmutableMap.of(
+            INDEX_DESCRIPTION_PARAMETER,
+            description,
+            KNNConstants.SPACE_TYPE,
+            spaceType.getValue()
+        );
+
+        byte[] faissIndex = JNIService.trainIndex(parameters, 128, trainPointer, FAISS_NAME);
+
+        assertNotEquals(0, faissIndex.length);
+        JNIService.freeVectors(trainPointer);
+
+        Path tmpFile = createTempFile();
+        JNIService.createIndexFromTemplate(
+            testData.indexData.docs,
+            testData.indexData.vectors,
+            tmpFile.toAbsolutePath().toString(),
+            faissIndex,
+            ImmutableMap.of(INDEX_THREAD_QTY, 1),
+            FAISS_NAME
+        );
+        assertTrue(tmpFile.toFile().length() > 0);
+
+        long theControlIndex = JNIService.loadIndex(tmpFile.toAbsolutePath().toString(), Collections.emptyMap(), KNNEngine.FAISS.getName());
+        assertNotEquals(0, theControlIndex);
+
+        // We have created the index. Time to try loading things.
+        SharedModelInfo sharedModelInfo = JNIService.loadIndexAndSharedModelInfo(
+            tmpFile.toAbsolutePath().toString(),
+            Collections.emptyMap(),
+            KNNEngine.FAISS.getName()
+        );
+        assertNotEquals(0, sharedModelInfo.getSharedTableAddress());
+        assertNotEquals(0, sharedModelInfo.getIndexAddress());
+
+        long theSecondIndex = JNIService.loadIndex(
+            tmpFile.toAbsolutePath().toString(),
+            Collections.emptyMap(),
+            FAISS_NAME,
+            sharedModelInfo.getSharedTableAddress()
+        );
+        assertNotEquals(0, theSecondIndex);
+
+        int k = 10;
+        for (float[] query : testData.queries) {
+            KNNQueryResult[] resultsControl = JNIService.queryIndex(theControlIndex, query, k, FAISS_NAME, null, null);
+            assertEquals(k, resultsControl.length);
+            KNNQueryResult[] resultsOriginal = JNIService.queryIndex(sharedModelInfo.getIndexAddress(), query, k, FAISS_NAME, null, null);
+            assertEquals(k, resultsOriginal.length);
+            KNNQueryResult[] resultsSecond = JNIService.queryIndex(theSecondIndex, query, k, FAISS_NAME, null, null);
+            assertEquals(k, resultsSecond.length);
+
+            for (int i = 0; i < k; i++) {
+                assertEquals(resultsControl[i].getId(), resultsOriginal[i].getId());
+                assertEquals(resultsControl[i].getScore(), resultsOriginal[i].getScore(), 0.00001);
+
+                assertEquals(resultsControl[i].getId(), resultsSecond[i].getId());
+                assertEquals(resultsControl[i].getScore(), resultsSecond[i].getScore(), 0.00001);
+            }
+        }
+
+        JNIService.free(sharedModelInfo.getIndexAddress(), FAISS_NAME);
+        JNIService.free(theSecondIndex, FAISS_NAME);
+
+        long theThirdIndex = JNIService.loadIndex(
+            tmpFile.toAbsolutePath().toString(),
+            Collections.emptyMap(),
+            FAISS_NAME,
+            sharedModelInfo.getSharedTableAddress()
+        );
+        assertNotEquals(0, theThirdIndex);
+
+        for (float[] query : testData.queries) {
+            KNNQueryResult[] resultsControl = JNIService.queryIndex(theControlIndex, query, k, FAISS_NAME, null, null);
+            assertEquals(k, resultsControl.length);
+            KNNQueryResult[] resultsThird = JNIService.queryIndex(theThirdIndex, query, k, FAISS_NAME, null, null);
+            assertEquals(k, resultsThird.length);
+
+            for (int i = 0; i < k; i++) {
+                assertEquals(resultsControl[i].getId(), resultsThird[i].getId());
+                assertEquals(resultsControl[i].getScore(), resultsThird[i].getScore(), 0.00001);
+            }
+        }
+
+        JNIService.free(theControlIndex, FAISS_NAME);
+        JNIService.free(theThirdIndex, FAISS_NAME);
+        JNIService.freeSharedMemory(sharedModelInfo.getSharedTableAddress(), FAISS_NAME);
     }
 }

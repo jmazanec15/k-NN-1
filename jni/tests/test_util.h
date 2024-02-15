@@ -77,7 +77,10 @@ namespace test_util {
         MOCK_METHOD(jbyteArray, NewByteArray, (JNIEnv * env, jsize len));
         MOCK_METHOD(jobject, NewObject,
                     (JNIEnv * env, jclass clazz, jmethodID methodId, int id,
-                            float distance));
+                            float distance), (override));
+        MOCK_METHOD(jobject, NewObject,
+                    (JNIEnv * env, jclass clazz, jmethodID methodId,
+                            long sharedModelAddress, long indexAddress), (override));
         MOCK_METHOD(jobjectArray, NewObjectArray,
                     (JNIEnv * env, jsize len, jclass clazz, jobject init));
         MOCK_METHOD(void, ReleaseByteArrayElements,

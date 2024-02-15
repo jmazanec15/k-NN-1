@@ -65,7 +65,7 @@ JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_createIndexFromT
     }
 }
 
-JNIEXPORT jlong JNICALL Java_org_opensearch_knn_jni_FaissService_loadIndex(JNIEnv * env, jclass cls, jstring indexPathJ)
+JNIEXPORT jlong JNICALL Java_org_opensearch_knn_jni_FaissService_loadIndex__Ljava_lang_String_2(JNIEnv * env, jclass cls, jstring indexPathJ)
 {
     try {
         return knn_jni::faiss_wrapper::LoadIndex(&jniUtil, env, indexPathJ);
@@ -73,6 +73,25 @@ JNIEXPORT jlong JNICALL Java_org_opensearch_knn_jni_FaissService_loadIndex(JNIEn
         jniUtil.CatchCppExceptionAndThrowJava(env);
     }
     return NULL;
+}
+
+JNIEXPORT jobject JNICALL Java_org_opensearch_knn_jni_FaissService_loadIndexAndSharedModelInfo(JNIEnv * env, jclass cls, jstring indexPathJ) {
+    try {
+        return knn_jni::faiss_wrapper::LoadIndexAndSharedModelInfo(&jniUtil, env, indexPathJ);
+
+    } catch (...) {
+        jniUtil.CatchCppExceptionAndThrowJava(env);
+    }
+    return nullptr;
+}
+
+JNIEXPORT jlong JNICALL Java_org_opensearch_knn_jni_FaissService_loadIndex__Ljava_lang_String_2J(JNIEnv * env, jclass cls, jstring indexPathJ, jlong sharedMemPointerJ) {
+    try {
+        return knn_jni::faiss_wrapper::LoadIndex(&jniUtil, env, indexPathJ, sharedMemPointerJ);
+    } catch (...) {
+        jniUtil.CatchCppExceptionAndThrowJava(env);
+    }
+    return 0;
 }
 
 JNIEXPORT jobjectArray JNICALL Java_org_opensearch_knn_jni_FaissService_queryIndex(JNIEnv * env, jclass cls,
@@ -156,4 +175,9 @@ JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_freeVectors(JNIE
         auto *vect = reinterpret_cast<std::vector<float>*>(vectorsPointerJ);
         delete vect;
     }
+}
+
+JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_freeSharedMemory(JNIEnv * env, jclass cls,
+                                                                                 jlong shareMemoryPointer) {
+    knn_jni::faiss_wrapper::FreeSharedMemory(shareMemoryPointer);
 }

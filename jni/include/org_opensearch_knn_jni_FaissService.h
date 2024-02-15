@@ -39,21 +39,37 @@ JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_createIndexFromT
  * Method:    loadIndex
  * Signature: (Ljava/lang/String;)J
  */
-JNIEXPORT jlong JNICALL Java_org_opensearch_knn_jni_FaissService_loadIndex
+JNIEXPORT jlong JNICALL Java_org_opensearch_knn_jni_FaissService_loadIndex__Ljava_lang_String_2
   (JNIEnv *, jclass, jstring);
 
 /*
  * Class:     org_opensearch_knn_jni_FaissService
+ * Method:    loadIndexAndSharedModelInfo
+ * Signature: (Ljava/lang/String;)Lorg/opensearch/knn/index/memory/SharedModelInfo;
+ */
+JNIEXPORT jobject JNICALL Java_org_opensearch_knn_jni_FaissService_loadIndexAndSharedModelInfo
+  (JNIEnv *, jclass, jstring);
+
+/*
+ * Class:     org_opensearch_knn_jni_FaissService
+ * Method:    loadIndex
+ * Signature: (Ljava/lang/String;J)J
+ */
+JNIEXPORT jlong JNICALL Java_org_opensearch_knn_jni_FaissService_loadIndex__Ljava_lang_String_2J
+  (JNIEnv *, jclass, jstring, jlong);
+
+/*
+ * Class:     org_opensearch_knn_jni_FaissService
  * Method:    queryIndex
- * Signature: (J[FI)[Lorg/opensearch/knn/index/query/KNNQueryResult;
+ * Signature: (J[FI[I)[Lorg/opensearch/knn/index/query/KNNQueryResult;
  */
 JNIEXPORT jobjectArray JNICALL Java_org_opensearch_knn_jni_FaissService_queryIndex
   (JNIEnv *, jclass, jlong, jfloatArray, jint, jintArray);
 
 /*
  * Class:     org_opensearch_knn_jni_FaissService
- * Method:    queryIndex_WithFilter
- * Signature: (J[FI[J)[Lorg/opensearch/knn/index/query/KNNQueryResult;
+ * Method:    queryIndexWithFilter
+ * Signature: (J[FI[I[I)[Lorg/opensearch/knn/index/query/KNNQueryResult;
  */
 JNIEXPORT jobjectArray JNICALL Java_org_opensearch_knn_jni_FaissService_queryIndexWithFilter
   (JNIEnv *, jclass, jlong, jfloatArray, jint, jintArray, jintArray);
@@ -96,6 +112,14 @@ JNIEXPORT jlong JNICALL Java_org_opensearch_knn_jni_FaissService_transferVectors
  * Signature: (J)V
  */
 JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_freeVectors
+  (JNIEnv *, jclass, jlong);
+
+/*
+ * Class:     org_opensearch_knn_jni_FaissService
+ * Method:    freeSharedMemory
+ * Signature: (J)V
+ */
+JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_freeSharedMemory
   (JNIEnv *, jclass, jlong);
 
 #ifdef __cplusplus

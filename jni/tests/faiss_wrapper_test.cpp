@@ -18,6 +18,8 @@
 #include "jni_util.h"
 #include "test_util.h"
 #include "faiss/IndexHNSW.h"
+#include "faiss/utils/AlignedTable.h"
+#include "faiss/IndexIVFPQ.h"
 
 using ::testing::NiceMock;
 using ::testing::Return;
@@ -474,6 +476,84 @@ TEST(FaissCreateHnswSQfp16IndexTest, BasicAssertions) {
     // Assert that Index is of type IndexHNSWSQ
     ASSERT_NE(indexIDMap, nullptr);
     ASSERT_NE(dynamic_cast<faiss::IndexHNSWSQ*>(indexIDMap->index), nullptr);
+
+    // Clean up
+    std::remove(indexPath.c_str());
+}
+
+
+TEST(FaissLoadIndexAndSharedModelInfoTestSuite, BasicAssertions) {
+    // Setup test
+    JNIEnv *jniEnv = nullptr;
+    NiceMock<test_util::MockJNIUtil> mockJNIUtil;
+
+    faiss::idx_t numIds = 1000;
+    std::vector<faiss::idx_t> ids;
+    std::vector<float> vectors;
+    int dim = 32;
+    for (int64_t i = 0; i < numIds; i++) {
+        ids.push_back(i);
+        for (int j = 0; j < dim; j++) {
+            vectors.push_back(test_util::RandomFloat(-500.0, 500.0));
+        }
+    }
+
+    std::string indexPath = test_util::RandomString(10, "tmp/", ".faiss");
+    faiss::MetricType metricType = faiss::METRIC_L2;
+    std::string method = "IVF8,PQ4";
+
+    // Build the index
+    {
+        std::unique_ptr<faiss::Index> createdIndex(
+                test_util::FaissCreateIndex(dim, method, metricType));
+        createdIndex->train(numIds, vectors.data());
+        auto createdIndexWithData =
+                test_util::FaissAddData(createdIndex.get(), ids, vectors);
+        test_util::FaissWriteIndex(&createdIndexWithData, indexPath);
+    }
+
+    // Check that we are able to load the index from disk without issues
+    faiss::AlignedTable<float> * sharedModelAddress;
+    {
+        std::unique_ptr<std::pair<long, long>> loadedIndexPointer(
+                reinterpret_cast<std::pair<long, long> *>(knn_jni::faiss_wrapper::LoadIndexAndSharedModelInfo(
+                        &mockJNIUtil, jniEnv, (jstring)&indexPath))
+        );
+
+        sharedModelAddress = reinterpret_cast<faiss::AlignedTable<float> *>((void *) loadedIndexPointer->first);
+        std::unique_ptr<faiss::Index> indexAddress(reinterpret_cast<faiss::Index *>((void *) loadedIndexPointer->second));
+
+        auto idMapIndex = dynamic_cast<faiss::IndexIDMap *>(indexAddress.get());
+        ASSERT_NE(idMapIndex, nullptr);
+        auto indexIVFPQ = dynamic_cast<faiss::IndexIVFPQ *>(idMapIndex->index);
+        ASSERT_NE(indexIVFPQ, nullptr);
+        ASSERT_EQ(indexIVFPQ->use_precomputed_table, 1);
+        ASSERT_EQ(indexIVFPQ->precomputed_table, sharedModelAddress);
+        ASSERT_EQ(indexIVFPQ->owns_precomputed_table, false);
+        ASSERT_EQ(indexIVFPQ->d, dim);
+        ASSERT_EQ(indexIVFPQ->ntotal, numIds);
+
+        ASSERT_EQ(sharedModelAddress->size(), 8 * 4 * 256);
+    }
+
+    // Try to load from model id
+    {
+        std::unique_ptr<faiss::Index> indexAddress(
+                reinterpret_cast<faiss::Index *>(knn_jni::faiss_wrapper::LoadIndex(
+                        &mockJNIUtil, jniEnv, (jstring)&indexPath, (jlong) sharedModelAddress)));
+
+        auto idMapIndex = dynamic_cast<faiss::IndexIDMap *>(indexAddress.get());
+        ASSERT_NE(idMapIndex, nullptr);
+        auto indexIVFPQ = dynamic_cast<faiss::IndexIVFPQ *>(idMapIndex->index);
+        ASSERT_NE(indexIVFPQ, nullptr);
+        ASSERT_EQ(indexIVFPQ->use_precomputed_table, 1);
+        ASSERT_EQ(indexIVFPQ->precomputed_table, sharedModelAddress);
+        ASSERT_EQ(indexIVFPQ->owns_precomputed_table, false);
+        ASSERT_EQ(indexIVFPQ->d, dim);
+        ASSERT_EQ(indexIVFPQ->ntotal, numIds);
+    }
+
+    knn_jni::faiss_wrapper::FreeSharedMemory((long) sharedModelAddress);
 
     // Clean up
     std::remove(indexPath.c_str());

@@ -12,6 +12,7 @@
 package org.opensearch.knn.jni;
 
 import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.index.memory.SharedModelInfo;
 import org.opensearch.knn.index.query.KNNQueryResult;
 import org.opensearch.knn.index.util.KNNEngine;
 
@@ -25,7 +26,7 @@ import java.util.Map;
  * In order to compile C++ header file, run:
  * javac -h jni/include src/main/java/org/opensearch/knn/jni/FaissService.java
  *      src/main/java/org/opensearch/knn/index/query/KNNQueryResult.java
- *      src/main/java/org/opensearch/knn/common/KNNConstants.java
+ *      src/main/java/org/opensearch/knn/index/memory/SharedModelInfo.java
  */
 class FaissService {
 
@@ -72,6 +73,10 @@ class FaissService {
      * @return pointer to location in memory the index resides in
      */
     public static native long loadIndex(String indexPath);
+
+    public static native SharedModelInfo loadIndexAndSharedModelInfo(String indexPath);
+
+    public static native long loadIndex(String indexPath, long sharedModelInfoAddress);
 
     /**
      * Query an index without filter
@@ -144,4 +149,6 @@ class FaissService {
      * @param vectorsPointer to be freed
      */
     public static native void freeVectors(long vectorsPointer);
+
+    public static native void freeSharedMemory(long sharedMemoryPointer);
 }

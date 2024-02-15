@@ -249,7 +249,7 @@ jobjectArray knn_jni::nmslib_wrapper::QueryIndex(knn_jni::JNIUtilInterface * jni
     for(int i = 0; i < resultSize; ++i) {
         distance = neighbors->TopDistance();
         id = neighbors->Pop()->id();
-        result = jniUtil->NewObject(env, resultClass, allArgs, id, distance);
+        result = jniUtil->NewObject(env, resultClass, allArgs, (int) id, distance);
         jniUtil->SetObjectArrayElement(env, results, i, result);
     }
     return results;

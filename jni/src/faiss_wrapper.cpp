@@ -21,6 +21,7 @@
 #include "faiss/MetaIndexes.h"
 #include "faiss/Index.h"
 #include "faiss/impl/IDSelector.h"
+#include "faiss/IndexIVFPQ.h"
 
 #include <algorithm>
 #include <jni.h>
@@ -199,6 +200,53 @@ jlong knn_jni::faiss_wrapper::LoadIndex(knn_jni::JNIUtilInterface * jniUtil, JNI
     return (jlong) indexReader;
 }
 
+jlong knn_jni::faiss_wrapper::LoadIndex(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jstring indexPathJ, jlong sharedMemPointerJ) {
+    if (indexPathJ == nullptr) {
+        throw std::runtime_error("Index path cannot be null");
+    }
+    std::string indexPathCpp(jniUtil->ConvertJavaStringToCppString(env, indexPathJ));
+    faiss::Index* indexReader = faiss::read_index(indexPathCpp.c_str(), faiss::IO_FLAG_READ_ONLY | faiss::IO_FLAG_SKIP_PRECOMPUTE_TABLE);
+
+    auto idMap = dynamic_cast<faiss::IndexIDMap *>(indexReader);
+    if(idMap) {
+        auto ivfpqIndex = dynamic_cast<faiss::IndexIVFPQ *>(idMap->index);
+        if (ivfpqIndex) {
+            auto alignedTable = reinterpret_cast<faiss::AlignedTable<float> *>(sharedMemPointerJ);
+            if (alignedTable) {
+                ivfpqIndex->set_precomputed_table(alignedTable, 1);
+            }
+        }
+    }
+
+    return (jlong) indexReader;
+}
+
+jobject knn_jni::faiss_wrapper::LoadIndexAndSharedModelInfo(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jstring indexPathJ) {
+    if (indexPathJ == nullptr) {
+        throw std::runtime_error("Index path cannot be null");
+    }
+
+    std::string indexPathCpp(jniUtil->ConvertJavaStringToCppString(env, indexPathJ));
+    faiss::Index* indexReader = faiss::read_index(indexPathCpp.c_str(), faiss::IO_FLAG_READ_ONLY | faiss::IO_FLAG_SKIP_PRECOMPUTE_TABLE);
+
+    auto idMap = dynamic_cast<faiss::IndexIDMap *>(indexReader);
+    faiss::AlignedTable<float> * sharedMemoryAddress = nullptr;
+    if(idMap) {
+        auto ivfpqIndex = dynamic_cast<faiss::IndexIVFPQ *>(idMap->index);
+        if (ivfpqIndex) {
+            sharedMemoryAddress = new faiss::AlignedTable<float>();
+            int use_precomputed_table = 0;
+            ivfpqIndex->precompute_table(sharedMemoryAddress, use_precomputed_table);
+            ivfpqIndex->set_precomputed_table(sharedMemoryAddress, use_precomputed_table);
+        }
+    }
+
+    jclass resultClass = jniUtil->FindClass(env, "org/opensearch/knn/index/memory/SharedModelInfo");
+    jmethodID ctor = jniUtil->FindMethod(env, "org/opensearch/knn/index/memory/SharedModelInfo", "<init>");
+
+    return jniUtil->NewObject(env, resultClass, ctor, (jlong) sharedMemoryAddress, (jlong) indexReader);
+}
+
 jobjectArray knn_jni::faiss_wrapper::QueryIndex(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jlong indexPointerJ,
                                                 jfloatArray queryVectorJ, jint kJ, jintArray parentIdsJ) {
     return knn_jni::faiss_wrapper::QueryIndex_WithFilter(jniUtil, env, indexPointerJ, queryVectorJ, kJ, nullptr, parentIdsJ);
@@ -316,7 +364,7 @@ jobjectArray knn_jni::faiss_wrapper::QueryIndex_WithFilter(knn_jni::JNIUtilInter
 
     jobject result;
     for(int i = 0; i < resultSize; ++i) {
-        result = jniUtil->NewObject(env, resultClass, allArgs, ids[i], dis[i]);
+        result = jniUtil->NewObject(env, resultClass, allArgs, (int) ids[i], dis[i]);
         jniUtil->SetObjectArrayElement(env, results, i, result);
     }
     return results;
@@ -325,6 +373,11 @@ jobjectArray knn_jni::faiss_wrapper::QueryIndex_WithFilter(knn_jni::JNIUtilInter
 void knn_jni::faiss_wrapper::Free(jlong indexPointer) {
     auto *indexWrapper = reinterpret_cast<faiss::Index*>(indexPointer);
     delete indexWrapper;
+}
+
+void knn_jni::faiss_wrapper::FreeSharedMemory(long shareMemoryPointer) {
+    auto *alignTable = reinterpret_cast<faiss::AlignedTable<float>*>(shareMemoryPointer);
+    delete alignTable;
 }
 
 void knn_jni::faiss_wrapper::InitLibrary() {

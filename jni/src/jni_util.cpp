@@ -65,6 +65,11 @@ void knn_jni::JNIUtil::Initialize(JNIEnv *env) {
     this->cachedClasses["org/opensearch/knn/index/query/KNNQueryResult"] = (jclass) env->NewGlobalRef(tempLocalClassRef);
     this->cachedMethods["org/opensearch/knn/index/query/KNNQueryResult:<init>"] = env->GetMethodID(tempLocalClassRef, "<init>", "(IF)V");
     env->DeleteLocalRef(tempLocalClassRef);
+
+    tempLocalClassRef = env->FindClass("org/opensearch/knn/index/memory/SharedModelInfo");
+    this->cachedClasses["org/opensearch/knn/index/memory/SharedModelInfo"] = (jclass) env->NewGlobalRef(tempLocalClassRef);
+    this->cachedMethods["org/opensearch/knn/index/memory/SharedModelInfo:<init>"] = env->GetMethodID(tempLocalClassRef, "<init>", "(JJ)V");
+    env->DeleteLocalRef(tempLocalClassRef);
 }
 
 void knn_jni::JNIUtil::Uninitialize(JNIEnv* env) {
@@ -384,6 +389,16 @@ jobject knn_jni::JNIUtil::GetObjectArrayElement(JNIEnv *env, jobjectArray array,
 
 jobject knn_jni::JNIUtil::NewObject(JNIEnv *env, jclass clazz, jmethodID methodId, int id, float distance) {
     jobject object = env->NewObject(clazz, methodId, id, distance);
+    if (object == nullptr) {
+        this->HasExceptionInStack(env, "Unable to create object");
+        throw std::runtime_error("Unable to create object");
+    }
+
+    return object;
+}
+
+jobject knn_jni::JNIUtil::NewObject(JNIEnv *env, jclass clazz, jmethodID methodId, long sharedModelAddress, long indexAddress) {
+    jobject object = env->NewObject(clazz, methodId, sharedModelAddress, indexAddress);
     if (object == nullptr) {
         this->HasExceptionInStack(env, "Unable to create object");
         throw std::runtime_error("Unable to create object");

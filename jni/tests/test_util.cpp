@@ -30,6 +30,9 @@
 #include "params.h"
 #include "space.h"
 
+using ::testing::An;
+using ::testing::Matcher;
+
 test_util::MockJNIUtil::MockJNIUtil() {
     // Set default for calls. If necessary, these can be overriden with
     // EXPECT_CALL
@@ -162,11 +165,18 @@ test_util::MockJNIUtil::MockJNIUtil() {
 
     // Create a new std::pair<int, float> with the id and distance and then
     // re-interpret it as a jobject
-    ON_CALL(*this, NewObject)
+    ON_CALL(*this, NewObject(An<JNIEnv *>(), An<jclass>(), An<jmethodID>(), An<int>(),  An<float>()))
             .WillByDefault([this](JNIEnv *env, jclass clazz, jmethodID methodId,
                                   int id, float distance) {
                 return reinterpret_cast<jobject>(
                         new std::pair<int, float>(id, distance));
+            });
+
+    ON_CALL(*this, NewObject(An<JNIEnv *>(), An<jclass>(), An<jmethodID>(), An<long>(),  An<long>()))
+            .WillByDefault([this](JNIEnv *env, jclass clazz, jmethodID methodId,
+                                  long sharedModelAddress, long indexAddress) {
+                return reinterpret_cast<jobject>(
+                        new std::pair<long, long>(sharedModelAddress, indexAddress));
             });
 
     // Create a new std::vector<std::pair<int, float> and reinterpret it as a

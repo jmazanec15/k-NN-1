@@ -33,6 +33,10 @@ namespace knn_jni {
         // Return a pointer to the loaded index
         jlong LoadIndex(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jstring indexPathJ);
 
+        jobject LoadIndexAndSharedModelInfo(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jstring indexPathJ);
+
+        jlong LoadIndex(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jstring indexPathJ, jlong sharedMemPointerJ);
+
         // Execute a query against the index located in memory at indexPointerJ.
         //
         // Return an array of KNNQueryResults
@@ -47,6 +51,8 @@ namespace knn_jni {
 
         // Free the index located in memory at indexPointerJ
         void Free(jlong indexPointer);
+
+        void FreeSharedMemory(long shareMemoryPointer);
 
         // Perform initilization operations for the library
         void InitLibrary();
