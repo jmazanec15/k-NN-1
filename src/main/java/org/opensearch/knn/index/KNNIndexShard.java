@@ -5,6 +5,8 @@
 
 package org.opensearch.knn.index;
 
+import lombok.Builder;
+import lombok.Value;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.FilterLeafReader;
@@ -31,6 +33,7 @@ import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
+import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
 import static org.opensearch.knn.index.IndexUtil.getParametersAtLoading;
 import static org.opensearch.knn.index.codec.util.KNNCodecUtil.buildEngineFilePrefix;
@@ -85,15 +88,28 @@ public class KNNIndexShard {
         try (Engine.Searcher searcher = indexShard.acquireSearcher("knn-warmup")) {
             getAllEnginePaths(searcher.getIndexReader()).forEach((key, value) -> {
                 try {
-                    nativeMemoryCacheManager.get(
-                        new NativeMemoryEntryContext.IndexEntryContext(
+                    NativeMemoryEntryContext.IndexEntryContext indexEntryContext;
+                    if (value.getSpaceType() != SpaceType.L2
+                        || KNNEngine.getEngineNameFromPath(key) != KNNEngine.FAISS
+                        || value.getModelId().isEmpty()) {
+                        indexEntryContext = new NativeMemoryEntryContext.IndexEntryContext(
                             key,
                             NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance(),
-                            getParametersAtLoading(value, KNNEngine.getEngineNameFromPath(key), getIndexName()),
+                            getParametersAtLoading(value.getSpaceType(), KNNEngine.getEngineNameFromPath(key), getIndexName()),
                             getIndexName()
-                        ),
-                        true
-                    );
+                        );
+                    } else {
+                        indexEntryContext = new NativeMemoryEntryContext.IndexEntryContext(
+                            key,
+                            NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance(),
+                            getParametersAtLoading(value.getSpaceType(), KNNEngine.getEngineNameFromPath(key), getIndexName()),
+                            getIndexName(),
+                            value.getModelId(),
+                            value.getSpaceType()
+                        );
+                    }
+
+                    nativeMemoryCacheManager.get(indexEntryContext, true);
                 } catch (ExecutionException ex) {
                     throw new RuntimeException(ex);
                 }
@@ -134,16 +150,16 @@ public class KNNIndexShard {
      * @return List of engine file Paths
      * @throws IOException Thrown when the SegmentReader is attempting to read the segments files
      */
-    public Map<String, SpaceType> getAllEnginePaths(IndexReader indexReader) throws IOException {
-        Map<String, SpaceType> engineFiles = new HashMap<>();
+    public Map<String, EngineInformation> getAllEnginePaths(IndexReader indexReader) throws IOException {
+        Map<String, EngineInformation> engineFiles = new HashMap<>();
         for (KNNEngine knnEngine : KNNEngine.getEnginesThatCreateCustomSegmentFiles()) {
             engineFiles.putAll(getEnginePaths(indexReader, knnEngine));
         }
         return engineFiles;
     }
 
-    private Map<String, SpaceType> getEnginePaths(IndexReader indexReader, KNNEngine knnEngine) throws IOException {
-        Map<String, SpaceType> engineFiles = new HashMap<>();
+    private Map<String, EngineInformation> getEnginePaths(IndexReader indexReader, KNNEngine knnEngine) throws IOException {
+        Map<String, EngineInformation> engineFiles = new HashMap<>();
 
         for (LeafReaderContext leafReaderContext : indexReader.leaves()) {
             SegmentReader reader = (SegmentReader) FilterLeafReader.unwrap(leafReaderContext.reader());
@@ -158,7 +174,7 @@ public class KNNIndexShard {
                     // was L2. So, if Space Type is not present, just fall back to L2
                     String spaceTypeName = fieldInfo.attributes().getOrDefault(SPACE_TYPE, SpaceType.L2.getValue());
                     SpaceType spaceType = SpaceType.getSpace(spaceTypeName);
-
+                    String modelId = fieldInfo.getAttribute(MODEL_ID);
                     engineFiles.putAll(
                         getEnginePaths(
                             reader.getSegmentInfo().files(),
@@ -166,7 +182,8 @@ public class KNNIndexShard {
                             fieldInfo.name,
                             fileExtension,
                             shardPath,
-                            spaceType
+                            spaceType,
+                            modelId
                         )
                     );
                 }
@@ -175,13 +192,14 @@ public class KNNIndexShard {
         return engineFiles;
     }
 
-    protected Map<String, SpaceType> getEnginePaths(
+    protected Map<String, EngineInformation> getEnginePaths(
         Collection<String> files,
         String segmentName,
         String fieldName,
         String fileExtension,
         Path shardPath,
-        SpaceType spaceType
+        SpaceType spaceType,
+        String modelId
     ) {
         String prefix = buildEngineFilePrefix(segmentName);
         String suffix = buildEngineFileSuffix(fieldName, fileExtension);
@@ -189,6 +207,18 @@ public class KNNIndexShard {
             .filter(fileName -> fileName.startsWith(prefix))
             .filter(fileName -> fileName.endsWith(suffix))
             .map(fileName -> shardPath.resolve(fileName).toString())
-            .collect(Collectors.toMap(fileName -> fileName, fileName -> spaceType));
+            .collect(
+                Collectors.toMap(
+                    fileName -> fileName,
+                    fileName -> EngineInformation.builder().modelId(modelId).spaceType(spaceType).build()
+                )
+            );
+    }
+
+    @Value
+    @Builder
+    static class EngineInformation {
+        SpaceType spaceType;
+        String modelId;
     }
 }

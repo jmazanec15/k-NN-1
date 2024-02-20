@@ -251,15 +251,26 @@ public class KNNWeight extends Weight {
         // We need to first get index allocation
         NativeMemoryAllocation indexAllocation;
         try {
-            indexAllocation = nativeMemoryCacheManager.get(
-                new NativeMemoryEntryContext.IndexEntryContext(
+            // IVFPQ-l2. Everything else is okay.
+            NativeMemoryEntryContext.IndexEntryContext indexEntryContext;
+            if (spaceType != SpaceType.L2 || knnEngine != KNNEngine.FAISS || modelId == null) {
+                indexEntryContext = new NativeMemoryEntryContext.IndexEntryContext(
                     indexPath.toString(),
                     NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance(),
                     getParametersAtLoading(spaceType, knnEngine, knnQuery.getIndexName()),
                     knnQuery.getIndexName()
-                ),
-                true
-            );
+                );
+            } else {
+                indexEntryContext = new NativeMemoryEntryContext.IndexEntryContext(
+                    indexPath.toString(),
+                    NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance(),
+                    getParametersAtLoading(spaceType, knnEngine, knnQuery.getIndexName()),
+                    knnQuery.getIndexName(),
+                    modelId,
+                    spaceType
+                );
+            }
+            indexAllocation = nativeMemoryCacheManager.get(indexEntryContext, true);
         } catch (ExecutionException e) {
             GRAPH_QUERY_ERRORS.increment();
             throw new RuntimeException(e);

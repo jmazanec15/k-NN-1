@@ -104,7 +104,7 @@ public class KNNIndexShardTests extends KNNSingleNodeTestCase {
         IndexShard indexShard;
         KNNIndexShard knnIndexShard;
         Engine.Searcher searcher;
-        Map<String, SpaceType> hnswPaths;
+        Map<String, KNNIndexShard.EngineInformation> hnswPaths;
 
         indexShard = indexService.iterator().next();
         knnIndexShard = new KNNIndexShard(indexShard);
@@ -148,7 +148,15 @@ public class KNNIndexShardTests extends KNNSingleNodeTestCase {
         KNNIndexShard knnIndexShard = new KNNIndexShard(null);
 
         Path path = Paths.get("");
-        Map<String, SpaceType> included = knnIndexShard.getEnginePaths(files, segmentName, fieldName, fileExt, path, spaceType);
+        Map<String, KNNIndexShard.EngineInformation> included = knnIndexShard.getEnginePaths(
+            files,
+            segmentName,
+            fieldName,
+            fileExt,
+            path,
+            spaceType,
+            null
+        );
 
         assertEquals(includedFileNames.size(), included.size());
         included.keySet().forEach(o -> assertTrue(includedFileNames.contains(o)));

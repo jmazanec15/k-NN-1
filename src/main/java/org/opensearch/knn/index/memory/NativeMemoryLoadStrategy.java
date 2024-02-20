@@ -11,7 +11,9 @@
 
 package org.opensearch.knn.index.memory;
 
+import org.opensearch.common.UUIDs;
 import org.opensearch.core.action.ActionListener;
+import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.training.TrainingDataConsumer;
@@ -25,6 +27,7 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Objects;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -92,7 +95,37 @@ public interface NativeMemoryLoadStrategy<T extends NativeMemoryAllocation, U ex
             fileWatcher.init();
 
             KNNEngine knnEngine = KNNEngine.getEngineNameFromPath(indexPath.toString());
-            long memoryAddress = JNIService.loadIndex(indexPath.toString(), indexEntryContext.getParameters(), knnEngine.getName());
+
+            if (indexEntryContext.getModelId() == null || indexEntryContext.getSpaceType() != SpaceType.L2) {
+                long memoryAddress = JNIService.loadIndex(indexPath.toString(), indexEntryContext.getParameters(), knnEngine.getName());
+                final WatcherHandle<FileWatcher> watcherHandle = resourceWatcherService.add(fileWatcher);
+
+                return new NativeMemoryAllocation.IndexAllocation(
+                    executor,
+                    memoryAddress,
+                    indexEntryContext.calculateSizeInKB(),
+                    knnEngine,
+                    indexPath.toString(),
+                    indexEntryContext.getOpenSearchIndexName(),
+                    watcherHandle
+                );
+            }
+
+            String callerUUID = UUIDs.base64UUID();
+            SharedModelContext sharedModelContext = SharedModelStateManager.getInstance().get(indexEntryContext, callerUUID);
+
+            long memoryAddress;
+            if (Objects.equals(sharedModelContext.getUuid(), callerUUID)) {
+                memoryAddress = sharedModelContext.getSharedModelInfo().getIndexAddress();
+            } else {
+                memoryAddress = JNIService.loadIndex(
+                    indexPath.toString(),
+                    indexEntryContext.getParameters(),
+                    knnEngine.getName(),
+                    sharedModelContext.getSharedModelInfo().getSharedTableAddress()
+                );
+            }
+
             final WatcherHandle<FileWatcher> watcherHandle = resourceWatcherService.add(fileWatcher);
 
             return new NativeMemoryAllocation.IndexAllocation(
@@ -102,7 +135,8 @@ public interface NativeMemoryLoadStrategy<T extends NativeMemoryAllocation, U ex
                 knnEngine,
                 indexPath.toString(),
                 indexEntryContext.getOpenSearchIndexName(),
-                watcherHandle
+                watcherHandle,
+                sharedModelContext
             );
         }
 
