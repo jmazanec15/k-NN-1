@@ -306,7 +306,7 @@ task cmakeJniLib(type:Exec) {
         commandLine 'cmake', '.', "-G", "Unix Makefiles", "-DKNN_PLUGIN_VERSION=${opensearch_version}", "-DBLAS_LIBRARIES=$rootDir\\src\\main\\resources\\windowsDependencies\\libopenblas.dll", "-DLAPACK_LIBRARIES=$rootDir\\src\\main\\resources\\windowsDependencies\\libopenblas.dll", "-DSIMD_ENABLED=${simd_enabled}"
     }
     else {
-        commandLine 'cmake', '.', "-DKNN_PLUGIN_VERSION=${opensearch_version}", "-DSIMD_ENABLED=${simd_enabled}"
+        commandLine '/usr/local/bin/cmake', '.', "-DKNN_PLUGIN_VERSION=${opensearch_version}", "-DSIMD_ENABLED=${simd_enabled}"
     }
 }
 

@@ -155,7 +155,7 @@ if (${CONFIG_FAISS} STREQUAL ON OR ${CONFIG_ALL} STREQUAL ON OR ${CONFIG_TEST} S
     find_package(OpenMP REQUIRED)
     find_package(ZLIB REQUIRED)
     find_package(BLAS REQUIRED)
-    enable_language(Fortran)
+    #enable_language(Fortran)
     find_package(LAPACK REQUIRED)
 
     # Check if faiss exists

@@ -253,4 +253,8 @@ public class JNIService {
     public static void freeVectors(long vectorsPointer) {
         FaissService.freeVectors(vectorsPointer);
     }
+
+    public static long transferVectorsV2(long vectorsPointer, float[][] trainingData) {
+        return FaissService.transferVectorsV2(vectorsPointer, trainingData);
+    }
 }

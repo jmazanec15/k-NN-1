@@ -122,7 +122,7 @@ void knn_jni::faiss_wrapper::CreateIndex(knn_jni::JNIUtilInterface * jniUtil, JN
     // Create faiss index
     jobject indexDescriptionJ = knn_jni::GetJObjectFromMapOrThrow(parametersCpp, knn_jni::INDEX_DESCRIPTION);
     std::string indexDescriptionCpp(jniUtil->ConvertJavaObjectToCppString(env, indexDescriptionJ));
-
+    std::cout<<"Navneet "<<indexDescriptionCpp.c_str()<<std::endl;
     std::unique_ptr<faiss::Index> indexWriter;
     indexWriter.reset(faiss::index_factory(dim, indexDescriptionCpp.c_str(), metric));
 
