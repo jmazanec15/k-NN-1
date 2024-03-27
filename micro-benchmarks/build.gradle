@@ -41,8 +41,15 @@ compileJava.options.compilerArgs.addAll(["-processor", "org.openjdk.jmh.generato
 
 run {
     // This is required for C++ code
+    var useJemalloc = System.getProperty("jemalloc.enabled", "false")
+    if (useJemalloc == "true") {
+        environment("LD_PRELOAD", "/usr/lib64/libjemalloc.so.1")
+    }
+
     systemProperty "java.library.path", "$rootDir/jni/release"
     executable = "${BuildParams.runtimeJavaHome}/bin/java"
+    var jvmHeapSize = System.getProperty("jvm.heap.size", "2048m")
+    jvmArgs("-Xms" + jvmHeapSize, "-Xmx"  + jvmHeapSize)
 }
 
 
