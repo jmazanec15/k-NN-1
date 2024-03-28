@@ -29,10 +29,12 @@ import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.jni.JNIService;
 
+import java.util.Objects;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 
+import static org.opensearch.knn.common.KNNConstants.FAISS_NAME;
 import static org.opensearch.knn.common.KNNConstants.NMSLIB_NAME;
 import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
 
@@ -45,12 +47,12 @@ import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
 @Timeout(time = 4, timeUnit = TimeUnit.HOURS)
 public class BuildNativeIndexBenchmarks {
     private static final Random random = new Random(1212121212);
-    private static final int NUM_VECS = 1000000;
+    private static final int NUM_VECS = 250000;
 
-    @Param({ "128" })
+    @Param({ "128", "512" })
     private int dimension;
 
-    @Param({"innerproduct" })
+    @Param({"innerproduct", "l2" })
     private String spaceType;
 
     @Param({ "16" })
@@ -59,7 +61,8 @@ public class BuildNativeIndexBenchmarks {
     private int efConstruction;
     @Param({ "4" })
     private int indexThreadQty;
-    @Param({NMSLIB_NAME})
+    //@Param({NMSLIB_NAME, FAISS_NAME})
+    @Param({FAISS_NAME})
     private String engine;
 
     private float[][] vectorList;
@@ -78,6 +81,31 @@ public class BuildNativeIndexBenchmarks {
     @Benchmark
     public void buildNativeIndex() {
         System.out.println("LD_PRELOAD: " + System.getenv("LD_PRELOAD"));
+        if (Objects.equals(engine, NMSLIB_NAME)) {
+            buildNmslib();
+        } else {
+            buildFaiss();
+        }
+    }
+
+    public void buildFaiss() {
+        System.out.println("Building with faiss");
+        JNIService.createIndex(
+                ids,
+                vectorList,
+                createIndexName(),
+                ImmutableMap.of(
+                        SPACE_TYPE, spaceType,
+                        KNNConstants.PARAMETERS, ImmutableMap.of(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION, efConstruction),
+                        KNNConstants.INDEX_DESCRIPTION_PARAMETER, String.format("HNSW%d,Flat", m),
+                        KNNConstants.INDEX_THREAD_QTY, indexThreadQty
+                ),
+                KNNEngine.FAISS
+        );
+    }
+
+    public void buildNmslib() {
+        System.out.println("Building with nmslib");
         JNIService.createIndex(
                 ids,
                 vectorList,
@@ -88,7 +116,7 @@ public class BuildNativeIndexBenchmarks {
                         KNNConstants.METHOD_PARAMETER_M, m,
                         KNNConstants.INDEX_THREAD_QTY, indexThreadQty
                 ),
-                KNNEngine.getEngine(engine)
+                KNNEngine.NMSLIB
         );
     }
 
