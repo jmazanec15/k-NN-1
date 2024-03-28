@@ -7,4 +7,4 @@ ADD setup-lib.sh /
 RUN bash /setup-lib.sh
 ENV JAVA_HOME="/opt/java/openjdk-21"
 RUN ./gradlew --help
-ENTRYPOINT [ "./gradlew", "-p", "micro-benchmarks", "run", "--args",  " \"BuildNativeIndexBenchmarks\"" ]
+ENTRYPOINT [ "./gradlew", "-p", "micro-benchmarks", "run", "--args",  " VectorSerdeBenchmarks" ]
