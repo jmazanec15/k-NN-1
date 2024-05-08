@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Objects;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.lucene.util.VectorUtil;
 import org.opensearch.knn.index.KNNVectorScriptDocValues;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
@@ -48,13 +49,7 @@ public class KNNScoringUtil {
      * @return L2 score
      */
     public static float l2Squared(float[] queryVector, float[] inputVector) {
-        requireEqualDimension(queryVector, inputVector);
-        float squaredDistance = 0;
-        for (int i = 0; i < inputVector.length; i++) {
-            float diff = queryVector[i] - inputVector[i];
-            squaredDistance += diff * diff;
-        }
-        return squaredDistance;
+        return VectorUtil.squareDistance(queryVector, inputVector);
     }
 
     private static float[] toFloat(List<Number> inputVector, VectorDataType vectorDataType) {
@@ -293,12 +288,7 @@ public class KNNScoringUtil {
      * @return dot product score
      */
     public static float innerProduct(float[] queryVector, float[] inputVector) {
-        requireEqualDimension(queryVector, inputVector);
-        float distance = 0;
-        for (int i = 0; i < inputVector.length; i++) {
-            distance += queryVector[i] * inputVector[i];
-        }
-        return distance;
+        return VectorUtil.dotProduct(queryVector, inputVector);
     }
 
     /**
