@@ -15,7 +15,6 @@ import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.codec.KNN80Codec.KNN80BinaryDocValues;
 import org.opensearch.knn.jni.JNICommons;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -56,33 +55,28 @@ public class KNNCodecUtil {
 
         for (int doc = values.nextDoc(); doc != DocIdSetIterator.NO_MORE_DOCS; doc = values.nextDoc()) {
             BytesRef bytesref = values.binaryValue();
-            try (ByteArrayInputStream byteStream = new ByteArrayInputStream(bytesref.bytes, bytesref.offset, bytesref.length)) {
-                serializationMode = KNNVectorSerializerFactory.serializerModeFromStream(byteStream);
-                final KNNVectorSerializer vectorSerializer = KNNVectorSerializerFactory.getSerializerByStreamContent(byteStream);
-                final float[] vector = vectorSerializer.byteToFloatArray(byteStream);
-                dimension = vector.length;
+            serializationMode = KNNVectorSerializerFactory.serializerModeByteRef(bytesref);
 
-                if (vectorsPerTransfer == Integer.MIN_VALUE) {
-                    vectorsPerTransfer = (dimension * Float.BYTES * totalLiveDocs) / vectorsStreamingMemoryLimit;
-                    // This condition comes if vectorsStreamingMemoryLimit is higher than total number floats to transfer
-                    // Doing this will reduce 1 extra trip to JNI layer.
-                    if (vectorsPerTransfer == 0) {
-                        vectorsPerTransfer = totalLiveDocs;
-                    }
+            final KNNVectorSerializer vectorSerializer = KNNVectorSerializerFactory.getSerializerBySerializationMode(serializationMode);
+            final float[] vector = vectorSerializer.byteToFloatArray(bytesref);
+            dimension = vector.length;
+
+            if (vectorsPerTransfer == Integer.MIN_VALUE) {
+                vectorsPerTransfer = (dimension * Float.BYTES * totalLiveDocs) / vectorsStreamingMemoryLimit;
+                // This condition comes if vectorsStreamingMemoryLimit is higher than total number floats to transfer
+                // Doing this will reduce 1 extra trip to JNI layer.
+                if (vectorsPerTransfer == 0) {
+                    vectorsPerTransfer = totalLiveDocs;
                 }
-                if (vectorList.size() == vectorsPerTransfer) {
-                    vectorAddress = JNICommons.storeVectorData(
-                        vectorAddress,
-                        vectorList.toArray(new float[][] {}),
-                        totalLiveDocs * dimension
-                    );
-                    // We should probably come up with a better way to reuse the vectorList memory which we have
-                    // created. Problem here is doing like this can lead to a lot of list memory which is of no use and
-                    // will be garbage collected later on, but it creates pressure on JVM. We should revisit this.
-                    vectorList = new ArrayList<>();
-                }
-                vectorList.add(vector);
             }
+            if (vectorList.size() == vectorsPerTransfer) {
+                vectorAddress = JNICommons.storeVectorData(vectorAddress, vectorList.toArray(new float[][] {}), totalLiveDocs * dimension);
+                // We should probably come up with a better way to reuse the vectorList memory which we have
+                // created. Problem here is doing like this can lead to a lot of list memory which is of no use and
+                // will be garbage collected later on, but it creates pressure on JVM. We should revisit this.
+                vectorList = new ArrayList<>();
+            }
+            vectorList.add(vector);
             docIdList.add(doc);
         }
         if (vectorList.isEmpty() == false) {

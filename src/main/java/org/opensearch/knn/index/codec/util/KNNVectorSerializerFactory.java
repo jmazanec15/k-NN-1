@@ -6,6 +6,7 @@
 package org.opensearch.knn.index.codec.util;
 
 import com.google.common.collect.ImmutableMap;
+import org.apache.lucene.util.BytesRef;
 
 import java.io.ByteArrayInputStream;
 import java.io.ObjectStreamConstants;
@@ -70,6 +71,22 @@ public class KNNVectorSerializerFactory {
             return getSerializerOrThrowError(numberOfAvailableBytesAfterHeader, ARRAY);
         }
         return getSerializerOrThrowError(numberOfAvailableBytesInStream, COLLECTION_OF_FLOATS);
+    }
+
+    public static SerializationMode serializerModeByteRef(BytesRef bytesRef) {
+        int numberOfAvailableBytesInStream = bytesRef.length - bytesRef.offset;
+        if (numberOfAvailableBytesInStream < ARRAY_HEADER_OFFSET) {
+            return getSerializerOrThrowError(numberOfAvailableBytesInStream, COLLECTION_OF_FLOATS);
+        }
+
+        // checking if stream protocol grammar in header is valid for serialized array
+        for (int i = 0; i < SERIALIZATION_PROTOCOL_HEADER_PREFIX.length; i++) {
+            if (bytesRef.bytes[i + bytesRef.offset] != SERIALIZATION_PROTOCOL_HEADER_PREFIX[i]) {
+                return getSerializerOrThrowError(numberOfAvailableBytesInStream, COLLECTION_OF_FLOATS);
+            }
+        }
+        int numberOfAvailableBytesAfterHeader = numberOfAvailableBytesInStream - ARRAY_HEADER_OFFSET;
+        return getSerializerOrThrowError(numberOfAvailableBytesAfterHeader, ARRAY);
     }
 
     private static SerializationMode getSerializerOrThrowError(int numberOfRemainingBytes, final SerializationMode serializationMode) {

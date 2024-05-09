@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.index.codec.util;
 
+import org.apache.lucene.util.BytesRef;
 import org.opensearch.knn.KNNTestCase;
 
 import java.io.ByteArrayInputStream;
@@ -27,13 +28,12 @@ public class KNNVectorSerializerTests extends KNNTestCase {
         for (float f : vector)
             ds.writeFloat(f);
         final byte[] vectorAsCollectionOfFloats = bas.toByteArray();
-        final ByteArrayInputStream bais = new ByteArrayInputStream(vectorAsCollectionOfFloats);
-        bais.reset();
+        BytesRef bytesRef = new BytesRef(vectorAsCollectionOfFloats);
 
         final KNNVectorSerializer defaultSerializer = KNNVectorSerializerFactory.getDefaultSerializer();
         assertNotNull(defaultSerializer);
 
-        final float[] actualDeserializedVector = defaultSerializer.byteToFloatArray(bais);
+        final float[] actualDeserializedVector = defaultSerializer.byteToFloatArray(bytesRef);
         assertNotNull(actualDeserializedVector);
         assertArrayEquals(vector, actualDeserializedVector, 0.1f);
 
@@ -67,20 +67,20 @@ public class KNNVectorSerializerTests extends KNNTestCase {
         final ObjectOutputStream objectStream = new ObjectOutputStream(byteStream);
         objectStream.writeObject(vector);
         final byte[] serializedVector = byteStream.toByteArray();
-        final ByteArrayInputStream bais = new ByteArrayInputStream(serializedVector);
+        BytesRef bytesRef = new BytesRef(serializedVector);
 
-        final KNNVectorSerializer vectorSerializer = KNNVectorSerializerFactory.getSerializerByStreamContent(bais);
+        final KNNVectorSerializer vectorSerializer = KNNVectorSerializerFactory.getSerializerBySerializationMode(
+            KNNVectorSerializerFactory.serializerModeByteRef(bytesRef)
+        );
 
         // testing serialization
-        bais.reset();
         final byte[] actualSerializedVector = vectorSerializer.floatToByteArray(vector);
 
         assertNotNull(actualSerializedVector);
         assertArrayEquals(serializedVector, actualSerializedVector);
 
         // testing deserialization
-        bais.reset();
-        final float[] actualDeserializedVector = vectorSerializer.byteToFloatArray(bais);
+        final float[] actualDeserializedVector = vectorSerializer.byteToFloatArray(bytesRef);
 
         assertNotNull(actualDeserializedVector);
         assertArrayEquals(vector, actualDeserializedVector, 0.1f);
@@ -95,20 +95,20 @@ public class KNNVectorSerializerTests extends KNNTestCase {
         for (float f : vector)
             ds.writeFloat(f);
         final byte[] vectorAsCollectionOfFloats = bas.toByteArray();
-        final ByteArrayInputStream bais = new ByteArrayInputStream(vectorAsCollectionOfFloats);
+        BytesRef bytesRef = new BytesRef(vectorAsCollectionOfFloats);
 
-        final KNNVectorSerializer vectorSerializer = KNNVectorSerializerFactory.getSerializerByStreamContent(bais);
+        final KNNVectorSerializer vectorSerializer = KNNVectorSerializerFactory.getSerializerBySerializationMode(
+            KNNVectorSerializerFactory.serializerModeByteRef(bytesRef)
+        );
 
         // testing serialization
-        bais.reset();
         final byte[] actualSerializedVector = vectorSerializer.floatToByteArray(vector);
 
         assertNotNull(actualSerializedVector);
         assertArrayEquals(vectorAsCollectionOfFloats, actualSerializedVector);
 
         // testing deserialization
-        bais.reset();
-        final float[] actualDeserializedVector = vectorSerializer.byteToFloatArray(bais);
+        final float[] actualDeserializedVector = vectorSerializer.byteToFloatArray(bytesRef);
 
         assertNotNull(actualDeserializedVector);
         assertArrayEquals(vector, actualDeserializedVector, 0.1f);

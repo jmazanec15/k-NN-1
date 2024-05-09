@@ -14,7 +14,6 @@ import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.codec.util.KNNVectorSerializer;
 import org.opensearch.knn.index.codec.util.KNNVectorSerializerFactory;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 
 /**
@@ -70,9 +69,10 @@ public class FilteredIdsKNNIterator {
 
     protected float computeScore() throws IOException {
         final BytesRef value = binaryDocValues.binaryValue();
-        final ByteArrayInputStream byteStream = new ByteArrayInputStream(value.bytes, value.offset, value.length);
-        final KNNVectorSerializer vectorSerializer = KNNVectorSerializerFactory.getSerializerByStreamContent(byteStream);
-        final float[] vector = vectorSerializer.byteToFloatArray(byteStream);
+        final KNNVectorSerializer vectorSerializer = KNNVectorSerializerFactory.getSerializerBySerializationMode(
+            KNNVectorSerializerFactory.serializerModeByteRef(value)
+        );
+        final float[] vector = vectorSerializer.byteToFloatArray(value);
         // Calculates a similarity score between the two vectors with a specified function. Higher similarity
         // scores correspond to closer vectors.
         return spaceType.getVectorSimilarityFunction().compare(queryVector, vector);

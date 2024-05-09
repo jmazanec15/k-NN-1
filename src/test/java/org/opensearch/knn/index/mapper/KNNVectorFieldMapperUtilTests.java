@@ -12,6 +12,7 @@
 package org.opensearch.knn.index.mapper;
 
 import org.apache.lucene.document.StoredField;
+import org.apache.lucene.util.BytesRef;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.KNNMethodContext;
 import org.opensearch.knn.index.MethodComponentContext;
@@ -21,7 +22,6 @@ import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelState;
 
-import java.io.ByteArrayInputStream;
 import java.util.Arrays;
 
 import static org.mockito.Mockito.mock;
@@ -48,10 +48,9 @@ public class KNNVectorFieldMapperUtilTests extends KNNTestCase {
         StoredField storedField = KNNVectorFieldMapperUtil.createStoredFieldForFloatVector(TEST_FIELD_NAME, TEST_FLOAT_VECTOR);
         assertEquals(TEST_FIELD_NAME, storedField.name());
         byte[] bytes = storedField.binaryValue().bytes;
-        ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(bytes, 0, bytes.length);
         assertArrayEquals(
             TEST_FLOAT_VECTOR,
-            KNNVectorSerializerFactory.getDefaultSerializer().byteToFloatArray(byteArrayInputStream),
+            KNNVectorSerializerFactory.getDefaultSerializer().byteToFloatArray(new BytesRef(bytes, 0, bytes.length)),
             0.001f
         );
 
