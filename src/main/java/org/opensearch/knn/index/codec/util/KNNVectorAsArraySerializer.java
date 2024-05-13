@@ -44,4 +44,10 @@ public class KNNVectorAsArraySerializer implements KNNVectorSerializer {
             throw new RuntimeException(e);
         }
     }
+
+    @Override
+    public void byteToFloatArray(BytesRef bytesRef, float[] dest) {
+        // TODO: implement
+        throw new UnsupportedOperationException("Not implemented yet (byteToFloatArray");
+    }
 }

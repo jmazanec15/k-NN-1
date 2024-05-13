@@ -118,15 +118,19 @@ public abstract class KNNVectorScriptDocValues extends ScriptDocValues<float[]> 
 
     private static final class KNNNativeVectorScriptDocValues extends KNNVectorScriptDocValues {
         private final BinaryDocValues values;
+        private final float[] cachedArray;
 
         KNNNativeVectorScriptDocValues(BinaryDocValues values, String field, VectorDataType type) {
             super(values, field, type);
             this.values = values;
+            // TODO: So this is hard coded for now. Lets not do this later and figure out how to pass in dim.
+            this.cachedArray = new float[768];
         }
 
         @Override
         protected float[] doGetValue() throws IOException {
-            return getVectorDataType().getVectorFromBytesRef(values.binaryValue());
+            getVectorDataType().getVectorFromBytesRef(values.binaryValue(), cachedArray);
+            return cachedArray;
         }
     }
 

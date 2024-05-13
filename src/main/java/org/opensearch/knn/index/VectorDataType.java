@@ -46,6 +46,11 @@ public enum VectorDataType {
             }
             return vector;
         }
+
+        @Override
+        public void getVectorFromBytesRef(BytesRef binaryValue, float[] destination) {
+            throw new UnsupportedOperationException("Not supported yet");
+        }
     },
     FLOAT("float") {
 
@@ -62,6 +67,12 @@ public enum VectorDataType {
             return vectorSerializer.byteToFloatArray(binaryValue);
         }
 
+        @Override
+        public void getVectorFromBytesRef(BytesRef binaryValue, float[] destination) {
+            // TODO: Hardcoding
+            final KNNVectorSerializer vectorSerializer = KNNVectorSerializerFactory.getDefaultSerializer();
+            vectorSerializer.byteToFloatArray(binaryValue, destination);
+        }
     };
 
     public static final String SUPPORTED_VECTOR_DATA_TYPES = Arrays.stream(VectorDataType.values())
@@ -87,6 +98,8 @@ public enum VectorDataType {
      * @return float vector deserialized from binary value
      */
     public abstract float[] getVectorFromBytesRef(BytesRef binaryValue);
+
+    public abstract void getVectorFromBytesRef(BytesRef binaryValue, float[] destination);
 
     /**
      * Validates if given VectorDataType is in the list of supported data types.

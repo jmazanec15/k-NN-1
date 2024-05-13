@@ -36,4 +36,29 @@ public class KNNVectorAsCollectionOfFloatsSerializer implements KNNVectorSeriali
         ByteBuffer.wrap(bytesRef.bytes, bytesRef.offset, bytesRef.length).asFloatBuffer().get(vector);
         return vector;
     }
+
+    @Override
+    public void byteToFloatArray(BytesRef bytesRef, float[] dest) {
+        if (bytesRef == null || (bytesRef.length - bytesRef.offset) % BYTES_IN_FLOAT != 0) {
+            throw new IllegalArgumentException("Byte stream cannot be deserialized to array of floats");
+        }
+        readFloats(dest, bytesRef);
+    }
+
+    private void readFloats(float[] floats, BytesRef bytesRef) {
+        int offset2 = 0;
+        for (int i = 0; i < floats.length; i++) {
+            floats[i] = Float.intBitsToFloat(readInt(bytesRef, offset2));
+            offset2 += 4;
+        }
+    }
+
+    private int readInt(BytesRef bytesRef, int offset) {
+        final byte b1 = bytesRef.bytes[bytesRef.offset + offset];
+        final byte b2 = bytesRef.bytes[bytesRef.offset + offset + 1];
+        final byte b3 = bytesRef.bytes[bytesRef.offset + offset + 2];
+        final byte b4 = bytesRef.bytes[bytesRef.offset + offset + 3];
+        // return ((b4 & 0xFF) << 24) | ((b3 & 0xFF) << 16) | ((b2 & 0xFF) << 8) | (b1 & 0xFF);
+        return ((b1 & 0xFF) << 24) | ((b2 & 0xFF) << 16) | ((b3 & 0xFF) << 8) | (b4 & 0xFF);
+    }
 }
