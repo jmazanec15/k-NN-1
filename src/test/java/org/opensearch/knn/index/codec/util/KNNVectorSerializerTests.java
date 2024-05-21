@@ -114,35 +114,6 @@ public class KNNVectorSerializerTests extends KNNTestCase {
         assertArrayEquals(vector, actualDeserializedVector, 0.1f);
     }
 
-    public void testVectorAsCollectionOfFloatsSerializerPassFloatArr() throws Exception {
-        // setup
-        final float[] vector = getArrayOfRandomFloats(768);
-
-        final ByteArrayOutputStream bas = new ByteArrayOutputStream();
-        final DataOutputStream ds = new DataOutputStream(bas);
-        for (float f : vector)
-            ds.writeFloat(f);
-        final byte[] vectorAsCollectionOfFloats = bas.toByteArray();
-        BytesRef bytesRef = new BytesRef(vectorAsCollectionOfFloats);
-
-        final KNNVectorSerializer vectorSerializer = KNNVectorSerializerFactory.getSerializerBySerializationMode(
-            KNNVectorSerializerFactory.serializerModeByteRef(bytesRef)
-        );
-
-        // testing serialization
-        final byte[] actualSerializedVector = vectorSerializer.floatToByteArray(vector);
-
-        assertNotNull(actualSerializedVector);
-        assertArrayEquals(vectorAsCollectionOfFloats, actualSerializedVector);
-
-        // testing deserialization
-        final float[] actualDeserializedVector = new float[768];
-        vectorSerializer.byteToFloatArray(bytesRef, actualDeserializedVector);
-
-        assertNotNull(actualDeserializedVector);
-        assertArrayEquals(vector, actualDeserializedVector, 0.1f);
-    }
-
     private float[] getArrayOfRandomFloats(int arrayLength) {
         float[] vector = new float[arrayLength];
         IntStream.range(0, arrayLength).forEach(index -> vector[index] = random.nextFloat());

@@ -24,11 +24,4 @@ public interface KNNVectorSerializer {
      * @return array of floats deserialized from the stream
      */
     float[] byteToFloatArray(BytesRef bytesRef);
-
-    /**
-     * Deserializes all bytes from the stream to array of floats
-     *
-     * @param bytesRef bytes that will be used for deserialization to array of floats
-     */
-    void byteToFloatArray(BytesRef bytesRef, float[] dest);
 }
