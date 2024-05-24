@@ -143,20 +143,12 @@ public class KNNScoringUtil {
      */
     public static float cosinesimil(float[] queryVector, float[] inputVector) {
         requireEqualDimension(queryVector, inputVector);
-        float dotProduct = 0.0f;
-        float normQueryVector = 0.0f;
-        float normInputVector = 0.0f;
-        for (int i = 0; i < queryVector.length; i++) {
-            dotProduct += queryVector[i] * inputVector[i];
-            normQueryVector += queryVector[i] * queryVector[i];
-            normInputVector += inputVector[i] * inputVector[i];
-        }
-        float normalizedProduct = normQueryVector * normInputVector;
-        if (normalizedProduct == 0) {
+        try {
+            return VectorUtil.cosine(queryVector, inputVector);
+        } catch (IllegalArgumentException | AssertionError e) {
             logger.debug("Invalid vectors for cosine. Returning minimum score to put this result to end");
             return 0.0f;
         }
-        return (float) (dotProduct / (Math.sqrt(normalizedProduct)));
     }
 
     /**
@@ -212,7 +204,6 @@ public class KNNScoringUtil {
      * @return L1 score
      */
     public static float l1Norm(float[] queryVector, float[] inputVector) {
-        requireEqualDimension(queryVector, inputVector);
         float distance = 0;
         for (int i = 0; i < inputVector.length; i++) {
             float diff = queryVector[i] - inputVector[i];
@@ -250,7 +241,6 @@ public class KNNScoringUtil {
      * @return L-inf score
      */
     public static float lInfNorm(float[] queryVector, float[] inputVector) {
-        requireEqualDimension(queryVector, inputVector);
         float distance = 0;
         for (int i = 0; i < inputVector.length; i++) {
             float diff = queryVector[i] - inputVector[i];
