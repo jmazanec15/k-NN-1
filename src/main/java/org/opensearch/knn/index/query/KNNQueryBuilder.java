@@ -22,6 +22,8 @@ import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.VectorQueryType;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
+import org.opensearch.knn.index.query.refine.RefineContext;
+import org.opensearch.knn.index.query.refine.RefineQuery;
 import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
@@ -48,6 +50,10 @@ import static org.opensearch.knn.index.util.KNNEngine.ENGINES_SUPPORTING_RADIAL_
  */
 @Log4j2
 public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
+    // TODO: Obviously fix
+    public static final boolean RESCORE_FLAG = true;
+    public static final float MAGIC_RESCORE_SCORE = 1.65f;
+
     private static ModelDao modelDao;
 
     public static final ParseField VECTOR_FIELD = new ParseField("vector");
@@ -484,6 +490,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
 
         String indexName = context.index().getName();
 
+        Query query;
         if (k != 0) {
             KNNQueryFactory.CreateQueryRequest createQueryRequest = KNNQueryFactory.CreateQueryRequest.builder()
                 .knnEngine(knnEngine)
@@ -496,9 +503,8 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
                 .filter(this.filter)
                 .context(context)
                 .build();
-            return KNNQueryFactory.create(createQueryRequest);
-        }
-        if (radius != null) {
+            query = KNNQueryFactory.create(createQueryRequest);
+        } else if (radius != null) {
             if (!ENGINES_SUPPORTING_RADIAL_SEARCH.contains(knnEngine)) {
                 throw new UnsupportedOperationException(String.format("Engine [%s] does not support radial search", knnEngine));
             }
@@ -513,9 +519,20 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
                 .filter(this.filter)
                 .context(context)
                 .build();
-            return RNNQueryFactory.create(createQueryRequest);
+            query = RNNQueryFactory.create(createQueryRequest);
+        } else {
+            throw new IllegalArgumentException(String.format("[%s] requires k or distance or score to be set", NAME));
         }
-        throw new IllegalArgumentException(String.format("[%s] requires k or distance or score to be set", NAME));
+
+        if (RESCORE_FLAG) {
+            RefineContext refineContext = RefineContext.builder()
+                    .indexFieldData(context.getForField(mappedFieldType))
+                    // TODO: We need to generalize this
+                    .refiner((b) -> MAGIC_RESCORE_SCORE)
+                    .build();
+            query = new RefineQuery(query, refineContext);
+        }
+        return query;
     }
 
     private ModelMetadata getModelMetadataForField(KNNVectorFieldMapper.KNNVectorFieldType knnVectorField) {
