@@ -19,7 +19,7 @@ import org.opensearch.index.fielddata.IndexFieldData;
 @Getter
 public class RefineContext {
     private final IndexFieldData<?> indexFieldData;
-    private final Refiner refiner;
+    private final Scorer<float[]> scorer;
 
     /**
      * Refine score using index vector
@@ -28,6 +28,6 @@ public class RefineContext {
      * @return new, higher precision score
      */
     public float refine(float[] indexVector) {
-        return refiner.score(indexVector);
+        return scorer.score(indexVector);
     }
 }

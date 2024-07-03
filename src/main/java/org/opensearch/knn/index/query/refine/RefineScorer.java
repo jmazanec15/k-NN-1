@@ -34,7 +34,12 @@ public class RefineScorer extends Scorer {
      * @param refineContext context for refinement logic
      * @param knnVectorScriptDocValues script doc values for KNN vector
      */
-    protected RefineScorer(Weight weight, Scorer subQueryScorer, RefineContext refineContext, KNNVectorScriptDocValues knnVectorScriptDocValues) {
+    protected RefineScorer(
+        Weight weight,
+        Scorer subQueryScorer,
+        RefineContext refineContext,
+        KNNVectorScriptDocValues knnVectorScriptDocValues
+    ) {
         super(weight);
         this.subQueryScorer = subQueryScorer;
         this.refineContext = refineContext;

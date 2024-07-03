@@ -18,10 +18,12 @@ import org.opensearch.index.mapper.NumberFieldMapper;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNMethodContext;
+import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.VectorQueryType;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
+import org.opensearch.knn.index.query.refine.AbstractScorer;
 import org.opensearch.knn.index.query.refine.RefineContext;
 import org.opensearch.knn.index.query.refine.RefineQuery;
 import org.opensearch.knn.index.util.KNNEngine;
@@ -50,10 +52,6 @@ import static org.opensearch.knn.index.util.KNNEngine.ENGINES_SUPPORTING_RADIAL_
  */
 @Log4j2
 public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
-    // TODO: Obviously fix
-    public static final boolean RESCORE_FLAG = true;
-    public static final float MAGIC_RESCORE_SCORE = 1.65f;
-
     private static ModelDao modelDao;
 
     public static final ParseField VECTOR_FIELD = new ParseField("vector");
@@ -524,12 +522,11 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
             throw new IllegalArgumentException(String.format("[%s] requires k or distance or score to be set", NAME));
         }
 
-        if (RESCORE_FLAG) {
+        if (KNNSettings.state().getSettingValue(KNNSettings.KNN_RESCORE_ENABLED)) {
             RefineContext refineContext = RefineContext.builder()
-                    .indexFieldData(context.getForField(mappedFieldType))
-                    // TODO: We need to generalize this
-                    .refiner((b) -> MAGIC_RESCORE_SCORE)
-                    .build();
+                .indexFieldData(context.getForField(mappedFieldType))
+                .scorer(AbstractScorer.createScorer(spaceType, vector))
+                .build();
             query = new RefineQuery(query, refineContext);
         }
         return query;

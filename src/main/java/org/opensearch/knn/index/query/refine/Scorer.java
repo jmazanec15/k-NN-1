@@ -11,12 +11,12 @@
 
 package org.opensearch.knn.index.query.refine;
 
-public interface Refiner {
+public interface Scorer<T> {
     /**
-     * Refine the result.
+     * Create score for index vector.
      *
      * @param indexVector Index vector
      * @return Refined score between 2 vectors
      */
-    float score(float[] indexVector);
+    float score(T indexVector);
 }

@@ -10,6 +10,7 @@
  */
 
 package org.opensearch.knn.index.query.refine;
+
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import org.apache.lucene.search.BooleanClause;
