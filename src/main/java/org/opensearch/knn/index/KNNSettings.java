@@ -22,6 +22,7 @@ import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.common.unit.ByteSizeUnit;
 import org.opensearch.core.common.unit.ByteSizeValue;
 import org.opensearch.index.IndexModule;
+import org.opensearch.index.IndexSettings;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManagerDto;
 import org.opensearch.knn.index.util.IndexHyperParametersUtil;
@@ -90,6 +91,7 @@ public class KNNSettings {
     public static final String QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES = "knn.quantization.cache.expiry.minutes";
     public static final String KNN_FAISS_AVX512_DISABLED = "knn.faiss.avx512.disabled";
     public static final String KNN_DISK_VECTOR_SHARD_LEVEL_RESCORING_DISABLED = "index.knn.disk.vector.shard_level_rescoring_disabled";
+    public static final String KNN_SYNTHETIC_SOURCE_ENABLED = "index.knn.synthetic_source.enabled";
 
     /**
      * Default setting values
@@ -352,6 +354,13 @@ public class KNNSettings {
         NodeScope
     );
 
+    public static final Setting<Boolean> KNN_SYNTHETIC_SOURCE_ENABLED_SETTING = Setting.boolSetting(
+        KNN_SYNTHETIC_SOURCE_ENABLED,
+        false,
+        IndexScope,
+        Dynamic
+    );
+
     /**
      * Dynamic settings
      */
@@ -499,6 +508,10 @@ public class KNNSettings {
             return KNN_DISK_VECTOR_SHARD_LEVEL_RESCORING_DISABLED_SETTING;
         }
 
+        if (KNN_SYNTHETIC_SOURCE_ENABLED.equals(key)) {
+            return KNN_SYNTHETIC_SOURCE_ENABLED_SETTING;
+        }
+
         throw new IllegalArgumentException("Cannot find setting by key [" + key + "]");
     }
 
@@ -522,7 +535,8 @@ public class KNNSettings {
             KNN_FAISS_AVX512_DISABLED_SETTING,
             QUANTIZATION_STATE_CACHE_SIZE_LIMIT_SETTING,
             QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES_SETTING,
-            KNN_DISK_VECTOR_SHARD_LEVEL_RESCORING_DISABLED_SETTING
+            KNN_DISK_VECTOR_SHARD_LEVEL_RESCORING_DISABLED_SETTING,
+            KNN_SYNTHETIC_SOURCE_ENABLED_SETTING
         );
         return Stream.concat(settings.stream(), Stream.concat(getFeatureFlags().stream(), dynamicCacheSettings.values().stream()))
             .collect(Collectors.toList());
@@ -581,6 +595,14 @@ public class KNNSettings {
             .index(indexName)
             .getSettings()
             .getAsBoolean(KNN_DISK_VECTOR_SHARD_LEVEL_RESCORING_DISABLED, false);
+    }
+
+    /**
+     * check this index enabled/disabled synthetic source
+     * @param indexSettings settings
+     */
+    public static boolean isKNNSyntheticSourceEnabled(IndexSettings indexSettings) {
+        return indexSettings.getValue(KNN_SYNTHETIC_SOURCE_ENABLED_SETTING);
     }
 
     public void initialize(Client client, ClusterService clusterService) {
