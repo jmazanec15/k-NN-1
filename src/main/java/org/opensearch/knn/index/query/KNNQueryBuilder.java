@@ -9,7 +9,6 @@ import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
-import org.apache.commons.lang.StringUtils;
 import org.apache.lucene.search.MatchNoDocsQuery;
 import org.apache.lucene.search.Query;
 import org.opensearch.common.ValidationException;
@@ -23,30 +22,23 @@ import org.opensearch.index.query.AbstractQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryRewriteContext;
 import org.opensearch.index.query.QueryShardContext;
-import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.model.QueryContext;
-import org.opensearch.knn.index.mapper.KNNMappingConfig;
 import org.opensearch.knn.index.mapper.KNNVectorFieldType;
 import org.opensearch.knn.index.query.parser.RescoreParser;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
 import org.opensearch.knn.index.util.IndexUtil;
-import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.VectorQueryType;
 import org.opensearch.knn.index.query.parser.KNNQueryBuilderParser;
-import org.opensearch.knn.index.engine.KNNLibrarySearchContext;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.indices.ModelDao;
-import org.opensearch.knn.indices.ModelMetadata;
-import org.opensearch.knn.indices.ModelUtil;
 
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.atomic.AtomicReference;
 
 import static org.opensearch.knn.common.KNNConstants.MAX_DISTANCE;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER;
@@ -56,7 +48,6 @@ import static org.opensearch.knn.common.KNNConstants.MIN_SCORE;
 import static org.opensearch.knn.common.KNNValidationUtil.validateByteVectorValue;
 import static org.opensearch.knn.index.query.parser.MethodParametersParser.validateMethodParameters;
 import static org.opensearch.knn.index.engine.KNNEngine.ENGINES_SUPPORTING_RADIAL_SEARCH;
-import static org.opensearch.knn.index.engine.validation.ParameterValidator.validateParameters;
 import static org.opensearch.knn.index.query.parser.RescoreParser.RESCORE_OVERSAMPLE_PARAMETER;
 import static org.opensearch.knn.index.query.parser.RescoreParser.RESCORE_PARAMETER;
 
@@ -378,68 +369,24 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
             throw new IllegalArgumentException(String.format(Locale.ROOT, "Field '%s' is not knn_vector type.", this.fieldName));
         }
         KNNVectorFieldType knnVectorFieldType = (KNNVectorFieldType) mappedFieldType;
-        KNNMappingConfig knnMappingConfig = knnVectorFieldType.getKnnMappingConfig();
-        final AtomicReference<QueryConfigFromMapping> queryConfigFromMapping = new AtomicReference<>();
-        int fieldDimension = knnMappingConfig.getDimension();
-        knnMappingConfig.getKnnMethodContext()
-            .ifPresentOrElse(
-                knnMethodContext -> queryConfigFromMapping.set(
-                    new QueryConfigFromMapping(
-                        knnMethodContext.getKnnEngine(),
-                        knnMethodContext.getMethodComponentContext(),
-                        knnMethodContext.getSpaceType(),
-                        knnVectorFieldType.getVectorDataType()
-                    )
-                ),
-                () -> knnMappingConfig.getModelId().ifPresentOrElse(modelId -> {
-                    ModelMetadata modelMetadata = getModelMetadataForField(modelId);
-                    queryConfigFromMapping.set(
-                        new QueryConfigFromMapping(
-                            modelMetadata.getKnnEngine(),
-                            modelMetadata.getMethodComponentContext(),
-                            modelMetadata.getSpaceType(),
-                            modelMetadata.getVectorDataType()
-                        )
-                    );
-                },
-                    () -> {
-                        throw new IllegalArgumentException(
-                            String.format(Locale.ROOT, "Field '%s' is not built for ANN search.", this.fieldName)
-                        );
-                    }
-                )
-            );
-        KNNEngine knnEngine = queryConfigFromMapping.get().getKnnEngine();
-        MethodComponentContext methodComponentContext = queryConfigFromMapping.get().getMethodComponentContext();
-        SpaceType spaceType = queryConfigFromMapping.get().getSpaceType();
-        VectorDataType vectorDataType = queryConfigFromMapping.get().getVectorDataType();
+
+        if (knnVectorFieldType.isIndexedForAnn() == false) {
+            throw new IllegalArgumentException(String.format(Locale.ROOT, "Field '%s' is not setup for ANN search.", this.fieldName));
+        }
+
+        int fieldDimension = knnVectorFieldType.getDimension();
+        VectorDataType vectorDataType = knnVectorFieldType.getVectorDataType();
+        KNNEngine knnEngine = knnVectorFieldType.getKNNEngine();
+        SpaceType spaceType = knnVectorFieldType.getSpaceType();
 
         VectorQueryType vectorQueryType = getVectorQueryType(k, maxDistance, minScore);
         updateQueryStats(vectorQueryType);
-
-        // This could be null in the case of when a model did not have serialized methodComponent information
-        final String method = methodComponentContext != null ? methodComponentContext.getName() : null;
-        if (StringUtils.isNotBlank(method)) {
-            final KNNLibrarySearchContext engineSpecificMethodContext = knnEngine.getKNNLibrarySearchContext(method);
-            QueryContext queryContext = new QueryContext(vectorQueryType);
-            ValidationException validationException = validateParameters(
-                engineSpecificMethodContext.supportedMethodParameters(queryContext),
-                (Map<String, Object>) methodParameters,
-                KNNMethodConfigContext.EMPTY
-            );
-            if (validationException != null) {
-                throw new IllegalArgumentException(
-                    String.format(
-                        Locale.ROOT,
-                        "Parameters not valid for [%s]:[%s]:[%s] combination: [%s]",
-                        knnEngine,
-                        method,
-                        vectorQueryType.getQueryTypeName(),
-                        validationException.getMessage()
-                    )
-                );
-            }
-        }
+        QueryContext queryContext = new QueryContext(vectorQueryType);
+        Map<String, Object> processedMethodParameters = knnVectorFieldType.getProcessedQueryMethodParameters(
+            queryContext,
+            (Map<String, Object>) methodParameters
+        );
+        RescoreContext processedRescoreQueryContext = knnVectorFieldType.getProcessedRescoreQueryContext(queryContext, rescoreContext);
 
         if (this.maxDistance != null || this.minScore != null) {
             if (!ENGINES_SUPPORTING_RADIAL_SEARCH.contains(knnEngine)) {
@@ -529,10 +476,10 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
                 .byteVector(getVectorForCreatingQueryRequest(vectorDataType, knnEngine, byteVector))
                 .vectorDataType(vectorDataType)
                 .k(this.k)
-                .methodParameters(this.methodParameters)
+                .methodParameters(processedMethodParameters)
                 .filter(this.filter)
                 .context(context)
-                .rescoreContext(rescoreContext)
+                .rescoreContext(processedRescoreQueryContext)
                 .indexUuid(indexUuid)
                 .shardId(shardId)
                 .build();
@@ -547,7 +494,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
                 .byteVector(VectorDataType.BYTE == vectorDataType ? byteVector : null)
                 .vectorDataType(vectorDataType)
                 .radius(radius)
-                .methodParameters(this.methodParameters)
+                .methodParameters(processedMethodParameters)
                 .filter(this.filter)
                 .context(context)
                 .indexUuid(indexUuid)
@@ -556,14 +503,6 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
             return RNNQueryFactory.create(createQueryRequest);
         }
         throw new IllegalArgumentException(String.format(Locale.ROOT, "[%s] requires k or distance or score to be set", NAME));
-    }
-
-    private ModelMetadata getModelMetadataForField(String modelId) {
-        ModelMetadata modelMetadata = modelDao.getMetadata(modelId);
-        if (!ModelUtil.isModelCreated(modelMetadata)) {
-            throw new IllegalArgumentException(String.format(Locale.ROOT, "Model ID '%s' is not created.", modelId));
-        }
-        return modelMetadata;
     }
 
     /**
@@ -641,14 +580,5 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
             filter = filter.rewrite(queryShardContext);
         }
         return super.doRewrite(queryShardContext);
-    }
-
-    @Getter
-    @AllArgsConstructor
-    private static class QueryConfigFromMapping {
-        private final KNNEngine knnEngine;
-        private final MethodComponentContext methodComponentContext;
-        private final SpaceType spaceType;
-        private final VectorDataType vectorDataType;
     }
 }

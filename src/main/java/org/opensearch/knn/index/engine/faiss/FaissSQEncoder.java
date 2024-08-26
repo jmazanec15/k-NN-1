@@ -10,8 +10,8 @@ import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.Encoder;
 import org.opensearch.knn.index.engine.MethodComponent;
 import org.opensearch.knn.index.engine.Parameter;
+import org.opensearch.knn.index.engine.validation.ValidationUtil;
 
-import java.util.Objects;
 import java.util.Set;
 
 import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
@@ -20,6 +20,8 @@ import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_DESCRIPTION;
 import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_ENCODER_FP16;
 import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_ENCODER_TYPES;
 import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_TYPE;
+import static org.opensearch.knn.index.engine.faiss.FaissFP16Util.CLIP_TO_FP16_PROCESSOR;
+import static org.opensearch.knn.index.engine.faiss.FaissFP16Util.FP16_VALIDATOR;
 
 /**
  * Faiss SQ encoder
@@ -30,17 +32,48 @@ public class FaissSQEncoder implements Encoder {
 
     private final static MethodComponent METHOD_COMPONENT = MethodComponent.Builder.builder(ENCODER_SQ)
         .addSupportedDataTypes(SUPPORTED_DATA_TYPES)
-        .addParameter(
-            FAISS_SQ_TYPE,
-            new Parameter.StringParameter(FAISS_SQ_TYPE, FAISS_SQ_ENCODER_FP16, (v, context) -> FAISS_SQ_ENCODER_TYPES.contains(v))
-        )
-        .addParameter(FAISS_SQ_CLIP, new Parameter.BooleanParameter(FAISS_SQ_CLIP, false, (v, context) -> Objects.nonNull(v)))
-        .setKnnLibraryIndexingContextGenerator(
-            ((methodComponent, methodComponentContext, knnMethodConfigContext) -> MethodAsMapBuilder.builder(
-                FAISS_SQ_DESCRIPTION,
+        .addParameter(FAISS_SQ_TYPE, new Parameter.StringParameter(FAISS_SQ_TYPE, (v, context) -> {
+            String vResolved = v;
+            if (vResolved == null) {
+                vResolved = FAISS_SQ_ENCODER_FP16;
+            }
+            if (FAISS_SQ_ENCODER_FP16.equals(vResolved) == false && context.getPerDimensionProcessor() == CLIP_TO_FP16_PROCESSOR) {
+                return ValidationUtil.chainValidationErrors(null, "Clip only supported for FP16 encoder. IMPROVE");
+            }
+
+            if (FAISS_SQ_ENCODER_FP16.equals(vResolved)) {
+                context.setPerDimensionValidator(FP16_VALIDATOR);
+            }
+
+            context.getLibraryParameters().put(FAISS_SQ_TYPE, vResolved);
+            return null;
+        }, v -> {
+            if (FAISS_SQ_ENCODER_TYPES.contains(v)) {
+                return null;
+            }
+            return ValidationUtil.chainValidationErrors(null, "Invalid encoder type. IMPROVE");
+        }))
+        .addParameter(FAISS_SQ_CLIP, new Parameter.BooleanParameter(FAISS_SQ_CLIP, (v, context) -> {
+            Boolean vResolved = v;
+            if (vResolved == null) {
+                vResolved = false;
+            }
+            if (vResolved
+                && context.getLibraryParameters() != null
+                && context.getLibraryParameters().get(FAISS_SQ_TYPE) != FAISS_SQ_ENCODER_FP16) {
+                return ValidationUtil.chainValidationErrors(null, "Clip only supported for FP16 encoder. IMPROVE");
+            }
+            if (vResolved) {
+                context.setPerDimensionProcessor(CLIP_TO_FP16_PROCESSOR);
+            }
+            return null;
+        }, v -> null))
+        .setPostResolveProcessor(
+            ((methodComponent, contextMap, knnMethodConfigContext) -> IndexDescriptionPostResolveProcessor.builder(
+                "," + FAISS_SQ_DESCRIPTION,
                 methodComponent,
-                methodComponentContext,
-                knnMethodConfigContext
+                knnMethodConfigContext,
+                contextMap
             ).addParameter(FAISS_SQ_TYPE, "", "").build())
         )
         .build();

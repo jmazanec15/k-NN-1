@@ -9,6 +9,7 @@ import com.google.common.collect.ImmutableMap;
 import org.apache.lucene.util.Version;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.engine.JVMLibrary;
+import org.opensearch.knn.index.engine.KNNIndexContext;
 import org.opensearch.knn.index.engine.KNNMethod;
 
 import java.util.List;
@@ -85,5 +86,10 @@ public class Lucene extends JVMLibrary {
     @Override
     public List<String> mmapFileExtensions() {
         return List.of("vec", "vex");
+    }
+
+    @Override
+    protected String doResolveMethod(KNNIndexContext knnIndexContext) {
+        return METHOD_HNSW;
     }
 }

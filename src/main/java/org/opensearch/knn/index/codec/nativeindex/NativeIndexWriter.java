@@ -24,11 +24,13 @@ import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.KNNIndexContext;
 import org.opensearch.knn.index.quantizationService.QuantizationService;
 import org.opensearch.knn.index.util.IndexUtil;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 import org.opensearch.knn.indices.Model;
 import org.opensearch.knn.indices.ModelCache;
+import org.opensearch.knn.indices.ModelUtil;
 import org.opensearch.knn.plugin.stats.KNNGraphValue;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationState;
 
@@ -48,6 +50,7 @@ import static org.opensearch.knn.common.FieldInfoExtractor.extractKNNEngine;
 import static org.opensearch.knn.common.FieldInfoExtractor.extractVectorDataType;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
+import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 import static org.opensearch.knn.common.KNNVectorUtil.iterateVectorValuesOnce;
 import static org.opensearch.knn.index.codec.util.KNNCodecUtil.buildEngineFileName;
 import static org.opensearch.knn.index.engine.faiss.Faiss.FAISS_BINARY_INDEX_DESCRIPTION_PREFIX;
@@ -255,7 +258,18 @@ public class NativeIndexWriter {
         parameters.put(KNNConstants.INDEX_THREAD_QTY, KNNSettings.state().getSettingValue(KNNSettings.KNN_ALGO_PARAM_INDEX_THREAD_QTY));
         parameters.put(KNNConstants.MODEL_ID, fieldInfo.attributes().get(MODEL_ID));
         parameters.put(KNNConstants.MODEL_BLOB_PARAMETER, model.getModelBlob());
-        IndexUtil.updateVectorDataTypeToParameters(parameters, model.getModelMetadata().getVectorDataType());
+
+        // TODO: Is there any way we could avoid resolving it like this?
+        KNNIndexContext knnIndexContext = ModelUtil.getKnnMethodContextFromModelMetadata(model.getModelID(), model.getModelMetadata());
+        if (knnIndexContext != null && knnIndexContext.getLibraryParameters().containsKey(VECTOR_DATA_TYPE_FIELD)) {
+            IndexUtil.updateVectorDataTypeToParameters(
+                parameters,
+                VectorDataType.get((String) knnIndexContext.getLibraryParameters().get(VECTOR_DATA_TYPE_FIELD))
+            );
+        } else {
+            IndexUtil.updateVectorDataTypeToParameters(parameters, model.getModelMetadata().getVectorDataType());
+        }
+
         return parameters;
     }
 

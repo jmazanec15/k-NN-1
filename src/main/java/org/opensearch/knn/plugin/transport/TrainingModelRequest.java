@@ -21,7 +21,11 @@ import org.opensearch.common.ValidationException;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.knn.common.KNNConstants;
-import org.opensearch.knn.index.engine.KNNMethodConfigContext;
+import org.opensearch.knn.index.engine.KNNIndexContext;
+import org.opensearch.knn.index.engine.ResolvedRequiredParameters;
+import org.opensearch.knn.index.engine.UserProvidedParameters;
+import org.opensearch.knn.index.engine.config.CompressionConfig;
+import org.opensearch.knn.index.engine.config.WorkloadModeConfig;
 import org.opensearch.knn.index.util.IndexUtil;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.VectorDataType;
@@ -39,8 +43,6 @@ public class TrainingModelRequest extends ActionRequest {
     private static ModelDao modelDao;
 
     private final String modelId;
-    private final KNNMethodContext knnMethodContext;
-    private final KNNMethodConfigContext knnMethodConfigContext;
     private final int dimension;
     private final String trainingIndex;
     private final String trainingField;
@@ -50,6 +52,10 @@ public class TrainingModelRequest extends ActionRequest {
     private int maximumVectorCount;
     private int searchSize;
     private int trainingDataSizeInKB;
+    private final WorkloadModeConfig workloadModeConfig;
+    private final CompressionConfig compressionConfig;
+    private final KNNIndexContext knnIndexContext;
+    private final UserProvidedParameters userProvidedParameters;
 
     /**
      * Constructor.
@@ -70,17 +76,11 @@ public class TrainingModelRequest extends ActionRequest {
         String trainingField,
         String preferredNodeId,
         String description,
-        VectorDataType vectorDataType
+        VectorDataType vectorDataType,
+        String workloadModeConfig,
+        String compressionConfig
     ) {
         super();
-        this.modelId = modelId;
-        this.knnMethodContext = knnMethodContext;
-        this.dimension = dimension;
-        this.trainingIndex = trainingIndex;
-        this.trainingField = trainingField;
-        this.preferredNodeId = preferredNodeId;
-        this.description = description;
-        this.vectorDataType = vectorDataType;
 
         // Set these as defaults initially. If call wants to override them, they can use the setters.
         this.maximumVectorCount = Integer.MAX_VALUE; // By default, get all vectors in the index
@@ -89,11 +89,47 @@ public class TrainingModelRequest extends ActionRequest {
         // Training data size in kilobytes. By default, this is invalid (it cant have negative kb). It eventually gets
         // calculated in transit. A user cannot set this value directly.
         this.trainingDataSizeInKB = -1;
-        this.knnMethodConfigContext = KNNMethodConfigContext.builder()
-            .vectorDataType(vectorDataType)
-            .dimension(dimension)
-            .versionCreated(Version.CURRENT)
-            .build();
+
+        this.userProvidedParameters = generateUserProvidedParameters(
+            modelId,
+            knnMethodContext,
+            dimension,
+            vectorDataType,
+            workloadModeConfig,
+            compressionConfig
+        );
+        this.knnIndexContext = generateKNNIndexContext(userProvidedParameters);
+
+        this.modelId = modelId;
+        this.trainingIndex = trainingIndex;
+        this.trainingField = trainingField;
+        this.preferredNodeId = preferredNodeId;
+        this.description = description;
+
+        this.dimension = knnIndexContext.getDimension();
+        this.vectorDataType = knnIndexContext.getVectorDataType();
+        this.workloadModeConfig = knnIndexContext.getResolvedRequiredParameters().getMode();
+        this.compressionConfig = knnIndexContext.getResolvedRequiredParameters().getCompressionConfig();
+    }
+
+    private UserProvidedParameters generateUserProvidedParameters(
+        String modelId,
+        KNNMethodContext knnMethodContext,
+        int dimension,
+        VectorDataType vectorDataType,
+        String workloadModeConfig,
+        String compressionConfig
+    ) {
+        return new UserProvidedParameters(dimension, vectorDataType, modelId, workloadModeConfig, compressionConfig, knnMethodContext);
+    }
+
+    private KNNIndexContext generateKNNIndexContext(UserProvidedParameters userProvidedParameters) {
+        ResolvedRequiredParameters resolvedRequiredParameters = new ResolvedRequiredParameters(
+            userProvidedParameters,
+            null,
+            Version.CURRENT
+        );
+        return resolvedRequiredParameters.resolveKNNIndexContext(true);
     }
 
     /**
@@ -104,26 +140,68 @@ public class TrainingModelRequest extends ActionRequest {
      */
     public TrainingModelRequest(StreamInput in) throws IOException {
         super(in);
-        this.modelId = in.readOptionalString();
-        this.knnMethodContext = new KNNMethodContext(in);
+        String modelId = in.readOptionalString();
+        KNNMethodContext knnMethodContext = new KNNMethodContext(in);
         this.trainingIndex = in.readString();
         this.trainingField = in.readString();
         this.preferredNodeId = in.readOptionalString();
-        this.dimension = in.readInt();
+        int dimension = in.readInt();
         this.description = in.readOptionalString();
         this.maximumVectorCount = in.readInt();
         this.searchSize = in.readInt();
         this.trainingDataSizeInKB = in.readInt();
+        VectorDataType vectorDataType;
         if (IndexUtil.isVersionOnOrAfterMinRequiredVersion(in.getVersion(), KNNConstants.MODEL_VECTOR_DATA_TYPE_KEY)) {
-            this.vectorDataType = VectorDataType.get(in.readString());
+            vectorDataType = VectorDataType.get(in.readString());
         } else {
-            this.vectorDataType = VectorDataType.DEFAULT;
+            vectorDataType = VectorDataType.DEFAULT;
         }
-        this.knnMethodConfigContext = KNNMethodConfigContext.builder()
-            .vectorDataType(vectorDataType)
-            .dimension(dimension)
-            .versionCreated(in.getVersion())
-            .build();
+        String compressionConfig = null;
+        String workloadModeConfig = null;
+        if (IndexUtil.isVersionOnOrAfterMinRequiredVersion(in.getVersion(), KNNConstants.MINIMAL_MODE_AND_COMPRESSION_FEATURE)) {
+            compressionConfig = in.readOptionalString();
+            workloadModeConfig = in.readOptionalString();
+        }
+
+        this.userProvidedParameters = generateUserProvidedParameters(
+            modelId,
+            knnMethodContext,
+            dimension,
+            vectorDataType,
+            workloadModeConfig,
+            compressionConfig
+        );
+        this.knnIndexContext = generateKNNIndexContext(userProvidedParameters);
+
+        this.modelId = userProvidedParameters.getModelId();
+        this.dimension = knnIndexContext.getDimension();
+        this.vectorDataType = knnIndexContext.getVectorDataType();
+        this.workloadModeConfig = knnIndexContext.getResolvedRequiredParameters().getMode();
+        this.compressionConfig = knnIndexContext.getResolvedRequiredParameters().getCompressionConfig();
+    }
+
+    @Override
+    public void writeTo(StreamOutput out) throws IOException {
+        super.writeTo(out);
+        out.writeOptionalString(this.userProvidedParameters.getModelId());
+        this.userProvidedParameters.getKnnMethodContext().writeTo(out);
+        out.writeString(this.trainingIndex);
+        out.writeString(this.trainingField);
+        out.writeOptionalString(this.preferredNodeId);
+        out.writeInt(this.userProvidedParameters.getDimension());
+        out.writeOptionalString(this.description);
+        out.writeInt(this.maximumVectorCount);
+        out.writeInt(this.searchSize);
+        out.writeInt(this.trainingDataSizeInKB);
+        if (IndexUtil.isVersionOnOrAfterMinRequiredVersion(out.getVersion(), KNNConstants.MODEL_VECTOR_DATA_TYPE_KEY)) {
+            out.writeString(this.userProvidedParameters.getVectorDataType().getValue());
+        } else {
+            out.writeString(VectorDataType.DEFAULT.getValue());
+        }
+        if (IndexUtil.isVersionOnOrAfterMinRequiredVersion(out.getVersion(), KNNConstants.MINIMAL_MODE_AND_COMPRESSION_FEATURE)) {
+            out.writeOptionalString(this.userProvidedParameters.getCompressionLevel());
+            out.writeOptionalString(this.userProvidedParameters.getMode());
+        }
     }
 
     /**
@@ -204,21 +282,9 @@ public class TrainingModelRequest extends ActionRequest {
             return exception;
         }
 
-        // Confirm that the passed in knnMethodContext is valid and requires training
-        ValidationException validationException = this.knnMethodContext.validate(knnMethodConfigContext);
-        if (validationException != null) {
-            exception = new ActionRequestValidationException();
-            exception.addValidationErrors(validationException.validationErrors());
-        }
-
-        if (!this.knnMethodContext.isTrainingRequired()) {
-            exception = exception == null ? new ActionRequestValidationException() : exception;
-            exception.addValidationError("Method does not require training.");
-        }
-
         // Check if preferred node is real
         if (preferredNodeId != null && !clusterService.state().nodes().getDataNodes().containsKey(preferredNodeId)) {
-            exception = exception == null ? new ActionRequestValidationException() : exception;
+            exception = new ActionRequestValidationException();
             exception.addValidationError("Preferred node \"" + preferredNodeId + "\" does not exist");
         }
 
@@ -237,39 +303,12 @@ public class TrainingModelRequest extends ActionRequest {
         }
 
         // Validate the training field
-        ValidationException fieldValidation = IndexUtil.validateKnnField(
-            indexMetadata,
-            this.trainingField,
-            this.dimension,
-            modelDao,
-            vectorDataType,
-            knnMethodContext
-        );
+        ValidationException fieldValidation = IndexUtil.validateKnnField(indexMetadata, this.trainingField, this.dimension, modelDao);
         if (fieldValidation != null) {
             exception = exception == null ? new ActionRequestValidationException() : exception;
             exception.addValidationErrors(fieldValidation.validationErrors());
         }
 
         return exception;
-    }
-
-    @Override
-    public void writeTo(StreamOutput out) throws IOException {
-        super.writeTo(out);
-        out.writeOptionalString(this.modelId);
-        knnMethodContext.writeTo(out);
-        out.writeString(this.trainingIndex);
-        out.writeString(this.trainingField);
-        out.writeOptionalString(this.preferredNodeId);
-        out.writeInt(this.dimension);
-        out.writeOptionalString(this.description);
-        out.writeInt(this.maximumVectorCount);
-        out.writeInt(this.searchSize);
-        out.writeInt(this.trainingDataSizeInKB);
-        if (IndexUtil.isVersionOnOrAfterMinRequiredVersion(out.getVersion(), KNNConstants.MODEL_VECTOR_DATA_TYPE_KEY)) {
-            out.writeString(this.vectorDataType.getValue());
-        } else {
-            out.writeString(VectorDataType.DEFAULT.getValue());
-        }
     }
 }

@@ -16,8 +16,6 @@ import org.opensearch.knn.index.codec.KNN990Codec.NativeEngines990KnnVectorsForm
 import org.opensearch.knn.index.codec.params.KNNScalarQuantizedVectorsFormatParams;
 import org.opensearch.knn.index.codec.params.KNNVectorsFormatParams;
 import org.opensearch.knn.index.engine.KNNEngine;
-import org.opensearch.knn.index.engine.KNNMethodContext;
-import org.opensearch.knn.index.mapper.KNNMappingConfig;
 import org.opensearch.knn.index.mapper.KNNVectorFieldType;
 
 import java.util.Map;
@@ -78,14 +76,21 @@ public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFor
             )
         ).fieldType(field);
 
-        KNNMappingConfig knnMappingConfig = mappedFieldType.getKnnMappingConfig();
-        KNNMethodContext knnMethodContext = knnMappingConfig.getKnnMethodContext()
-            .orElseThrow(() -> new IllegalArgumentException("KNN method context cannot be empty"));
+        if (mappedFieldType.getModelId().isPresent()) {
+            return getFormatForModelBasedIndices();
+        }
+        if (mappedFieldType.getKNNEngine() == null) {
+            throw new IllegalStateException("Method config context cannot be empty");
+        }
+        return getFormatForMethodBasedIndices(mappedFieldType.getKNNEngine(), mappedFieldType.getLibraryParameters(), field);
+    }
 
-        final KNNEngine engine = knnMethodContext.getKnnEngine();
-        final Map<String, Object> params = knnMethodContext.getMethodComponentContext().getParameters();
+    private KnnVectorsFormat getFormatForModelBasedIndices() {
+        return new NativeEngines990KnnVectorsFormat(new Lucene99FlatVectorsFormat(FlatVectorScorerUtil.getLucene99FlatVectorsScorer()));
+    }
 
-        if (engine == KNNEngine.LUCENE) {
+    private KnnVectorsFormat getFormatForMethodBasedIndices(KNNEngine knnEngine, Map<String, Object> params, String field) {
+        if (knnEngine == KNNEngine.LUCENE) {
             if (params != null && params.containsKey(METHOD_ENCODER_PARAMETER)) {
                 KNNScalarQuantizedVectorsFormatParams knnScalarQuantizedVectorsFormatParams = new KNNScalarQuantizedVectorsFormatParams(
                     params,

@@ -10,6 +10,7 @@ import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.Encoder;
 import org.opensearch.knn.index.engine.MethodComponent;
 import org.opensearch.knn.index.engine.Parameter;
+import org.opensearch.knn.index.engine.validation.ValidationUtil;
 
 import java.util.List;
 import java.util.Set;
@@ -31,18 +32,32 @@ public class LuceneSQEncoder implements Encoder {
     private final static List<Integer> LUCENE_SQ_BITS_SUPPORTED = List.of(7);
     private final static MethodComponent METHOD_COMPONENT = MethodComponent.Builder.builder(ENCODER_SQ)
         .addSupportedDataTypes(SUPPORTED_DATA_TYPES)
-        .addParameter(
-            LUCENE_SQ_CONFIDENCE_INTERVAL,
-            new Parameter.DoubleParameter(
-                LUCENE_SQ_CONFIDENCE_INTERVAL,
-                null,
-                (v, context) -> v == DYNAMIC_CONFIDENCE_INTERVAL || (v >= MINIMUM_CONFIDENCE_INTERVAL && v <= MAXIMUM_CONFIDENCE_INTERVAL)
-            )
-        )
-        .addParameter(
-            LUCENE_SQ_BITS,
-            new Parameter.IntegerParameter(LUCENE_SQ_BITS, LUCENE_SQ_DEFAULT_BITS, (v, context) -> LUCENE_SQ_BITS_SUPPORTED.contains(v))
-        )
+        .addParameter(LUCENE_SQ_CONFIDENCE_INTERVAL, new Parameter.DoubleParameter(LUCENE_SQ_CONFIDENCE_INTERVAL, (v, context) -> {
+            Double vResolved = v;
+            if (vResolved == null) {
+                vResolved = (double) DYNAMIC_CONFIDENCE_INTERVAL;
+            }
+            context.getLibraryParameters().put(LUCENE_SQ_CONFIDENCE_INTERVAL, vResolved);
+            return null;
+        }, v -> {
+            if (v == DYNAMIC_CONFIDENCE_INTERVAL || (v >= MINIMUM_CONFIDENCE_INTERVAL && v <= MAXIMUM_CONFIDENCE_INTERVAL)) {
+                return null;
+            }
+            return ValidationUtil.chainValidationErrors(null, "Invalid confidence interval. IMPROVE");
+        }))
+        .addParameter(LUCENE_SQ_BITS, new Parameter.IntegerParameter(LUCENE_SQ_BITS, (v, context) -> {
+            Integer vResolved = v;
+            if (vResolved == null) {
+                vResolved = LUCENE_SQ_DEFAULT_BITS;
+            }
+            context.getLibraryParameters().put(LUCENE_SQ_BITS, vResolved);
+            return null;
+        }, v -> {
+            if (LUCENE_SQ_BITS_SUPPORTED.contains(v)) {
+                return null;
+            }
+            return ValidationUtil.chainValidationErrors(null, "Invalid confidence interval. IMPROVE");
+        }))
         .build();
 
     @Override

@@ -12,11 +12,8 @@
 package org.opensearch.knn.plugin.stats.suppliers;
 
 import org.opensearch.common.ValidationException;
-import org.opensearch.knn.index.engine.KNNLibraryIndexingContext;
-import org.opensearch.knn.index.engine.KNNLibrarySearchContext;
-import org.opensearch.knn.index.engine.KNNMethodConfigContext;
-import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.engine.KNNIndexContext;
 import org.opensearch.knn.index.engine.KNNLibrary;
 import org.opensearch.test.OpenSearchTestCase;
 
@@ -54,11 +51,6 @@ public class LibraryInitializedSupplierTests extends OpenSearchTestCase {
         }
 
         @Override
-        public KNNLibrarySearchContext getKNNLibrarySearchContext(String methodName) {
-            return null;
-        }
-
-        @Override
         public float score(float rawScore, SpaceType spaceType) {
             return 0;
         }
@@ -74,27 +66,24 @@ public class LibraryInitializedSupplierTests extends OpenSearchTestCase {
         }
 
         @Override
-        public ValidationException validateMethod(KNNMethodContext knnMethodContext, KNNMethodConfigContext knnMethodConfigContext) {
+        public ValidationException resolveKNNIndexContext(KNNIndexContext knnIndexContext, boolean shouldTrain) {
             return null;
         }
-
-        @Override
-        public boolean isTrainingRequired(KNNMethodContext knnMethodContext) {
-            return false;
-        }
-
-        @Override
-        public int estimateOverheadInKB(KNNMethodContext knnMethodContext, KNNMethodConfigContext knnMethodConfigContext) {
-            return 0;
-        }
-
-        @Override
-        public KNNLibraryIndexingContext getKNNLibraryIndexingContext(
-            KNNMethodContext knnMethodContext,
-            KNNMethodConfigContext knnMethodConfigContext
-        ) {
-            return null;
-        }
+        //
+        // @Override
+        // public ValidationException validateMethod(KNNMethodConfigContext knnMethodConfigContext) {
+        // return null;
+        // }
+        //
+        // @Override
+        // public boolean isTrainingRequired(KNNMethodConfigContext knnMethodConfigContext) {
+        // return false;
+        // }
+        //
+        // @Override
+        // public KNNLibraryIndexingContext getKNNLibraryIndexingContext(KNNMethodConfigContext knnMethodConfigContext) {
+        // return null;
+        // }
 
         @Override
         public Boolean isInitialized() {

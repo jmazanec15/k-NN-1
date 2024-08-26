@@ -8,7 +8,6 @@ package org.opensearch.knn.index.mapper;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -22,9 +21,9 @@ import org.opensearch.common.Explicit;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.VectorField;
 import org.opensearch.knn.index.engine.KNNEngine;
-import org.opensearch.knn.index.engine.KNNLibraryIndexingContext;
-import org.opensearch.knn.index.engine.KNNMethodConfigContext;
+import org.opensearch.knn.index.engine.KNNIndexContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
+import org.opensearch.knn.index.engine.UserProvidedParameters;
 
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.createStoredFieldForByteVector;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.createStoredFieldForFloatVector;
@@ -45,34 +44,31 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
     static LuceneFieldMapper createFieldMapper(
         String fullname,
         Map<String, String> metaValue,
-        KNNMethodContext knnMethodContext,
-        KNNMethodConfigContext knnMethodConfigContext,
+        KNNIndexContext knnIndexContext,
+        UserProvidedParameters originalParameters,
         CreateLuceneFieldMapperInput createLuceneFieldMapperInput
     ) {
         final KNNVectorFieldType mappedFieldType = new KNNVectorFieldType(
             fullname,
             metaValue,
-            knnMethodConfigContext.getVectorDataType(),
-            new KNNMappingConfig() {
-                @Override
-                public Optional<KNNMethodContext> getKnnMethodContext() {
-                    return Optional.of(knnMethodContext);
-                }
-
-                @Override
-                public int getDimension() {
-                    return knnMethodConfigContext.getDimension();
-                }
-            }
+            () -> KNNVectorFieldType.KNNVectorFieldTypeConfig.builder()
+                .dimension(knnIndexContext.getDimension())
+                .vectorDataType(knnIndexContext.getVectorDataType())
+                .knnIndexContext(knnIndexContext)
+                .spaceType(knnIndexContext.getSpaceType())
+                .knnEngine(knnIndexContext.getKNNEngine())
+                .build(),
+            null
         );
 
-        return new LuceneFieldMapper(mappedFieldType, createLuceneFieldMapperInput, knnMethodConfigContext);
+        return new LuceneFieldMapper(mappedFieldType, createLuceneFieldMapperInput, knnIndexContext, originalParameters);
     }
 
     private LuceneFieldMapper(
         final KNNVectorFieldType mappedFieldType,
         final CreateLuceneFieldMapperInput input,
-        KNNMethodConfigContext knnMethodConfigContext
+        KNNIndexContext knnIndexContext,
+        UserProvidedParameters originalParameters
     ) {
         super(
             input.getName(),
@@ -82,31 +78,27 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
             input.getIgnoreMalformed(),
             input.isStored(),
             input.isHasDocValues(),
-            knnMethodConfigContext.getVersionCreated(),
-            mappedFieldType.knnMappingConfig.getKnnMethodContext().orElse(null)
+            knnIndexContext.getCreatedVersion(),
+            originalParameters
         );
-        KNNMappingConfig knnMappingConfig = mappedFieldType.getKnnMappingConfig();
-        KNNMethodContext knnMethodContext = knnMappingConfig.getKnnMethodContext()
-            .orElseThrow(() -> new IllegalArgumentException("KNN method context is missing"));
-        VectorDataType vectorDataType = mappedFieldType.getVectorDataType();
+        VectorDataType vectorDataType = knnIndexContext.getVectorDataType();
 
-        final VectorSimilarityFunction vectorSimilarityFunction = knnMethodContext.getSpaceType()
+        final VectorSimilarityFunction vectorSimilarityFunction = knnIndexContext.getSpaceType()
             .getKnnVectorSimilarityFunction()
             .getVectorSimilarityFunction();
 
-        this.fieldType = vectorDataType.createKnnVectorFieldType(knnMappingConfig.getDimension(), vectorSimilarityFunction);
+        this.fieldType = vectorDataType.createKnnVectorFieldType(knnIndexContext.getDimension(), vectorSimilarityFunction);
 
+        KNNEngine knnEngine = knnIndexContext.getKNNEngine();
         if (this.hasDocValues) {
-            this.vectorFieldType = buildDocValuesFieldType(knnMethodContext.getKnnEngine());
+            this.vectorFieldType = buildDocValuesFieldType(knnEngine);
         } else {
             this.vectorFieldType = null;
         }
 
-        KNNLibraryIndexingContext knnLibraryIndexingContext = knnMethodContext.getKnnEngine()
-            .getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext);
-        this.perDimensionProcessor = knnLibraryIndexingContext.getPerDimensionProcessor();
-        this.perDimensionValidator = knnLibraryIndexingContext.getPerDimensionValidator();
-        this.vectorValidator = knnLibraryIndexingContext.getVectorValidator();
+        this.perDimensionProcessor = knnIndexContext.getPerDimensionProcessor();
+        this.perDimensionValidator = knnIndexContext.getPerDimensionValidator();
+        this.vectorValidator = knnIndexContext.getVectorValidator();
     }
 
     @Override

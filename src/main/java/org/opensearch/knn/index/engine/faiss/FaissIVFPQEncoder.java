@@ -6,11 +6,13 @@
 package org.opensearch.knn.index.engine.faiss;
 
 import com.google.common.collect.ImmutableSet;
+import org.opensearch.common.ValidationException;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.Encoder;
 import org.opensearch.knn.index.engine.MethodComponent;
 import org.opensearch.knn.index.engine.Parameter;
+import org.opensearch.knn.index.engine.validation.ValidationUtil;
 
 import java.util.Set;
 
@@ -33,56 +35,55 @@ public class FaissIVFPQEncoder implements Encoder {
 
     private final static MethodComponent METHOD_COMPONENT = MethodComponent.Builder.builder(KNNConstants.ENCODER_PQ)
         .addSupportedDataTypes(SUPPORTED_DATA_TYPES)
-        .addParameter(
-            ENCODER_PARAMETER_PQ_M,
-            new Parameter.IntegerParameter(ENCODER_PARAMETER_PQ_M, ENCODER_PARAMETER_PQ_CODE_COUNT_DEFAULT, (v, context) -> {
-                boolean isValueGreaterThan0 = v > 0;
-                boolean isValueLessThanCodeCountLimit = v < ENCODER_PARAMETER_PQ_CODE_COUNT_LIMIT;
-                boolean isDimensionDivisibleByValue = context.getDimension() % v == 0;
-                return isValueGreaterThan0 && isValueLessThanCodeCountLimit && isDimensionDivisibleByValue;
-            })
-        )
-        .addParameter(
-            ENCODER_PARAMETER_PQ_CODE_SIZE,
-            new Parameter.IntegerParameter(ENCODER_PARAMETER_PQ_CODE_SIZE, ENCODER_PARAMETER_PQ_CODE_SIZE_DEFAULT, (v, context) -> {
-                boolean isValueGreaterThan0 = v > 0;
-                boolean isValueLessThanCodeSizeLimit = v < ENCODER_PARAMETER_PQ_CODE_SIZE_LIMIT;
-                return isValueGreaterThan0 && isValueLessThanCodeSizeLimit;
-            })
-        )
+        .addParameter(ENCODER_PARAMETER_PQ_M, new Parameter.IntegerParameter(ENCODER_PARAMETER_PQ_M, (v, context) -> {
+            Integer vResolved = v;
+            if (vResolved == null) {
+                vResolved = ENCODER_PARAMETER_PQ_CODE_COUNT_DEFAULT;
+            }
+
+            ValidationException validationException = ValidationUtil.chainValidationErrors(
+                null,
+                context.getDimension() % vResolved == 0 ? "vvdf" : null
+            );
+            if (validationException != null) {
+                return validationException;
+            }
+
+            context.getLibraryParameters().put(ENCODER_PARAMETER_PQ_M, vResolved);
+            return null;
+        }, v -> {
+            boolean isValueGreaterThan0 = v > 0;
+            boolean isValueLessThanCodeCountLimit = v < ENCODER_PARAMETER_PQ_CODE_COUNT_LIMIT;
+            return ValidationUtil.chainValidationErrors(null, isValueGreaterThan0 && isValueLessThanCodeCountLimit ? "vvdf" : null);
+        }))
+        .addParameter(ENCODER_PARAMETER_PQ_CODE_SIZE, new Parameter.IntegerParameter(ENCODER_PARAMETER_PQ_CODE_SIZE, (v, context) -> {
+            Integer vResolved = v;
+            if (vResolved == null) {
+                vResolved = ENCODER_PARAMETER_PQ_CODE_SIZE_DEFAULT;
+            }
+            context.getLibraryParameters().put(ENCODER_PARAMETER_PQ_CODE_SIZE, vResolved);
+            return null;
+        }, v -> {
+            if (v == null) {
+                return null;
+            }
+            boolean isValueGreaterThan0 = v > 0;
+            boolean isValueLessThanCodeSizeLimit = v < ENCODER_PARAMETER_PQ_CODE_SIZE_LIMIT;
+            return ValidationUtil.chainValidationErrors(null, isValueGreaterThan0 && isValueLessThanCodeSizeLimit ? "vvdf" : null);
+        }))
         .setRequiresTraining(true)
-        .setKnnLibraryIndexingContextGenerator(
-            ((methodComponent, methodComponentContext, knnMethodConfigContext) -> MethodAsMapBuilder.builder(
-                FAISS_PQ_DESCRIPTION,
+        .setPostResolveProcessor(
+            ((methodComponent, contextParamMap, knnIndexContext) -> IndexDescriptionPostResolveProcessor.builder(
+                "," + FAISS_PQ_DESCRIPTION,
                 methodComponent,
-                methodComponentContext,
-                knnMethodConfigContext
+                knnIndexContext,
+                contextParamMap
             ).addParameter(ENCODER_PARAMETER_PQ_M, "", "").addParameter(ENCODER_PARAMETER_PQ_CODE_SIZE, "x", "").build())
         )
-        .setOverheadInKBEstimator((methodComponent, methodComponentContext, dimension) -> {
+        .setOverheadInKBEstimator((methodComponent, methodComponentContext, knnIndexContext) -> {
             // Size estimate formula: (4 * d * 2^code_size) / 1024 + 1
-
-            // Get value of code size passed in by user
-            Object codeSizeObject = methodComponentContext.getParameters().get(ENCODER_PARAMETER_PQ_CODE_SIZE);
-
-            // If not specified, get default value of code size
-            if (codeSizeObject == null) {
-                Parameter<?> codeSizeParameter = methodComponent.getParameters().get(ENCODER_PARAMETER_PQ_CODE_SIZE);
-                if (codeSizeParameter == null) {
-                    throw new IllegalStateException(
-                        String.format("%s  is not a valid parameter. This is a bug.", ENCODER_PARAMETER_PQ_CODE_SIZE)
-                    );
-                }
-
-                codeSizeObject = codeSizeParameter.getDefaultValue();
-            }
-
-            if (!(codeSizeObject instanceof Integer)) {
-                throw new IllegalStateException(String.format("%s must be an integer.", ENCODER_PARAMETER_PQ_CODE_SIZE));
-            }
-
-            int codeSize = (Integer) codeSizeObject;
-            return ((4L * (1L << codeSize) * dimension) / BYTES_PER_KILOBYTES) + 1;
+            int codeSizeObject = (int) knnIndexContext.getLibraryParameters().get(ENCODER_PARAMETER_PQ_CODE_SIZE);
+            return Math.toIntExact(((4L * (1L << codeSizeObject) * knnIndexContext.getDimension()) / BYTES_PER_KILOBYTES) + 1);
         })
         .build();
 

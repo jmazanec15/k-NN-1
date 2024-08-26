@@ -11,13 +11,12 @@
 
 package org.opensearch.knn.plugin.transport;
 
-import org.opensearch.Version;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
-import org.opensearch.knn.index.engine.KNNMethodConfigContext;
+import org.opensearch.knn.index.engine.KNNIndexContext;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.memory.NativeMemoryEntryContext;
 import org.opensearch.knn.index.memory.NativeMemoryLoadStrategy;
@@ -58,25 +57,19 @@ public class TrainingModelTransportAction extends HandledTransportAction<Trainin
         );
 
         // Allocation representing size model will occupy in memory during training
+        KNNIndexContext knnIndexContext = request.getKnnIndexContext();
+
         NativeMemoryEntryContext.AnonymousEntryContext modelAnonymousEntryContext = new NativeMemoryEntryContext.AnonymousEntryContext(
-            request.getKnnMethodContext()
-                .estimateOverheadInKB(
-                    KNNMethodConfigContext.builder()
-                        .dimension(request.getDimension())
-                        .vectorDataType(request.getVectorDataType())
-                        .versionCreated(Version.CURRENT)
-                        .build()
-                ),
+            knnIndexContext.getEstimatedIndexOverhead(),
             NativeMemoryLoadStrategy.AnonymousLoadStrategy.getInstance()
         );
 
         TrainingJob trainingJob = new TrainingJob(
             request.getModelId(),
-            request.getKnnMethodContext(),
             NativeMemoryCacheManager.getInstance(),
             trainingDataEntryContext,
             modelAnonymousEntryContext,
-            request.getKnnMethodConfigContext(),
+            knnIndexContext,
             request.getDescription(),
             clusterService.localNode().getEphemeralId()
         );

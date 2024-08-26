@@ -160,31 +160,8 @@ public enum KNNEngine implements KNNLibrary {
     }
 
     @Override
-    public ValidationException validateMethod(KNNMethodContext knnMethodContext, KNNMethodConfigContext knnMethodConfigContext) {
-        return knnLibrary.validateMethod(knnMethodContext, knnMethodConfigContext);
-    }
-
-    @Override
-    public boolean isTrainingRequired(KNNMethodContext knnMethodContext) {
-        return knnLibrary.isTrainingRequired(knnMethodContext);
-    }
-
-    @Override
-    public KNNLibraryIndexingContext getKNNLibraryIndexingContext(
-        KNNMethodContext knnMethodContext,
-        KNNMethodConfigContext knnMethodConfigContext
-    ) {
-        return knnLibrary.getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext);
-    }
-
-    @Override
-    public KNNLibrarySearchContext getKNNLibrarySearchContext(String methodName) {
-        return knnLibrary.getKNNLibrarySearchContext(methodName);
-    }
-
-    @Override
-    public int estimateOverheadInKB(KNNMethodContext knnMethodContext, KNNMethodConfigContext knnMethodConfigContext) {
-        return knnLibrary.estimateOverheadInKB(knnMethodContext, knnMethodConfigContext);
+    public ValidationException resolveKNNIndexContext(KNNIndexContext knnIndexContext, boolean shouldTrain) {
+        return knnLibrary.resolveKNNIndexContext(knnIndexContext, shouldTrain);
     }
 
     @Override

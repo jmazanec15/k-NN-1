@@ -7,6 +7,7 @@ package org.opensearch.knn.index.engine.nmslib;
 
 import com.google.common.collect.ImmutableMap;
 import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.engine.KNNIndexContext;
 import org.opensearch.knn.index.engine.KNNMethod;
 import org.opensearch.knn.index.engine.NativeLibrary;
 
@@ -52,5 +53,10 @@ public class Nmslib extends NativeLibrary {
 
     public Float scoreToRadialThreshold(Float score, SpaceType spaceType) {
         return score;
+    }
+
+    @Override
+    protected String doResolveMethod(KNNIndexContext knnIndexContext) {
+        return METHOD_HNSW;
     }
 }

@@ -7,11 +7,12 @@ package org.opensearch.knn.index.engine;
 
 import lombok.Getter;
 import org.opensearch.common.ValidationException;
+import org.opensearch.knn.index.engine.validation.ValidationUtil;
 
 import java.util.Locale;
 import java.util.Map;
-import java.util.Objects;
 import java.util.function.BiFunction;
+import java.util.function.Function;
 
 /**
  * Parameter that can be set for a method component
@@ -19,23 +20,24 @@ import java.util.function.BiFunction;
  * @param <T> Type parameter takes
  */
 public abstract class Parameter<T> {
-
     @Getter
     private final String name;
-    @Getter
-    private final T defaultValue;
-    protected BiFunction<T, KNNMethodConfigContext, Boolean> validator;
+    protected final BiFunction<T, KNNIndexContext, ValidationException> resolver;
+    protected final Function<T, ValidationException> validator;
 
     /**
      * Constructor
      *
      * @param name of the parameter
-     * @param defaultValue of the parameter
-     * @param validator used to validate a parameter value passed
+     * @param resolver resolves the parameter
      */
-    public Parameter(String name, T defaultValue, BiFunction<T, KNNMethodConfigContext, Boolean> validator) {
+    public Parameter(
+        String name,
+        BiFunction<T, KNNIndexContext, ValidationException> resolver,
+        Function<T, ValidationException> validator
+    ) {
         this.name = name;
-        this.defaultValue = defaultValue;
+        this.resolver = resolver;
         this.validator = validator;
     }
 
@@ -43,35 +45,41 @@ public abstract class Parameter<T> {
      * Check if the value passed in is valid
      *
      * @param value to be checked
-     * @param knnMethodConfigContext context for the validation
      * @return ValidationException produced by validation errors; null if no validations errors.
      */
-    public abstract ValidationException validate(Object value, KNNMethodConfigContext knnMethodConfigContext);
+    public abstract ValidationException resolve(Object value, KNNIndexContext knnIndexContext);
+
+    public abstract ValidationException validate(Object value);
 
     /**
      * Boolean method parameter
      */
     public static class BooleanParameter extends Parameter<Boolean> {
-        public BooleanParameter(String name, Boolean defaultValue, BiFunction<Boolean, KNNMethodConfigContext, Boolean> validator) {
-            super(name, defaultValue, validator);
+        public BooleanParameter(
+            String name,
+            BiFunction<Boolean, KNNIndexContext, ValidationException> resolver,
+            Function<Boolean, ValidationException> validator
+        ) {
+            super(name, resolver, validator);
         }
 
         @Override
-        public ValidationException validate(Object value, KNNMethodConfigContext knnMethodConfigContext) {
-            ValidationException validationException = null;
-            if (!(value instanceof Boolean)) {
-                validationException = new ValidationException();
+        public ValidationException resolve(Object value, KNNIndexContext knnIndexContext) {
+            ValidationException validationException = validate(value);
+            if (validationException != null) return validationException;
+            return resolver.apply((Boolean) value, knnIndexContext);
+        }
+
+        @Override
+        public ValidationException validate(Object value) {
+            if (value != null && !(value instanceof Boolean)) {
+                ValidationException validationException = new ValidationException();
                 validationException.addValidationError(
                     String.format("value is not an instance of Boolean for Boolean parameter [%s].", getName())
                 );
-                return validationException;
+                throw validationException;
             }
-
-            if (!validator.apply((Boolean) value, knnMethodConfigContext)) {
-                validationException = new ValidationException();
-                validationException.addValidationError(String.format("parameter validation failed for Boolean parameter [%s].", getName()));
-            }
-            return validationException;
+            return validator.apply((Boolean) value);
         }
     }
 
@@ -79,27 +87,34 @@ public abstract class Parameter<T> {
      * Integer method parameter
      */
     public static class IntegerParameter extends Parameter<Integer> {
-        public IntegerParameter(String name, Integer defaultValue, BiFunction<Integer, KNNMethodConfigContext, Boolean> validator) {
-            super(name, defaultValue, validator);
+        public IntegerParameter(
+            String name,
+            BiFunction<Integer, KNNIndexContext, ValidationException> resolver,
+            Function<Integer, ValidationException> validator
+        ) {
+            super(name, resolver, validator);
         }
 
         @Override
-        public ValidationException validate(Object value, KNNMethodConfigContext knnMethodConfigContext) {
-            ValidationException validationException = null;
-            if (!(value instanceof Integer)) {
-                validationException = new ValidationException();
+        public ValidationException resolve(Object value, KNNIndexContext knnIndexContext) {
+            ValidationException validationException = validate(value);
+            if (validationException != null) return validationException;
+            return resolver.apply((Integer) value, knnIndexContext);
+        }
+
+        @Override
+        public ValidationException validate(Object value) {
+            if (value != null && !(value instanceof Integer)) {
+                ValidationException validationException = new ValidationException();
                 validationException.addValidationError(
-                    String.format("value is not an instance of Integer for Integer parameter [%s].", getName())
+                    String.format(
+                        "value is not an instance of MethodComponentContext for MethodComponentContext parameter [%s].",
+                        getName()
+                    )
                 );
-                return validationException;
+                throw validationException;
             }
-
-            if (!validator.apply((Integer) value, knnMethodConfigContext)) {
-                validationException = new ValidationException();
-                validationException.addValidationError(String.format("parameter validation failed for Integer parameter [%s].", getName()));
-            }
-
-            return validationException;
+            return validator.apply((Integer) value);
         }
     }
 
@@ -107,39 +122,33 @@ public abstract class Parameter<T> {
      * Double method parameter
      */
     public static class DoubleParameter extends Parameter<Double> {
-        public DoubleParameter(String name, Double defaultValue, BiFunction<Double, KNNMethodConfigContext, Boolean> validator) {
-            super(name, defaultValue, validator);
+        public DoubleParameter(
+            String name,
+            BiFunction<Double, KNNIndexContext, ValidationException> resolver,
+            Function<Double, ValidationException> validator
+        ) {
+            super(name, resolver, validator);
         }
 
         @Override
-        public ValidationException validate(Object value, KNNMethodConfigContext knnMethodConfigContext) {
-            if (Objects.isNull(value)) {
-                String validationErrorMsg = String.format(Locale.ROOT, "Null value provided for Double " + "parameter \"%s\".", getName());
-                return getValidationException(validationErrorMsg);
-            }
+        public ValidationException resolve(Object value, KNNIndexContext knnIndexContext) {
+            ValidationException validationException = validate(value);
+            if (validationException != null) return validationException;
+            return resolver.apply((Double) value, knnIndexContext);
+        }
 
-            if (value.equals(0)) value = 0.0;
-
-            if (!(value instanceof Double)) {
+        @Override
+        public ValidationException validate(Object value) {
+            if (value != null && value.equals(0)) value = 0.0;
+            if (value != null && !(value instanceof Double)) {
                 String validationErrorMsg = String.format(
                     Locale.ROOT,
                     "value is not an instance of Double for Double parameter [%s].",
                     getName()
                 );
-                return getValidationException(validationErrorMsg);
+                return ValidationUtil.chainValidationErrors(null, validationErrorMsg);
             }
-
-            if (!validator.apply((Double) value, knnMethodConfigContext)) {
-                String validationErrorMsg = String.format(Locale.ROOT, "parameter validation failed for Double parameter [%s].", getName());
-                return getValidationException(validationErrorMsg);
-            }
-            return null;
-        }
-
-        private ValidationException getValidationException(String validationErrorMsg) {
-            ValidationException validationException = new ValidationException();
-            validationException.addValidationError(validationErrorMsg);
-            return validationException;
+            return validator.apply((Double) value);
         }
     }
 
@@ -147,35 +156,31 @@ public abstract class Parameter<T> {
      * String method parameter
      */
     public static class StringParameter extends Parameter<String> {
-
-        /**
-         * Constructor
-         *
-         * @param name         of the parameter
-         * @param defaultValue value to assign if the parameter is not set
-         * @param validator    used to validate the parameter value passed
-         */
-        public StringParameter(String name, String defaultValue, BiFunction<String, KNNMethodConfigContext, Boolean> validator) {
-            super(name, defaultValue, validator);
+        public StringParameter(
+            String name,
+            BiFunction<String, KNNIndexContext, ValidationException> resolver,
+            Function<String, ValidationException> validator
+        ) {
+            super(name, resolver, validator);
         }
 
         @Override
-        public ValidationException validate(Object value, KNNMethodConfigContext knnMethodConfigContext) {
-            ValidationException validationException = null;
-            if (!(value instanceof String)) {
-                validationException = new ValidationException();
+        public ValidationException resolve(Object value, KNNIndexContext knnIndexContext) {
+            ValidationException validationException = validate(value);
+            if (validationException != null) return validationException;
+            return resolver.apply((String) value, knnIndexContext);
+        }
+
+        @Override
+        public ValidationException validate(Object value) {
+            if (value != null && !(value instanceof String)) {
+                ValidationException validationException = new ValidationException();
                 validationException.addValidationError(
                     String.format("value is not an instance of String for String parameter [%s].", getName())
                 );
-                return validationException;
+                throw validationException;
             }
-
-            if (!validator.apply((String) value, knnMethodConfigContext)) {
-                validationException = new ValidationException();
-                validationException.addValidationError(String.format("parameter validation failed for String parameter [%s].", getName()));
-            }
-
-            return validationException;
+            return validator.apply((String) value);
         }
     }
 
@@ -186,59 +191,42 @@ public abstract class Parameter<T> {
      */
     public static class MethodComponentContextParameter extends Parameter<MethodComponentContext> {
 
-        private final Map<String, MethodComponent> methodComponents;
+        private final Map<String, MethodComponent> methodComponent;
 
-        /**
-         * Constructor
-         *
-         * @param name of the parameter
-         * @param defaultValue value to assign this parameter if it is not set
-         * @param methodComponents valid components that the MethodComponentContext can map to
-         */
         public MethodComponentContextParameter(
             String name,
-            MethodComponentContext defaultValue,
-            Map<String, MethodComponent> methodComponents
+            BiFunction<MethodComponentContext, KNNIndexContext, ValidationException> resolver,
+            Function<MethodComponentContext, ValidationException> validator,
+            Map<String, MethodComponent> methodComponent
         ) {
-            super(name, defaultValue, (methodComponentContext, knnMethodConfigContext) -> {
-                if (!methodComponents.containsKey(methodComponentContext.getName())) {
-                    return false;
-                }
-                return methodComponents.get(methodComponentContext.getName())
-                    .validate(methodComponentContext, knnMethodConfigContext) == null;
-            });
-            this.methodComponents = methodComponents;
+            super(name, resolver, validator);
+            this.methodComponent = methodComponent;
         }
 
         @Override
-        public ValidationException validate(Object value, KNNMethodConfigContext knnMethodConfigContext) {
-            ValidationException validationException = null;
-            if (!(value instanceof MethodComponentContext)) {
-                validationException = new ValidationException();
-                validationException.addValidationError(
-                    String.format("value is not an instance of for MethodComponentContext parameter [%s].", getName())
-                );
-                return validationException;
-            }
-
-            if (!validator.apply((MethodComponentContext) value, knnMethodConfigContext)) {
-                validationException = new ValidationException();
-                validationException.addValidationError(
-                    String.format("parameter validation failed for MethodComponentContext parameter [%s].", getName())
-                );
-            }
-
-            return validationException;
+        public ValidationException resolve(Object value, KNNIndexContext knnIndexContext) {
+            ValidationException validationException = validate(value);
+            if (validationException != null) return validationException;
+            return resolver.apply((MethodComponentContext) value, knnIndexContext);
         }
 
-        /**
-         * Get method component by name
-         *
-         * @param name name of method component
-         * @return MethodComponent that name maps to
-         */
+        @Override
+        public ValidationException validate(Object value) {
+            if (value != null && !(value instanceof MethodComponentContext)) {
+                ValidationException validationException = new ValidationException();
+                validationException.addValidationError(
+                    String.format(
+                        "value is not an instance of MethodComponentContext for MethodComponentContext parameter [%s].",
+                        getName()
+                    )
+                );
+                throw validationException;
+            }
+            return validator.apply((MethodComponentContext) value);
+        }
+
         public MethodComponent getMethodComponent(String name) {
-            return methodComponents.get(name);
+            return methodComponent.get(name);
         }
     }
 }

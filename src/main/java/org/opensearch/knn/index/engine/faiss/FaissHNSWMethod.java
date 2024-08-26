@@ -7,7 +7,6 @@ package org.opensearch.knn.index.engine.faiss;
 
 import com.google.common.collect.ImmutableSet;
 import org.opensearch.knn.common.KNNConstants;
-import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.AbstractKNNMethod;
@@ -16,10 +15,14 @@ import org.opensearch.knn.index.engine.Encoder;
 import org.opensearch.knn.index.engine.MethodComponent;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.engine.Parameter;
+import org.opensearch.knn.index.engine.config.CompressionConfig;
+import org.opensearch.knn.index.engine.config.WorkloadModeConfig;
+import org.opensearch.knn.index.engine.validation.ValidationUtil;
 
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -29,6 +32,9 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_SEARCH;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_M;
+import static org.opensearch.knn.index.KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_CONSTRUCTION;
+import static org.opensearch.knn.index.KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_SEARCH;
+import static org.opensearch.knn.index.KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_M;
 
 /**
  * Faiss HNSW method implementation
@@ -41,17 +47,25 @@ public class FaissHNSWMethod extends AbstractFaissMethod {
         VectorDataType.BYTE
     );
 
-    public final static List<SpaceType> SUPPORTED_SPACES = Arrays.asList(
-        SpaceType.UNDEFINED,
-        SpaceType.HAMMING,
-        SpaceType.L2,
-        SpaceType.INNER_PRODUCT
-    );
+    public final static List<SpaceType> SUPPORTED_SPACES = Arrays.asList(SpaceType.HAMMING, SpaceType.L2, SpaceType.INNER_PRODUCT);
 
     private final static MethodComponentContext DEFAULT_ENCODER_CONTEXT = new MethodComponentContext(
         KNNConstants.ENCODER_FLAT,
         Collections.emptyMap()
     );
+    private final static MethodComponentContext DEFAULT_32x_ENCODER_CONTEXT = new MethodComponentContext(
+        QFrameBitEncoder.NAME,
+        Map.of(QFrameBitEncoder.BITCOUNT_PARAM, 1)
+    );
+    private final static MethodComponentContext DEFAULT_16x_ENCODER_CONTEXT = new MethodComponentContext(
+        QFrameBitEncoder.NAME,
+        Map.of(QFrameBitEncoder.BITCOUNT_PARAM, 2)
+    );
+    private final static MethodComponentContext DEFAULT_8x_ENCODER_CONTEXT = new MethodComponentContext(
+        QFrameBitEncoder.NAME,
+        Map.of(QFrameBitEncoder.BITCOUNT_PARAM, 4)
+    );
+
     private final static List<Encoder> SUPPORTED_ENCODERS = List.of(
         new FaissFlatEncoder(),
         new FaissSQEncoder(),
@@ -71,44 +85,128 @@ public class FaissHNSWMethod extends AbstractFaissMethod {
     private static MethodComponent initMethodComponent() {
         return MethodComponent.Builder.builder(METHOD_HNSW)
             .addSupportedDataTypes(SUPPORTED_DATA_TYPES)
-            .addParameter(
-                METHOD_PARAMETER_M,
-                new Parameter.IntegerParameter(METHOD_PARAMETER_M, KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_M, (v, context) -> v > 0)
-            )
+            .addParameter(METHOD_PARAMETER_M, new Parameter.IntegerParameter(METHOD_PARAMETER_M, (v, context) -> {
+                Integer vResolved = v;
+                if (vResolved == null) {
+                    vResolved = INDEX_KNN_DEFAULT_ALGO_PARAM_M;
+                }
+                context.getLibraryParameters().put(METHOD_PARAMETER_M, vResolved);
+                return null;
+            }, v -> {
+                if (v == null) {
+                    return null;
+                }
+                return ValidationUtil.chainValidationErrors(null, v > 0 ? null : "UPDATE ME");
+            }))
             .addParameter(
                 METHOD_PARAMETER_EF_CONSTRUCTION,
-                new Parameter.IntegerParameter(
-                    METHOD_PARAMETER_EF_CONSTRUCTION,
-                    KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_CONSTRUCTION,
-                    (v, context) -> v > 0
-                )
+                new Parameter.IntegerParameter(METHOD_PARAMETER_EF_CONSTRUCTION, (v, context) -> {
+                    Integer vResolved = v;
+                    if (vResolved == null) {
+                        vResolved = INDEX_KNN_DEFAULT_ALGO_PARAM_EF_CONSTRUCTION;
+                    }
+                    context.getLibraryParameters().put(METHOD_PARAMETER_EF_CONSTRUCTION, vResolved);
+                    return null;
+                }, v -> {
+                    if (v == null) {
+                        return null;
+                    }
+                    return ValidationUtil.chainValidationErrors(null, v > 0 ? null : "UPDATE ME");
+                })
             )
-            .addParameter(
-                METHOD_PARAMETER_EF_SEARCH,
-                new Parameter.IntegerParameter(
-                    METHOD_PARAMETER_EF_SEARCH,
-                    KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_SEARCH,
-                    (v, context) -> v > 0
-                )
-            )
+            .addParameter(METHOD_PARAMETER_EF_SEARCH, new Parameter.IntegerParameter(METHOD_PARAMETER_EF_SEARCH, (v, context) -> {
+                Integer vResolved = v;
+                if (vResolved == null) {
+                    vResolved = INDEX_KNN_DEFAULT_ALGO_PARAM_EF_SEARCH;
+                }
+                context.getLibraryParameters().put(METHOD_PARAMETER_EF_SEARCH, vResolved);
+                return null;
+            }, v -> {
+                if (v == null) {
+                    return null;
+                }
+                return ValidationUtil.chainValidationErrors(null, v > 0 ? null : "UPDATE ME");
+            }))
             .addParameter(METHOD_ENCODER_PARAMETER, initEncoderParameter())
-            .setKnnLibraryIndexingContextGenerator(((methodComponent, methodComponentContext, knnMethodConfigContext) -> {
-                MethodAsMapBuilder methodAsMapBuilder = MethodAsMapBuilder.builder(
+            .setPostResolveProcessor(
+                ((methodComponent, contextMap, knnIndexContext) -> IndexDescriptionPostResolveProcessor.builder(
                     FAISS_HNSW_DESCRIPTION,
                     methodComponent,
-                    methodComponentContext,
-                    knnMethodConfigContext
-                ).addParameter(METHOD_PARAMETER_M, "", "").addParameter(METHOD_ENCODER_PARAMETER, ",", "");
-                return adjustIndexDescription(methodAsMapBuilder, methodComponentContext, knnMethodConfigContext);
-            }))
+                    knnIndexContext,
+                    contextMap
+                ).addParameter(METHOD_PARAMETER_M, "", "").addParameter(METHOD_ENCODER_PARAMETER, "", "").build())
+            )
             .build();
     }
 
     private static Parameter.MethodComponentContextParameter initEncoderParameter() {
-        return new Parameter.MethodComponentContextParameter(
-            METHOD_ENCODER_PARAMETER,
-            DEFAULT_ENCODER_CONTEXT,
-            SUPPORTED_ENCODERS.stream().collect(Collectors.toMap(Encoder::getName, Encoder::getMethodComponent))
-        );
+        return new Parameter.MethodComponentContextParameter(METHOD_ENCODER_PARAMETER, (v, context) -> {
+            MethodComponentContext vResolved = v;
+            if (vResolved == null) {
+                vResolved = getDefaultEncoderFromCompression(
+                    context.getResolvedRequiredParameters().getCompressionConfig(),
+                    context.getResolvedRequiredParameters().getMode()
+                );
+            }
+
+            if (vResolved.getName().isEmpty()) {
+                if (vResolved.getParameters().isPresent()) {
+                    return ValidationUtil.chainValidationErrors(null, "Invalid configuration. Need to specify the name");
+                }
+                return null;
+            }
+
+            return SUPPORTED_ENCODERS.stream()
+                .collect(Collectors.toMap(Encoder::getName, Encoder::getMethodComponent))
+                .get(vResolved.getName().get())
+                .resolveKNNIndexContext(v, context);
+        }, v -> {
+            if (v == null) {
+                return null;
+            }
+
+            if (v.getName().isEmpty() && v.getParameters().isPresent()) {
+                return ValidationUtil.chainValidationErrors(null, "Invalid configuration. Need to specify the name");
+            }
+
+            if (v.getName().isEmpty()) {
+                return null;
+            }
+
+            if (SUPPORTED_ENCODERS.stream().map(Encoder::getName).collect(Collectors.toSet()).contains(v.getName().get()) == false) {
+                return ValidationUtil.chainValidationErrors(null, "Invalid confidence interval. IMPROVE");
+            }
+            return null;
+        }, SUPPORTED_ENCODERS.stream().collect(Collectors.toMap(Encoder::getName, Encoder::getMethodComponent)));
+    }
+
+    private static MethodComponentContext getDefaultEncoderFromCompression(
+        CompressionConfig compressionConfig,
+        WorkloadModeConfig workloadModeConfig
+    ) {
+        if (compressionConfig == CompressionConfig.NOT_CONFIGURED) {
+            return getDefaultEncoderContextFromMode(workloadModeConfig);
+        }
+
+        if (compressionConfig == CompressionConfig.x32) {
+            return DEFAULT_32x_ENCODER_CONTEXT;
+        }
+
+        if (compressionConfig == CompressionConfig.x16) {
+            return DEFAULT_16x_ENCODER_CONTEXT;
+        }
+
+        if (compressionConfig == CompressionConfig.x8) {
+            return DEFAULT_8x_ENCODER_CONTEXT;
+        }
+
+        return DEFAULT_ENCODER_CONTEXT;
+    }
+
+    private static MethodComponentContext getDefaultEncoderContextFromMode(WorkloadModeConfig workloadModeConfig) {
+        if (workloadModeConfig == WorkloadModeConfig.ON_DISK) {
+            return DEFAULT_32x_ENCODER_CONTEXT;
+        }
+        return DEFAULT_ENCODER_CONTEXT;
     }
 }
