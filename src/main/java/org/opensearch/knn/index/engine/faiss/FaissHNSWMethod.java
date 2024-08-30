@@ -6,6 +6,7 @@
 package org.opensearch.knn.index.engine.faiss;
 
 import com.google.common.collect.ImmutableSet;
+import org.opensearch.common.ValidationException;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
@@ -27,11 +28,13 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static org.opensearch.knn.common.KNNConstants.FAISS_HNSW_DESCRIPTION;
+import static org.opensearch.knn.common.KNNConstants.INDEX_DESCRIPTION_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_SEARCH;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_M;
+import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 import static org.opensearch.knn.index.KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_CONSTRUCTION;
 import static org.opensearch.knn.index.KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_SEARCH;
 import static org.opensearch.knn.index.KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_M;
@@ -39,7 +42,7 @@ import static org.opensearch.knn.index.KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_
 /**
  * Faiss HNSW method implementation
  */
-public class FaissHNSWMethod extends AbstractFaissMethod {
+public class FaissHNSWMethod extends AbstractKNNMethod {
 
     private static final Set<VectorDataType> SUPPORTED_DATA_TYPES = ImmutableSet.of(
         VectorDataType.FLOAT,
@@ -129,12 +132,27 @@ public class FaissHNSWMethod extends AbstractFaissMethod {
             }))
             .addParameter(METHOD_ENCODER_PARAMETER, initEncoderParameter())
             .setPostResolveProcessor(
-                ((methodComponent, contextMap, knnIndexContext) -> IndexDescriptionPostResolveProcessor.builder(
-                    FAISS_HNSW_DESCRIPTION,
-                    methodComponent,
-                    knnIndexContext,
-                    contextMap
-                ).addParameter(METHOD_PARAMETER_M, "", "").addParameter(METHOD_ENCODER_PARAMETER, "", "").build())
+                ((methodComponent, knnIndexContext) -> {
+                    ValidationException validationException = IndexDescriptionPostResolveProcessor.builder(
+                            FAISS_HNSW_DESCRIPTION,
+                            methodComponent,
+                            knnIndexContext
+                    ).addParameter(METHOD_PARAMETER_M, "", "").addParameter(METHOD_ENCODER_PARAMETER, "", "").build();
+                    if (validationException != null) {
+                        return validationException;
+                    }
+                    if (knnIndexContext.getLibraryParameters().get(VECTOR_DATA_TYPE_FIELD) == null || knnIndexContext.getLibraryParameters().get(VECTOR_DATA_TYPE_FIELD) != VectorDataType.BINARY) {
+                        return null;
+                    }
+                    String description = (String) knnIndexContext.getLibraryParameters().get(INDEX_DESCRIPTION_PARAMETER);
+                    if (description == null) {
+                        return ValidationUtil.chainValidationErrors(null, "Unable to build faiss index. Index description was not generated.");
+                    }
+
+                    knnIndexContext.getLibraryParameters().put(VECTOR_DATA_TYPE_FIELD, "B" + description);
+                    return null;
+                }
+                )
             )
             .build();
     }

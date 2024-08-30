@@ -48,6 +48,9 @@ public class FaissSQEncoder implements Encoder {
             context.getLibraryParameters().put(FAISS_SQ_TYPE, vResolved);
             return null;
         }, v -> {
+            if (v == null) {
+                return null;
+            }
             if (FAISS_SQ_ENCODER_TYPES.contains(v)) {
                 return null;
             }
@@ -69,11 +72,10 @@ public class FaissSQEncoder implements Encoder {
             return null;
         }, v -> null))
         .setPostResolveProcessor(
-            ((methodComponent, contextMap, knnMethodConfigContext) -> IndexDescriptionPostResolveProcessor.builder(
+            ((methodComponent, knnIndexContext) -> IndexDescriptionPostResolveProcessor.builder(
                 "," + FAISS_SQ_DESCRIPTION,
                 methodComponent,
-                knnMethodConfigContext,
-                contextMap
+                knnIndexContext
             ).addParameter(FAISS_SQ_TYPE, "", "").build())
         )
         .build();

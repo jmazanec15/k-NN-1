@@ -59,6 +59,9 @@ public class LuceneHNSWMethod extends AbstractKNNMethod {
                 context.getLibraryParameters().put(METHOD_PARAMETER_M, vResolved);
                 return null;
             }, v -> {
+                if (v == null) {
+                    return null;
+                }
                 if (v > 0) {
                     return null;
                 }
@@ -74,6 +77,9 @@ public class LuceneHNSWMethod extends AbstractKNNMethod {
                     context.getLibraryParameters().put(METHOD_PARAMETER_EF_CONSTRUCTION, vResolved);
                     return null;
                 }, v -> {
+                    if (v == null) {
+                        return null;
+                    }
                     if (v > 0) {
                         return null;
                     }

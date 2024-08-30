@@ -37,6 +37,11 @@ public final class KNNIndexContext {
         this.quantizationConfig = QuantizationConfig.EMPTY;
     }
 
+    /**
+     * Library parameters define the generic map of parameters that are used to build the index for the library. While
+     * a library ultimately decides what the structure of these parameters need to be, its typical (i.e. faiss) to
+     * have the index configuration parameters in a nested parameters map.
+     */
     @Setter
     @Getter
     private Map<String, Object> libraryParameters;

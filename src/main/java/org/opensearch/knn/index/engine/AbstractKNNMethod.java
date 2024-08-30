@@ -76,7 +76,7 @@ public abstract class AbstractKNNMethod implements KNNMethod {
     }
 
     protected ValidationException postResolveProcess(KNNIndexContext knnIndexContext) {
-        return methodComponent.postResolveProcess(knnIndexContext, knnIndexContext.getLibraryParameters());
+        return methodComponent.postResolveProcess(knnIndexContext);
     }
 
     protected MethodComponentContext extractUserProvidedMethodComponentContext(KNNIndexContext knnIndexContext) {

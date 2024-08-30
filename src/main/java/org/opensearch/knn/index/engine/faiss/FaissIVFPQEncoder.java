@@ -52,6 +52,9 @@ public class FaissIVFPQEncoder implements Encoder {
             context.getLibraryParameters().put(ENCODER_PARAMETER_PQ_M, vResolved);
             return null;
         }, v -> {
+            if (v == null) {
+                return null;
+            }
             boolean isValueGreaterThan0 = v > 0;
             boolean isValueLessThanCodeCountLimit = v < ENCODER_PARAMETER_PQ_CODE_COUNT_LIMIT;
             return ValidationUtil.chainValidationErrors(null, isValueGreaterThan0 && isValueLessThanCodeCountLimit ? "vvdf" : null);
@@ -73,11 +76,10 @@ public class FaissIVFPQEncoder implements Encoder {
         }))
         .setRequiresTraining(true)
         .setPostResolveProcessor(
-            ((methodComponent, contextParamMap, knnIndexContext) -> IndexDescriptionPostResolveProcessor.builder(
+            ((methodComponent, knnIndexContext) -> IndexDescriptionPostResolveProcessor.builder(
                 "," + FAISS_PQ_DESCRIPTION,
                 methodComponent,
-                knnIndexContext,
-                contextParamMap
+                knnIndexContext
             ).addParameter(ENCODER_PARAMETER_PQ_M, "", "").addParameter(ENCODER_PARAMETER_PQ_CODE_SIZE, "x", "").build())
         )
         .setOverheadInKBEstimator((methodComponent, methodComponentContext, knnIndexContext) -> {

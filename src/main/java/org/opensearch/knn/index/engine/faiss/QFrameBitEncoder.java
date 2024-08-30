@@ -23,7 +23,6 @@ import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
 import java.util.Locale;
 import java.util.Set;
 
-import static org.opensearch.knn.common.KNNConstants.INDEX_DESCRIPTION_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 
 /**
@@ -53,7 +52,6 @@ public class QFrameBitEncoder implements Encoder {
             int vResolved = resolveBitCount(context, v);
             context.setQuantizationConfig(resolveQuantizationConfig(vResolved));
             context.getLibraryParameters().put(KNNConstants.VECTOR_DATA_TYPE_FIELD, VectorDataType.BINARY.getValue());
-            // context.getLibraryParameters().put(KNNConstants.SPACE_TYPE, spaceType.getValue());
             RescoreContext rescoreContext = resolveRescoreContextFromBitCount(vResolved);
             if (rescoreContext != null) {
                 context.setKnnLibrarySearchContext(new FilterKNNLibrarySearchContext(context.getKnnLibrarySearchContext()) {
@@ -70,13 +68,10 @@ public class QFrameBitEncoder implements Encoder {
                 v == null || validBitCounts.contains(v) ? null : String.format(Locale.ROOT, "Invalid bit count: %d", v)
             )
         ))
-        .setPostResolveProcessor(((methodComponent, contextParams, knnIndexContext) -> {
-            String description = (String) knnIndexContext.getLibraryParameters().get(INDEX_DESCRIPTION_PARAMETER);
-            if (description.startsWith("B") == false) {
-                knnIndexContext.getLibraryParameters().put(INDEX_DESCRIPTION_PARAMETER, "B" + description);
-            }
+        .setPostResolveProcessor(((methodComponent, knnIndexContext) -> {
             // We dont need the parameters any more. Lets remove
-            contextParams.remove(PARAMETERS);
+            //TODO: We should clarify when we remove
+            knnIndexContext.getLibraryParameters().remove(PARAMETERS);
             return null;
         }))
         .setRequiresTraining(false)

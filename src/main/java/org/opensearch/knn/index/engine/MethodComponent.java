@@ -16,6 +16,7 @@ import java.util.HashSet;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.BiFunction;
 
 import static org.opensearch.knn.common.KNNConstants.NAME;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
@@ -30,7 +31,7 @@ public class MethodComponent {
     private final String name;
     @Getter
     private final Map<String, Parameter<?>> parameters;
-    private final TriFunction<MethodComponent, Map<String, Object>, KNNIndexContext, ValidationException> postResolveProcessor;
+    private final BiFunction<MethodComponent, KNNIndexContext, ValidationException> postResolveProcessor;
     private final TriFunction<MethodComponent, MethodComponentContext, KNNIndexContext, Integer> overheadInKBEstimator;
     private final boolean requiresTraining;
     private final Set<VectorDataType> supportedVectorDataTypes;
@@ -49,15 +50,14 @@ public class MethodComponent {
         this.supportedVectorDataTypes = builder.supportedDataTypes;
     }
 
-    public ValidationException postResolveProcess(KNNIndexContext knnIndexContext, Map<String, Object> contextLibraryParams) {
+    public ValidationException postResolveProcess(KNNIndexContext knnIndexContext) {
         if (postResolveProcessor == null) {
             return null;
         }
-        return postResolveProcessor.apply(this, contextLibraryParams, knnIndexContext);
+        return postResolveProcessor.apply(this, knnIndexContext);
     }
 
     public ValidationException resolveKNNIndexContext(MethodComponentContext methodComponentContext, KNNIndexContext knnIndexContext) {
-        // Validate flat - non-recursive
         ValidationException validationException = null;
         if (!supportedVectorDataTypes.contains(knnIndexContext.getVectorDataType())) {
             validationException = new ValidationException();
@@ -71,10 +71,17 @@ public class MethodComponent {
             );
         }
 
-        // Requires training - non-recursive
         knnIndexContext.appendTrainingRequirement(requiresTraining);
 
-        // First do the recursive resolution
+        /*
+        {
+            "vector_datatype": "whatever"
+            "name": "binary
+            "parameters": {
+                ...
+            }
+        }
+         */
         Map<String, Object> topLevelParameters = new HashMap<>();
         Map<String, Object> methodParameters = new HashMap<>();
         topLevelParameters.put(NAME, getName());
@@ -156,7 +163,7 @@ public class MethodComponent {
     }
 
     private Object extractInnerParameter(String parameter, MethodComponentContext methodComponentContext) {
-        if (methodComponentContext == null || methodComponentContext.getParameters().get().containsKey(parameter) == false) {
+        if (methodComponentContext == null || methodComponentContext.getParameters().isEmpty() || methodComponentContext.getParameters().get().containsKey(parameter) == false) {
             return null;
         }
         return methodComponentContext.getParameters().get().get(parameter);
@@ -183,7 +190,7 @@ public class MethodComponent {
 
         private final String name;
         private final Map<String, Parameter<?>> parameters;
-        private TriFunction<MethodComponent, Map<String, Object>, KNNIndexContext, ValidationException> postResolveProcessor;
+        private BiFunction<MethodComponent, KNNIndexContext, ValidationException> postResolveProcessor;
         private TriFunction<MethodComponent, MethodComponentContext, KNNIndexContext, Integer> overheadInKBEstimator;
         private boolean requiresTraining;
         private final Set<VectorDataType> supportedDataTypes;
@@ -223,7 +230,7 @@ public class MethodComponent {
          * @return this builder
          */
         public Builder setPostResolveProcessor(
-            TriFunction<MethodComponent, Map<String, Object>, KNNIndexContext, ValidationException> postResolveProcessor
+            BiFunction<MethodComponent, KNNIndexContext, ValidationException> postResolveProcessor
         ) {
             this.postResolveProcessor = postResolveProcessor;
             return this;

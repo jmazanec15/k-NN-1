@@ -31,7 +31,6 @@ import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 class IndexDescriptionPostResolveProcessor {
     String indexDescription;
     MethodComponent methodComponent;
-    Map<String, Object> methodAsMap;
     KNNIndexContext knnIndexContext;
 
     /**
@@ -44,28 +43,45 @@ class IndexDescriptionPostResolveProcessor {
      */
     @SuppressWarnings("unchecked")
     IndexDescriptionPostResolveProcessor addParameter(String parameterName, String prefix, String suffix) {
-        indexDescription += prefix;
-        Map<String, Object> methodParameters = (Map<String, Object>) methodAsMap.get(PARAMETERS);
         Parameter<?> parameter = methodComponent.getParameters().get(parameterName);
+        if (parameter == null) {
+            throw new IllegalStateException("Unable to find parameter with for method even though it was specified");
+        }
+
+        indexDescription += prefix;
+        Map<String, Object> topLevelParams = knnIndexContext.getLibraryParameters();
+        if (topLevelParams == null) {
+            indexDescription += suffix;
+            return this;
+        }
+
+        Map<String, Object> methodParameters = (Map<String, Object>) topLevelParams.get(PARAMETERS);
+        if (methodParameters == null) {
+            indexDescription += suffix;
+            return this;
+        }
+
 
         // Recursion is needed if the parameter is a method component context itself.
         if (parameter instanceof Parameter.MethodComponentContextParameter) {
             Map<String, Object> subMethodParameters = (Map<String, Object>) methodParameters.get(parameterName);
+            if (subMethodParameters == null) {
+
+            }
             MethodComponent subMethodComponent = ((Parameter.MethodComponentContextParameter) parameter).getMethodComponent(
                 (String) subMethodParameters.get(NAME)
             );
-            knnIndexContext.getLibraryParameters().put(KNNConstants.INDEX_DESCRIPTION_PARAMETER, indexDescription);
             ValidationException validationException = subMethodComponent.postResolveProcess(knnIndexContext, subMethodParameters);
             if (validationException != null) {
                 throw validationException;
             }
-            if (subMethodParameters == null
-                || subMethodParameters.isEmpty()
+            String componentDescription = (String) knnIndexContext.getLibraryParameters().get(KNNConstants.INDEX_DESCRIPTION_PARAMETER);
+            if (subMethodParameters.isEmpty()
                 || subMethodParameters.get(PARAMETERS) == null
                 || ((Map<String, Object>) subMethodParameters.get(PARAMETERS)).isEmpty()) {
                 methodParameters.remove(parameterName);
             }
-            indexDescription = (String) knnIndexContext.getLibraryParameters().get(INDEX_DESCRIPTION_PARAMETER);
+            indexDescription += componentDescription;
         } else {
             // Just add the value to the method description and remove from map
             indexDescription += methodParameters.get(parameterName);
@@ -83,21 +99,15 @@ class IndexDescriptionPostResolveProcessor {
      * @return Method as a map
      */
     ValidationException build() {
+        knnIndexContext.getLibraryParameters().put(KNNConstants.INDEX_DESCRIPTION_PARAMETER, indexDescription);
         return null;
     }
 
     static IndexDescriptionPostResolveProcessor builder(
         String baseDescription,
         MethodComponent methodComponent,
-        KNNIndexContext knnIndexContext,
-        Map<String, Object> contextLibraryParams
+        KNNIndexContext knnIndexContext
     ) {
-        String initialDescription = (String) knnIndexContext.getLibraryParameters().get(KNNConstants.INDEX_DESCRIPTION_PARAMETER);
-        if (initialDescription == null) {
-            initialDescription = "";
-        }
-        initialDescription += baseDescription;
-        knnIndexContext.getLibraryParameters().put(KNNConstants.INDEX_DESCRIPTION_PARAMETER, initialDescription);
-        return new IndexDescriptionPostResolveProcessor(baseDescription, methodComponent, contextLibraryParams, knnIndexContext);
+        return new IndexDescriptionPostResolveProcessor(baseDescription, methodComponent, knnIndexContext);
     }
 }

@@ -41,7 +41,7 @@ import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 /**
  * Faiss ivf implementation
  */
-public class FaissIVFMethod extends AbstractFaissMethod {
+public class FaissIVFMethod extends AbstractKNNMethod {
 
     private static final Set<VectorDataType> SUPPORTED_DATA_TYPES = ImmutableSet.of(VectorDataType.FLOAT, VectorDataType.BINARY);
 
@@ -114,11 +114,10 @@ public class FaissIVFMethod extends AbstractFaissMethod {
             .addParameter(METHOD_ENCODER_PARAMETER, initEncoderParameter())
             .setRequiresTraining(true)
             .setPostResolveProcessor(
-                ((methodComponent, contextMap, knnIndexContext) -> IndexDescriptionPostResolveProcessor.builder(
+                ((methodComponent, knnIndexContext) -> IndexDescriptionPostResolveProcessor.builder(
                     FAISS_IVF_DESCRIPTION,
                     methodComponent,
-                    knnIndexContext,
-                    contextMap
+                    knnIndexContext
                 ).addParameter(METHOD_PARAMETER_NLIST, "", "").addParameter(METHOD_ENCODER_PARAMETER, "", "").build())
             )
             .setOverheadInKBEstimator((methodComponent, methodComponentContext, knnIndexContext) -> {

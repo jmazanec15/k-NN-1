@@ -40,6 +40,9 @@ public class LuceneSQEncoder implements Encoder {
             context.getLibraryParameters().put(LUCENE_SQ_CONFIDENCE_INTERVAL, vResolved);
             return null;
         }, v -> {
+            if (v == null) {
+                return null;
+            }
             if (v == DYNAMIC_CONFIDENCE_INTERVAL || (v >= MINIMUM_CONFIDENCE_INTERVAL && v <= MAXIMUM_CONFIDENCE_INTERVAL)) {
                 return null;
             }
@@ -53,6 +56,9 @@ public class LuceneSQEncoder implements Encoder {
             context.getLibraryParameters().put(LUCENE_SQ_BITS, vResolved);
             return null;
         }, v -> {
+            if (v == null) {
+                return null;
+            }
             if (LUCENE_SQ_BITS_SUPPORTED.contains(v)) {
                 return null;
             }

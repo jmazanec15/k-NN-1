@@ -28,7 +28,7 @@ import static org.opensearch.knn.common.KNNConstants.KNN_METHOD;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
-import static org.opensearch.knn.common.KNNConstants.MODEL;
+import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.common.KNNConstants.MODE_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.NAME;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
@@ -45,6 +45,7 @@ public class DiskBasedFeatureIT extends KNNRestTestCase {
 
     public static int DEFAULT_DIMENSION = 8;
     public static String DEFAULT_FIELD_NAME = "testfield";
+    public static String DEFAULT_MODEL_ID = "test_model";
 
     @SneakyThrows
     public void testValid_NoMode_flat() {
@@ -128,6 +129,29 @@ public class DiskBasedFeatureIT extends KNNRestTestCase {
         );
     }
 
+    @SneakyThrows
+    public void testValid_NoMode_FromModel() {
+        execTestFeature(
+                TestConfiguration.builder()
+                        .testDescription("Mode based disk")
+                        .shouldBasicSearchWork(true)
+                        .shouldRescoreSearchWork(true)
+                        .isKNNSettingEnabled(true)
+                        .requiresTraining(true)
+                        .methodMappingBuilderConsumer(
+                                builder -> builder.field(NAME, "hnsw")
+                                        .field(METHOD_PARAMETER_SPACE_TYPE, "l2")
+                                        .field(KNN_ENGINE, "faiss")
+                                        .startObject(PARAMETERS)
+                                        .startObject(METHOD_ENCODER_PARAMETER)
+                                        .field(NAME, "pq")
+                                        .endObject()
+                                        .endObject()
+                        )
+                        .build()
+        );
+    }
+
 
     @SneakyThrows
     private void execTestFeature(TestConfiguration testConfiguration) {
@@ -138,7 +162,7 @@ public class DiskBasedFeatureIT extends KNNRestTestCase {
 
         TestConfiguration trainingTestConfiguration = validateTraining(testConfiguration);
 
-        validateCreateIndex(testConfiguration);
+        validateCreateIndex(testConfiguration, false);
 
         validateIngestData(testConfiguration);
 
@@ -160,25 +184,25 @@ public class DiskBasedFeatureIT extends KNNRestTestCase {
         if (testConfiguration.requiresTraining == false) {
             return null;
         }
-        String modelId = testConfiguration.modelId;
 
         TestConfiguration trainingConfiguration = TestConfiguration.builder()
             .isKNNSettingEnabled(false)
             .dimension(testConfiguration.dimension)
             .vectorDataType(testConfiguration.vectorDataType)
             .indexDocumentCount(testConfiguration.trainingDataRequired)
+            .methodMappingBuilderConsumer(testConfiguration.methodMappingBuilderConsumer)
             .shouldDelete(false)
             .indexName(randomAlphaOfLength(10).toLowerCase())
             .build();
 
         // Create index
-        validateCreateIndex(testConfiguration);
+        validateCreateIndex(trainingConfiguration, true);
 
         // Load data
-        validateIngestData(testConfiguration);
+        validateIngestData(trainingConfiguration);
 
         // Create training request
-        createTrainingRequest(trainingConfiguration, modelId);
+        createTrainingRequest(trainingConfiguration, DEFAULT_MODEL_ID);
 
         // training
         return trainingConfiguration;
@@ -186,15 +210,17 @@ public class DiskBasedFeatureIT extends KNNRestTestCase {
 
     @SneakyThrows
     private void createTrainingRequest(TestConfiguration testConfiguration, String modelId) {
-        XContentBuilder builder = XContentFactory.jsonBuilder();
+        XContentBuilder builder = XContentFactory.jsonBuilder().startObject();
         testConfiguration.methodMappingBuilderConsumer.accept(builder);
+        builder.endObject();
+        log.info("Training Request: {}", builder.toString());
 
         Response trainResponse = trainModel(
             modelId,
             testConfiguration.indexName,
             DEFAULT_FIELD_NAME,
             testConfiguration.dimension,
-            builder.toString(),
+                xContentBuilderToMap(builder),
             ""
         );
         assertEquals(RestStatus.OK, RestStatus.fromCode(trainResponse.getStatusLine().getStatusCode()));
@@ -202,10 +228,10 @@ public class DiskBasedFeatureIT extends KNNRestTestCase {
     }
 
     @SneakyThrows
-    private void validateCreateIndex(TestConfiguration testConfiguration) {
-        log.info("Mapping: {}", createVectorMappings(testConfiguration));
+    private void validateCreateIndex(TestConfiguration testConfiguration, boolean isTraining) {
+        log.info("Mapping: {}", createVectorMappings(testConfiguration, false));
         log.info("Settings: {}", createSettings(testConfiguration));
-        createKnnIndex(testConfiguration.getIndexName(), createSettings(testConfiguration), createVectorMappings(testConfiguration));
+        createKnnIndex(testConfiguration.getIndexName(), createSettings(testConfiguration), createVectorMappings(testConfiguration, isTraining));
         log.info("Mapping: {}", getIndexMappingAsMap(testConfiguration.getIndexName()));
         log.info("Settings: {}", getIndexSettings(testConfiguration.getIndexName()));
     }
@@ -278,10 +304,10 @@ public class DiskBasedFeatureIT extends KNNRestTestCase {
 
     @SneakyThrows
     private void validateModelDeletion(TestConfiguration testConfiguration) {
-        if (testConfiguration.shouldDeleteModel == false || testConfiguration.modelId == null) {
+        if (testConfiguration.shouldDeleteModel == false || testConfiguration.requiresTraining == false) {
             return;
         }
-        deleteModel(testConfiguration.modelId);
+        deleteModel(DEFAULT_MODEL_ID);
     }
 
     @SneakyThrows
@@ -298,18 +324,21 @@ public class DiskBasedFeatureIT extends KNNRestTestCase {
     }
 
     @SneakyThrows
-    private String createVectorMappings(TestConfiguration testConfiguration) {
+    private String createVectorMappings(TestConfiguration testConfiguration, boolean isTraining) {
         XContentBuilder builder = XContentFactory.jsonBuilder()
             .startObject()
             .startObject(PROPERTIES_FIELD)
             .startObject(DEFAULT_FIELD_NAME)
             .field(TYPE, TYPE_KNN_VECTOR);
 
+        if (isTraining) {
+            builder.field(DIMENSION, testConfiguration.getDimension());
+            return builder.endObject().endObject().endObject().toString();
+        }
+
         setIfNotNull(testConfiguration.getVectorDataType(), VECTOR_DATA_TYPE_FIELD, builder);
         if (testConfiguration.requiresTraining) {
-            String modelId = randomAlphaOfLength(10).toLowerCase();
-            log.info("ModelID: {}", modelId);
-            builder.field(MODEL, modelId);
+            builder.field(MODEL_ID, DEFAULT_MODEL_ID);
             return builder.endObject().endObject().endObject().toString();
         }
 
@@ -357,6 +386,17 @@ public class DiskBasedFeatureIT extends KNNRestTestCase {
     @Builder
     private static class TestConfiguration {
         String testDescription;
+        @Builder.Default
+        boolean skipTrain = false;
+        @Builder.Default
+        boolean skipCreateIndex = false;
+        @Builder.Default
+        boolean skipIngestData = false;
+        @Builder.Default
+        boolean skipBasicSearch = false;
+        @Builder.Default
+        boolean skipRescoreSearch = false;
+
         @Setter
         @Builder.Default
         String indexName = null;
@@ -410,7 +450,5 @@ public class DiskBasedFeatureIT extends KNNRestTestCase {
         Boolean rescoreParam = null;
         @Builder.Default
         boolean shouldDeleteModel = true;
-        @Builder.Default
-        String modelId = null;
     }
 }
