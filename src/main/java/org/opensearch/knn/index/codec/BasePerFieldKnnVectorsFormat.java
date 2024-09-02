@@ -77,56 +77,54 @@ public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFor
         ).fieldType(field);
 
         if (mappedFieldType.getModelId().isPresent()) {
-            return getFormatForModelBasedIndices();
-        }
-        if (mappedFieldType.getKNNEngine() == null) {
-            throw new IllegalStateException("Method config context cannot be empty");
+            return getNativeEngines990KnnVectorsFormat();
         }
         return getFormatForMethodBasedIndices(mappedFieldType.getKNNEngine(), mappedFieldType.getLibraryParameters(), field);
     }
 
-    private KnnVectorsFormat getFormatForModelBasedIndices() {
-        return new NativeEngines990KnnVectorsFormat(new Lucene99FlatVectorsFormat(FlatVectorScorerUtil.getLucene99FlatVectorsScorer()));
-    }
-
     private KnnVectorsFormat getFormatForMethodBasedIndices(KNNEngine knnEngine, Map<String, Object> params, String field) {
-        if (knnEngine == KNNEngine.LUCENE) {
-            if (params != null && params.containsKey(METHOD_ENCODER_PARAMETER)) {
-                KNNScalarQuantizedVectorsFormatParams knnScalarQuantizedVectorsFormatParams = new KNNScalarQuantizedVectorsFormatParams(
-                    params,
-                    defaultMaxConnections,
-                    defaultBeamWidth
-                );
-                if (knnScalarQuantizedVectorsFormatParams.validate(params)) {
-                    log.debug(
-                        "Initialize KNN vector format for field [{}] with params [{}] = \"{}\", [{}] = \"{}\", [{}] = \"{}\", [{}] = \"{}\"",
-                        field,
-                        MAX_CONNECTIONS,
-                        knnScalarQuantizedVectorsFormatParams.getMaxConnections(),
-                        BEAM_WIDTH,
-                        knnScalarQuantizedVectorsFormatParams.getBeamWidth(),
-                        LUCENE_SQ_CONFIDENCE_INTERVAL,
-                        knnScalarQuantizedVectorsFormatParams.getConfidenceInterval(),
-                        LUCENE_SQ_BITS,
-                        knnScalarQuantizedVectorsFormatParams.getBits()
-                    );
-                    return scalarQuantizedVectorsFormatSupplier.apply(knnScalarQuantizedVectorsFormatParams);
-                }
-            }
-
-            KNNVectorsFormatParams knnVectorsFormatParams = new KNNVectorsFormatParams(params, defaultMaxConnections, defaultBeamWidth);
-            log.debug(
-                "Initialize KNN vector format for field [{}] with params [{}] = \"{}\" and [{}] = \"{}\"",
-                field,
-                MAX_CONNECTIONS,
-                knnVectorsFormatParams.getMaxConnections(),
-                BEAM_WIDTH,
-                knnVectorsFormatParams.getBeamWidth()
-            );
-            return vectorsFormatSupplier.apply(knnVectorsFormatParams);
+        if (knnEngine != KNNEngine.LUCENE) {
+            return getNativeEngines990KnnVectorsFormat();
         }
 
-        // All native engines to use NativeEngines990KnnVectorsFormat
+        // For Lucene, we need to properly configure the format because format initialization is when parameters are
+        // set
+        if (params != null && params.containsKey(METHOD_ENCODER_PARAMETER)) {
+            KNNScalarQuantizedVectorsFormatParams knnScalarQuantizedVectorsFormatParams = new KNNScalarQuantizedVectorsFormatParams(
+                params,
+                defaultMaxConnections,
+                defaultBeamWidth
+            );
+            if (knnScalarQuantizedVectorsFormatParams.validate(params)) {
+                log.debug(
+                    "Initialize KNN vector format for field [{}] with params [{}] = \"{}\", [{}] = \"{}\", [{}] = \"{}\", [{}] = \"{}\"",
+                    field,
+                    MAX_CONNECTIONS,
+                    knnScalarQuantizedVectorsFormatParams.getMaxConnections(),
+                    BEAM_WIDTH,
+                    knnScalarQuantizedVectorsFormatParams.getBeamWidth(),
+                    LUCENE_SQ_CONFIDENCE_INTERVAL,
+                    knnScalarQuantizedVectorsFormatParams.getConfidenceInterval(),
+                    LUCENE_SQ_BITS,
+                    knnScalarQuantizedVectorsFormatParams.getBits()
+                );
+                return scalarQuantizedVectorsFormatSupplier.apply(knnScalarQuantizedVectorsFormatParams);
+            }
+        }
+
+        KNNVectorsFormatParams knnVectorsFormatParams = new KNNVectorsFormatParams(params, defaultMaxConnections, defaultBeamWidth);
+        log.debug(
+            "Initialize KNN vector format for field [{}] with params [{}] = \"{}\" and [{}] = \"{}\"",
+            field,
+            MAX_CONNECTIONS,
+            knnVectorsFormatParams.getMaxConnections(),
+            BEAM_WIDTH,
+            knnVectorsFormatParams.getBeamWidth()
+        );
+        return vectorsFormatSupplier.apply(knnVectorsFormatParams);
+    }
+
+    private NativeEngines990KnnVectorsFormat getNativeEngines990KnnVectorsFormat() {
         return new NativeEngines990KnnVectorsFormat(new Lucene99FlatVectorsFormat(FlatVectorScorerUtil.getLucene99FlatVectorsScorer()));
     }
 

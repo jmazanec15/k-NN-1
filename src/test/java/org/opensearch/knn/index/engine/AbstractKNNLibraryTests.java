@@ -21,7 +21,7 @@ public class AbstractKNNLibraryTests extends KNNTestCase {
     private final static KNNMethod INVALID_METHOD_THROWS_VALIDATION = new AbstractKNNMethod(
         MethodComponent.Builder.builder(INVALID_METHOD_THROWS_VALIDATION_NAME).addSupportedDataTypes(Set.of(VectorDataType.FLOAT)).build(),
         Set.of(SpaceType.DEFAULT),
-        new DefaultHnswSearchContext()
+        new DefaultHnswSearchResolver()
     ) {
         // @Override
         // public ValidationException validate(KNNMethodConfigContext knnMethodConfigContext) {

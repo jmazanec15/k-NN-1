@@ -11,6 +11,7 @@ import org.apache.lucene.index.FieldInfo;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.quantizationService.QuantizationService;
 import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelUtil;
 
@@ -21,6 +22,7 @@ import org.opensearch.knn.index.engine.qframe.QuantizationConfigParser;
 
 import static org.opensearch.knn.common.KNNConstants.QFRAMEWORK_CONFIG;
 import org.opensearch.knn.indices.ModelDao;
+import org.opensearch.knn.quantization.models.quantizationParams.QuantizationParams;
 
 import java.util.Locale;
 
@@ -47,20 +49,43 @@ public class FieldInfoExtractor {
     }
 
     /**
-     * Extracts VectorDataType from FieldInfo
+     * Extracts VectorDataType from FieldInfo. This VectorDataType represents what vectors will be input to the
+     * library layer. For the data type that is transfered to the native layer, see extractVectorDataTypeForTransfer (better comment)
+     *
      * @param fieldInfo {@link FieldInfo}
      * @return {@link VectorDataType}
      */
     public static VectorDataType extractVectorDataType(final FieldInfo fieldInfo) {
         String vectorDataTypeString = fieldInfo.getAttribute(KNNConstants.VECTOR_DATA_TYPE_FIELD);
-        if (StringUtils.isEmpty(vectorDataTypeString)) {
-            final ModelMetadata modelMetadata = ModelUtil.getModelMetadata(fieldInfo.getAttribute(KNNConstants.MODEL_ID));
-            if (modelMetadata != null) {
-                VectorDataType vectorDataType = modelMetadata.getVectorDataType();
-                vectorDataTypeString = vectorDataType == null ? null : vectorDataType.getValue();
-            }
+        if (StringUtils.isNotEmpty(vectorDataTypeString)) {
+            return VectorDataType.get(vectorDataTypeString);
         }
-        return StringUtils.isNotEmpty(vectorDataTypeString) ? VectorDataType.get(vectorDataTypeString) : VectorDataType.DEFAULT;
+
+        final ModelMetadata modelMetadata = ModelUtil.getModelMetadata(fieldInfo.getAttribute(KNNConstants.MODEL_ID));
+        if (modelMetadata == null) {
+            return VectorDataType.DEFAULT;
+        }
+        return modelMetadata.getVectorDataType();
+    }
+
+    /**
+     * Extracts VectorDataType for transfer from FieldInfo. This VectorDataType represents what vectors will be transfered
+     * to the native layer. For the data type that is input to the library layer, see extractVectorDataType (better comment)
+     *
+     * @param fieldInfo {@link FieldInfo}
+     * @param quantizationParams {@link QuantizationParams}
+     * @return {@link VectorDataType}
+     */
+    public static VectorDataType extractVectorDataTypeForTransfer(final FieldInfo fieldInfo, QuantizationParams quantizationParams) {
+        if (quantizationParams != null) {
+            return QuantizationService.getInstance().getVectorDataTypeForTransfer(fieldInfo);
+        }
+        QuantizationConfig quantizationConfig = extractQuantizationConfig(fieldInfo);
+        if (quantizationConfig != null && quantizationConfig != QuantizationConfig.EMPTY) {
+            return VectorDataType.BINARY;
+        }
+
+        return extractVectorDataType(fieldInfo);
     }
 
     /**
@@ -71,10 +96,15 @@ public class FieldInfoExtractor {
      */
     public static QuantizationConfig extractQuantizationConfig(final FieldInfo fieldInfo) {
         String quantizationConfigString = fieldInfo.getAttribute(QFRAMEWORK_CONFIG);
-        if (StringUtils.isEmpty(quantizationConfigString)) {
+        if (StringUtils.isNotEmpty(quantizationConfigString)) {
+            return QuantizationConfigParser.fromCsv(quantizationConfigString);
+        }
+
+        final ModelMetadata modelMetadata = ModelUtil.getModelMetadata(fieldInfo.getAttribute(KNNConstants.MODEL_ID));
+        if (modelMetadata == null || modelMetadata.getKNNLibraryIndex().isEmpty()) {
             return QuantizationConfig.EMPTY;
         }
-        return QuantizationConfigParser.fromCsv(quantizationConfigString);
+        return modelMetadata.getKNNLibraryIndex().get().getQuantizationConfig();
     }
 
     /**

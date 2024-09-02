@@ -11,7 +11,7 @@ import org.opensearch.knn.index.engine.validation.ValidationUtil;
 
 import java.util.Locale;
 import java.util.Map;
-import java.util.function.BiFunction;
+import java.util.function.BiConsumer;
 import java.util.function.Function;
 
 /**
@@ -22,7 +22,7 @@ import java.util.function.Function;
 public abstract class Parameter<T> {
     @Getter
     private final String name;
-    protected final BiFunction<T, KNNIndexContext, ValidationException> resolver;
+    protected final BiConsumer<T, KNNLibraryIndex.Builder> resolver;
     protected final Function<T, ValidationException> validator;
 
     /**
@@ -31,25 +31,35 @@ public abstract class Parameter<T> {
      * @param name of the parameter
      * @param resolver resolves the parameter
      */
-    public Parameter(
-        String name,
-        BiFunction<T, KNNIndexContext, ValidationException> resolver,
-        Function<T, ValidationException> validator
-    ) {
+    public Parameter(String name, BiConsumer<T, KNNLibraryIndex.Builder> resolver, Function<T, ValidationException> validator) {
         this.name = name;
         this.resolver = resolver;
         this.validator = validator;
     }
 
     /**
-     * Check if the value passed in is valid
+     * Resolve the provided parameters for the given configuration
      *
      * @param value to be checked
-     * @return ValidationException produced by validation errors; null if no validations errors.
      */
-    public abstract ValidationException resolve(Object value, KNNIndexContext knnIndexContext);
+    public void resolve(Object value, KNNLibraryIndex.Builder builder) {
+        ValidationException validationException = validate(value);
+        if (validationException != null) {
+            builder.addValidationErrorMessage(validationException.getMessage());
+            return;
+        }
+        resolver.accept(doCast(value), builder);
+    }
 
+    /**
+     * Validate that an object is a valid parameter
+     *
+     * @param value {@link Object}
+     * @return {@link ValidationException} or null if valid
+     */
     public abstract ValidationException validate(Object value);
+
+    protected abstract T doCast(Object value);
 
     /**
      * Boolean method parameter
@@ -57,17 +67,10 @@ public abstract class Parameter<T> {
     public static class BooleanParameter extends Parameter<Boolean> {
         public BooleanParameter(
             String name,
-            BiFunction<Boolean, KNNIndexContext, ValidationException> resolver,
+            BiConsumer<Boolean, KNNLibraryIndex.Builder> resolver,
             Function<Boolean, ValidationException> validator
         ) {
             super(name, resolver, validator);
-        }
-
-        @Override
-        public ValidationException resolve(Object value, KNNIndexContext knnIndexContext) {
-            ValidationException validationException = validate(value);
-            if (validationException != null) return validationException;
-            return resolver.apply((Boolean) value, knnIndexContext);
         }
 
         @Override
@@ -81,6 +84,11 @@ public abstract class Parameter<T> {
             }
             return validator.apply((Boolean) value);
         }
+
+        @Override
+        protected Boolean doCast(Object value) {
+            return (Boolean) value;
+        }
     }
 
     /**
@@ -89,17 +97,10 @@ public abstract class Parameter<T> {
     public static class IntegerParameter extends Parameter<Integer> {
         public IntegerParameter(
             String name,
-            BiFunction<Integer, KNNIndexContext, ValidationException> resolver,
+            BiConsumer<Integer, KNNLibraryIndex.Builder> resolver,
             Function<Integer, ValidationException> validator
         ) {
             super(name, resolver, validator);
-        }
-
-        @Override
-        public ValidationException resolve(Object value, KNNIndexContext knnIndexContext) {
-            ValidationException validationException = validate(value);
-            if (validationException != null) return validationException;
-            return resolver.apply((Integer) value, knnIndexContext);
         }
 
         @Override
@@ -116,6 +117,11 @@ public abstract class Parameter<T> {
             }
             return validator.apply((Integer) value);
         }
+
+        @Override
+        protected Integer doCast(Object value) {
+            return (Integer) value;
+        }
     }
 
     /**
@@ -124,17 +130,10 @@ public abstract class Parameter<T> {
     public static class DoubleParameter extends Parameter<Double> {
         public DoubleParameter(
             String name,
-            BiFunction<Double, KNNIndexContext, ValidationException> resolver,
+            BiConsumer<Double, KNNLibraryIndex.Builder> resolver,
             Function<Double, ValidationException> validator
         ) {
             super(name, resolver, validator);
-        }
-
-        @Override
-        public ValidationException resolve(Object value, KNNIndexContext knnIndexContext) {
-            ValidationException validationException = validate(value);
-            if (validationException != null) return validationException;
-            return resolver.apply((Double) value, knnIndexContext);
         }
 
         @Override
@@ -150,6 +149,11 @@ public abstract class Parameter<T> {
             }
             return validator.apply((Double) value);
         }
+
+        @Override
+        protected Double doCast(Object value) {
+            return (Double) value;
+        }
     }
 
     /**
@@ -158,17 +162,10 @@ public abstract class Parameter<T> {
     public static class StringParameter extends Parameter<String> {
         public StringParameter(
             String name,
-            BiFunction<String, KNNIndexContext, ValidationException> resolver,
+            BiConsumer<String, KNNLibraryIndex.Builder> resolver,
             Function<String, ValidationException> validator
         ) {
             super(name, resolver, validator);
-        }
-
-        @Override
-        public ValidationException resolve(Object value, KNNIndexContext knnIndexContext) {
-            ValidationException validationException = validate(value);
-            if (validationException != null) return validationException;
-            return resolver.apply((String) value, knnIndexContext);
         }
 
         @Override
@@ -181,6 +178,11 @@ public abstract class Parameter<T> {
                 throw validationException;
             }
             return validator.apply((String) value);
+        }
+
+        @Override
+        protected String doCast(Object value) {
+            return (String) value;
         }
     }
 
@@ -195,19 +197,12 @@ public abstract class Parameter<T> {
 
         public MethodComponentContextParameter(
             String name,
-            BiFunction<MethodComponentContext, KNNIndexContext, ValidationException> resolver,
+            BiConsumer<MethodComponentContext, KNNLibraryIndex.Builder> resolver,
             Function<MethodComponentContext, ValidationException> validator,
             Map<String, MethodComponent> methodComponent
         ) {
             super(name, resolver, validator);
             this.methodComponent = methodComponent;
-        }
-
-        @Override
-        public ValidationException resolve(Object value, KNNIndexContext knnIndexContext) {
-            ValidationException validationException = validate(value);
-            if (validationException != null) return validationException;
-            return resolver.apply((MethodComponentContext) value, knnIndexContext);
         }
 
         @Override
@@ -227,6 +222,11 @@ public abstract class Parameter<T> {
 
         public MethodComponent getMethodComponent(String name) {
             return methodComponent.get(name);
+        }
+
+        @Override
+        protected MethodComponentContext doCast(Object value) {
+            return (MethodComponentContext) value;
         }
     }
 }

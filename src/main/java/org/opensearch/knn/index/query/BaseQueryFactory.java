@@ -16,6 +16,7 @@ import org.apache.lucene.search.join.ToChildBlockJoinQuery;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.index.search.NestedHelper;
+import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
@@ -40,18 +41,20 @@ public abstract class BaseQueryFactory {
         private KNNEngine knnEngine;
         @NonNull
         private String indexName;
+        @NonNull
+        private SpaceType spaceType;
+        @NonNull
+        private VectorDataType vectorDataType;
         private String fieldName;
         private float[] vector;
         private byte[] byteVector;
-        private VectorDataType vectorDataType;
         private Map<String, ?> methodParameters;
         private Integer k;
         private Float radius;
         private QueryBuilder filter;
         private QueryShardContext context;
         private RescoreContext rescoreContext;
-        String indexUuid;
-        int shardId;
+        private String modelId;
 
         public Optional<QueryBuilder> getFilter() {
             return Optional.ofNullable(filter);

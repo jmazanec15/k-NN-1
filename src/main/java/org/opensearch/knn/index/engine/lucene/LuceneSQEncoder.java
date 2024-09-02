@@ -32,13 +32,12 @@ public class LuceneSQEncoder implements Encoder {
     private final static List<Integer> LUCENE_SQ_BITS_SUPPORTED = List.of(7);
     private final static MethodComponent METHOD_COMPONENT = MethodComponent.Builder.builder(ENCODER_SQ)
         .addSupportedDataTypes(SUPPORTED_DATA_TYPES)
-        .addParameter(LUCENE_SQ_CONFIDENCE_INTERVAL, new Parameter.DoubleParameter(LUCENE_SQ_CONFIDENCE_INTERVAL, (v, context) -> {
+        .addParameter(LUCENE_SQ_CONFIDENCE_INTERVAL, new Parameter.DoubleParameter(LUCENE_SQ_CONFIDENCE_INTERVAL, (v, builder) -> {
             Double vResolved = v;
             if (vResolved == null) {
                 vResolved = (double) DYNAMIC_CONFIDENCE_INTERVAL;
             }
-            context.getLibraryParameters().put(LUCENE_SQ_CONFIDENCE_INTERVAL, vResolved);
-            return null;
+            builder.getLibraryParameters().put(LUCENE_SQ_CONFIDENCE_INTERVAL, vResolved);
         }, v -> {
             if (v == null) {
                 return null;
@@ -48,13 +47,12 @@ public class LuceneSQEncoder implements Encoder {
             }
             return ValidationUtil.chainValidationErrors(null, "Invalid confidence interval. IMPROVE");
         }))
-        .addParameter(LUCENE_SQ_BITS, new Parameter.IntegerParameter(LUCENE_SQ_BITS, (v, context) -> {
+        .addParameter(LUCENE_SQ_BITS, new Parameter.IntegerParameter(LUCENE_SQ_BITS, (v, builder) -> {
             Integer vResolved = v;
             if (vResolved == null) {
                 vResolved = LUCENE_SQ_DEFAULT_BITS;
             }
-            context.getLibraryParameters().put(LUCENE_SQ_BITS, vResolved);
-            return null;
+            builder.getLibraryParameters().put(LUCENE_SQ_BITS, vResolved);
         }, v -> {
             if (v == null) {
                 return null;

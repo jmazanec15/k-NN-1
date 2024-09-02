@@ -13,12 +13,6 @@ package org.opensearch.knn.indices;
 
 import lombok.experimental.UtilityClass;
 import org.apache.commons.lang.StringUtils;
-import org.opensearch.Version;
-import org.opensearch.knn.index.engine.KNNIndexContext;
-import org.opensearch.knn.index.engine.KNNMethodContext;
-import org.opensearch.knn.index.engine.MethodComponentContext;
-import org.opensearch.knn.index.engine.ResolvedRequiredParameters;
-import org.opensearch.knn.index.engine.UserProvidedParameters;
 
 import java.util.Locale;
 
@@ -47,14 +41,19 @@ public class ModelUtil {
 
     /**
      * Gets Model Metadata from a given model id.
+     *
      * @param modelId {@link String}
-     * @return {@link ModelMetadata}
+     * @return {@link ModelMetadata} or null if modelId is null or empty
      */
     public static ModelMetadata getModelMetadata(final String modelId) {
         if (StringUtils.isEmpty(modelId)) {
             return null;
         }
-        final Model model = ModelCache.getInstance().get(modelId);
+        // TODO: We need to initialize this class with ModelDao and get modelMetadata from there.
+        final Model model = getModel(modelId);
+        if (model == null) {
+            throw new IllegalArgumentException(String.format(Locale.ROOT, "Model ID '%s' does not exist.", modelId));
+        }
         final ModelMetadata modelMetadata = model.getModelMetadata();
         if (isModelCreated(modelMetadata) == false) {
             throw new IllegalArgumentException(String.format(Locale.ROOT, "Model ID '%s' is not created.", modelId));
@@ -63,38 +62,15 @@ public class ModelUtil {
     }
 
     /**
-     * Wraps model metadata call to get the component context to return {@link KNNMethodContext}
+     * Gets the model from the cache
      *
-     * @param modelMetadata {@link ModelMetadata}
-     * @return {@link KNNMethodContext} or null if method component context is empty
+     * @param modelId {@link String}
+     * @return {@link Model} or null if modelId is null or empty
      */
-    public static KNNMethodContext getMethodContextForModel(ModelMetadata modelMetadata) {
-        MethodComponentContext methodComponentContext = modelMetadata.getMethodComponentContext();
-        if (methodComponentContext == MethodComponentContext.EMPTY) {
+    public static Model getModel(final String modelId) {
+        if (StringUtils.isEmpty(modelId)) {
             return null;
         }
-        return new KNNMethodContext(modelMetadata.getKnnEngine(), modelMetadata.getSpaceType(), methodComponentContext);
-    }
-
-    public static KNNIndexContext getKnnMethodContextFromModelMetadata(String modelId, ModelMetadata modelMetadata) {
-        MethodComponentContext methodComponentContext = modelMetadata.getMethodComponentContext();
-        if (methodComponentContext == MethodComponentContext.EMPTY) {
-            return null;
-        }
-        UserProvidedParameters userProvidedParameters = new UserProvidedParameters(
-            modelMetadata.getDimension(),
-            modelMetadata.getVectorDataType(),
-            modelId,
-            modelMetadata.getWorkloadModeConfig().toString(),
-            modelMetadata.getCompressionConfig().toString(),
-            ModelUtil.getMethodContextForModel(modelMetadata)
-        );
-        // TODO: Resolve this issue with the version
-        ResolvedRequiredParameters resolvedRequiredParameters = new ResolvedRequiredParameters(
-            userProvidedParameters,
-            null,
-            Version.V_2_14_0
-        );
-        return resolvedRequiredParameters.resolveKNNIndexContext(true);
+        return ModelCache.getInstance().get(modelId);
     }
 }

@@ -32,21 +32,20 @@ public class FaissSQEncoder implements Encoder {
 
     private final static MethodComponent METHOD_COMPONENT = MethodComponent.Builder.builder(ENCODER_SQ)
         .addSupportedDataTypes(SUPPORTED_DATA_TYPES)
-        .addParameter(FAISS_SQ_TYPE, new Parameter.StringParameter(FAISS_SQ_TYPE, (v, context) -> {
+        .addParameter(FAISS_SQ_TYPE, new Parameter.StringParameter(FAISS_SQ_TYPE, (v, builder) -> {
             String vResolved = v;
             if (vResolved == null) {
                 vResolved = FAISS_SQ_ENCODER_FP16;
             }
-            if (FAISS_SQ_ENCODER_FP16.equals(vResolved) == false && context.getPerDimensionProcessor() == CLIP_TO_FP16_PROCESSOR) {
-                return ValidationUtil.chainValidationErrors(null, "Clip only supported for FP16 encoder. IMPROVE");
+            if (FAISS_SQ_ENCODER_FP16.equals(vResolved) == false && builder.getPerDimensionProcessor() == CLIP_TO_FP16_PROCESSOR) {
+                builder.addValidationErrorMessage("Clip only supported for FP16 encoder.", true);
             }
 
             if (FAISS_SQ_ENCODER_FP16.equals(vResolved)) {
-                context.setPerDimensionValidator(FP16_VALIDATOR);
+                builder.perDimensionValidator(FP16_VALIDATOR);
             }
 
-            context.getLibraryParameters().put(FAISS_SQ_TYPE, vResolved);
-            return null;
+            builder.getLibraryParameters().put(FAISS_SQ_TYPE, vResolved);
         }, v -> {
             if (v == null) {
                 return null;
@@ -56,20 +55,19 @@ public class FaissSQEncoder implements Encoder {
             }
             return ValidationUtil.chainValidationErrors(null, "Invalid encoder type. IMPROVE");
         }))
-        .addParameter(FAISS_SQ_CLIP, new Parameter.BooleanParameter(FAISS_SQ_CLIP, (v, context) -> {
+        .addParameter(FAISS_SQ_CLIP, new Parameter.BooleanParameter(FAISS_SQ_CLIP, (v, builder) -> {
             Boolean vResolved = v;
             if (vResolved == null) {
                 vResolved = false;
             }
             if (vResolved
-                && context.getLibraryParameters() != null
-                && context.getLibraryParameters().get(FAISS_SQ_TYPE) != FAISS_SQ_ENCODER_FP16) {
-                return ValidationUtil.chainValidationErrors(null, "Clip only supported for FP16 encoder. IMPROVE");
+                && builder.getLibraryParameters() != null
+                && builder.getLibraryParameters().get(FAISS_SQ_TYPE) != FAISS_SQ_ENCODER_FP16) {
+                builder.addValidationErrorMessage("Clip only supported for FP16 encoder.", true);
             }
             if (vResolved) {
-                context.setPerDimensionProcessor(CLIP_TO_FP16_PROCESSOR);
+                builder.perDimensionProcessor(CLIP_TO_FP16_PROCESSOR);
             }
-            return null;
         }, v -> null))
         .setPostResolveProcessor(
             ((methodComponent, knnIndexContext) -> IndexDescriptionPostResolveProcessor.builder(

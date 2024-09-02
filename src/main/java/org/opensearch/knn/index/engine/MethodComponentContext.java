@@ -27,14 +27,16 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
+
+import org.opensearch.knn.index.util.ParseUtil;
 import org.opensearch.knn.indices.ModelMetadata;
 
 import static org.opensearch.knn.common.KNNConstants.NAME;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
-import static org.opensearch.knn.index.engine.ParseUtil.checkExpectedArrayLength;
-import static org.opensearch.knn.index.engine.ParseUtil.checkStringMatches;
-import static org.opensearch.knn.index.engine.ParseUtil.checkStringNotEmpty;
-import static org.opensearch.knn.index.engine.ParseUtil.unwrapString;
+import static org.opensearch.knn.index.util.ParseUtil.checkExpectedArrayLength;
+import static org.opensearch.knn.index.util.ParseUtil.checkStringMatches;
+import static org.opensearch.knn.index.util.ParseUtil.checkStringNotEmpty;
+import static org.opensearch.knn.index.util.ParseUtil.unwrapString;
 
 /**
  * MethodComponentContext represents a single user provided building block of a knn library index.

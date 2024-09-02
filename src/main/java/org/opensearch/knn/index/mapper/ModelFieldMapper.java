@@ -12,8 +12,7 @@ import org.opensearch.Version;
 import org.opensearch.common.Explicit;
 import org.opensearch.index.mapper.ParseContext;
 import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.engine.KNNIndexContext;
-import org.opensearch.knn.index.engine.UserProvidedParameters;
+import org.opensearch.knn.index.engine.KNNLibraryIndex;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfigParser;
 import org.opensearch.knn.indices.ModelDao;
@@ -50,16 +49,16 @@ public class ModelFieldMapper extends KNNVectorFieldMapper {
         boolean hasDocValues,
         ModelDao modelDao,
         Version indexCreatedVersion,
-        UserProvidedParameters originalParameters
+        OriginalMappingParameters originalParameters
     ) {
         final KNNVectorFieldType mappedFieldType = new KNNVectorFieldType(fullname, metaValue, () -> {
             ModelMetadata modelMetadata = getModelMetadata(modelDao, modelId);
-            KNNIndexContext knnIndexContext = ModelUtil.getKnnMethodContextFromModelMetadata(modelId, modelMetadata);
+            KNNLibraryIndex knnLibraryIndex = modelMetadata.getKNNLibraryIndex().orElse(null);
             // This could be better. The issue is that the KNNIndexContext may be null if we dont have
-            // access to the method context information
+            // access to the method context information.
             return KNNVectorFieldType.KNNVectorFieldTypeConfig.builder()
                 .dimension(modelMetadata.getDimension())
-                .knnIndexContext(knnIndexContext)
+                .knnLibraryIndex(knnLibraryIndex)
                 .vectorDataType(modelMetadata.getVectorDataType())
                 .spaceType(modelMetadata.getSpaceType())
                 .knnEngine(modelMetadata.getKnnEngine())
@@ -91,7 +90,7 @@ public class ModelFieldMapper extends KNNVectorFieldMapper {
         boolean hasDocValues,
         ModelDao modelDao,
         Version indexCreatedVersion,
-        UserProvidedParameters originalParameters
+        OriginalMappingParameters originalParameters
     ) {
         super(
             simpleName,
@@ -140,8 +139,8 @@ public class ModelFieldMapper extends KNNVectorFieldMapper {
         if (vectorValidator != null) {
             return;
         }
-        vectorValidator = fieldType().getKNNIndexContext()
-            .map(KNNIndexContext::getVectorValidator)
+        vectorValidator = fieldType().getKNNLibraryIndex()
+            .map(KNNLibraryIndex::getVectorValidator)
             .orElseGet(() -> new SpaceVectorValidator(fieldType().getSpaceType()));
     }
 
@@ -150,7 +149,7 @@ public class ModelFieldMapper extends KNNVectorFieldMapper {
             return;
         }
 
-        perDimensionValidator = fieldType().getKNNIndexContext().map(KNNIndexContext::getPerDimensionValidator).orElseGet(() -> {
+        perDimensionValidator = fieldType().getKNNLibraryIndex().map(KNNLibraryIndex::getPerDimensionValidator).orElseGet(() -> {
             VectorDataType vectorType = fieldType().getVectorDataType();
             if (vectorType == null) {
                 return PerDimensionValidator.DEFAULT_FLOAT_VALIDATOR;
@@ -168,15 +167,15 @@ public class ModelFieldMapper extends KNNVectorFieldMapper {
         if (perDimensionProcessor != null) {
             return;
         }
-        perDimensionProcessor = fieldType().getKNNIndexContext()
-            .map(KNNIndexContext::getPerDimensionProcessor)
+        perDimensionProcessor = fieldType().getKNNLibraryIndex()
+            .map(KNNLibraryIndex::getPerDimensionProcessor)
             .orElse(PerDimensionProcessor.NOOP_PROCESSOR);
     }
 
     @Override
     protected void parseCreateField(ParseContext context) throws IOException {
         validatePreparse();
-        KNNIndexContext knnIndexContext = fieldType().getKNNIndexContext().orElse(null);
+        KNNLibraryIndex knnIndexContext = fieldType().getKNNLibraryIndex().orElse(null);
 
         if (useLuceneBasedVectorField && knnIndexContext != null) {
             int adjustedDimension = fieldType().getVectorDataType() == VectorDataType.BINARY

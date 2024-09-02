@@ -16,10 +16,15 @@ import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
-import org.opensearch.knn.index.engine.KNNIndexContext;
+import org.opensearch.knn.index.engine.KNNLibraryIndex;
+import org.opensearch.knn.index.engine.KNNLibraryIndexConfig;
+import org.opensearch.knn.index.engine.KNNLibraryIndexResolver;
+import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.memory.NativeMemoryEntryContext;
 import org.opensearch.knn.index.memory.NativeMemoryLoadStrategy;
+import org.opensearch.knn.indices.ModelMetadata;
+import org.opensearch.knn.indices.ModelState;
 import org.opensearch.knn.plugin.stats.KNNCounter;
 import org.opensearch.knn.training.TrainingJob;
 import org.opensearch.knn.training.TrainingJobRunner;
@@ -27,6 +32,8 @@ import org.opensearch.tasks.Task;
 import org.opensearch.transport.TransportService;
 
 import java.io.IOException;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.util.concurrent.ExecutionException;
 
 /**
@@ -57,10 +64,11 @@ public class TrainingModelTransportAction extends HandledTransportAction<Trainin
         );
 
         // Allocation representing size model will occupy in memory during training
-        KNNIndexContext knnIndexContext = request.getKnnIndexContext();
+        KNNLibraryIndexConfig knnLibraryIndexConfig = request.getKnnLibraryIndexConfig();
+        KNNLibraryIndex knnLibraryIndex = KNNLibraryIndexResolver.resolve(knnLibraryIndexConfig);
 
         NativeMemoryEntryContext.AnonymousEntryContext modelAnonymousEntryContext = new NativeMemoryEntryContext.AnonymousEntryContext(
-            knnIndexContext.getEstimatedIndexOverhead(),
+            knnLibraryIndex.getEstimatedIndexOverhead(),
             NativeMemoryLoadStrategy.AnonymousLoadStrategy.getInstance()
         );
 
@@ -69,9 +77,21 @@ public class TrainingModelTransportAction extends HandledTransportAction<Trainin
             NativeMemoryCacheManager.getInstance(),
             trainingDataEntryContext,
             modelAnonymousEntryContext,
-            knnIndexContext,
-            request.getDescription(),
-            clusterService.localNode().getEphemeralId()
+            new ModelMetadata(
+                knnLibraryIndexConfig.getKnnEngine(),
+                knnLibraryIndexConfig.getSpaceType(),
+                knnLibraryIndexConfig.getDimension(),
+                ModelState.TRAINING,
+                ZonedDateTime.now(ZoneOffset.UTC).toString(),
+                request.getDescription(),
+                "",
+                clusterService.localNode().getEphemeralId(),
+                knnLibraryIndexConfig.getMethodComponentContext().orElse(MethodComponentContext.EMPTY),
+                knnLibraryIndexConfig.getVectorDataType(),
+                knnLibraryIndexConfig.getMode(),
+                knnLibraryIndexConfig.getCompressionConfig()
+            )
+
         );
 
         KNNCounter.TRAINING_REQUESTS.increment();

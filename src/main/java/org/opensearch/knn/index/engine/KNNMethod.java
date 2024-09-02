@@ -16,8 +16,9 @@ public interface KNNMethod {
     /**
      * Validate that the configured KNNMethodContext is valid for this method
      *
-     * @param knnIndexContext to be validated
-     * @return ValidationException produced by validation errors; null if no validations errors.
+     * @param knnLibraryIndexConfig parameters that have been resolved from the user input
+     * @param builder TODO: Fix
+     * @throws ValidationException produced by validation errors; null if no validations errors.
      */
-    ValidationException resolveKNNIndexContext(KNNIndexContext knnIndexContext);
+    void resolve(KNNLibraryIndexConfig knnLibraryIndexConfig, KNNLibraryIndex.Builder builder);
 }

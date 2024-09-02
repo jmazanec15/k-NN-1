@@ -10,7 +10,6 @@ import org.apache.lucene.index.DocValuesType;
 import org.opensearch.Version;
 import org.opensearch.common.Explicit;
 import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.engine.UserProvidedParameters;
 
 import java.util.Map;
 
@@ -34,7 +33,7 @@ public class FlatVectorFieldMapper extends KNNVectorFieldMapper {
         boolean stored,
         boolean hasDocValues,
         Version indexVersion,
-        UserProvidedParameters originalParameters
+        OriginalMappingParameters originalParameters
     ) {
         final KNNVectorFieldType mappedFieldType = new KNNVectorFieldType(
             fullname,
@@ -64,7 +63,7 @@ public class FlatVectorFieldMapper extends KNNVectorFieldMapper {
         boolean stored,
         boolean hasDocValues,
         Version indexCreatedVersion,
-        UserProvidedParameters originalParameters
+        OriginalMappingParameters originalParameters
     ) {
         super(
             simpleName,

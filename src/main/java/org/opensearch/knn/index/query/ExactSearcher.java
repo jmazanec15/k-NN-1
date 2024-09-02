@@ -15,8 +15,6 @@ import org.apache.lucene.search.HitQueue;
 import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.util.BitSet;
 import org.opensearch.common.lucene.Lucene;
-import org.opensearch.knn.common.FieldInfoExtractor;
-import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.query.filtered.FilteredIdsKNNByteIterator;
 import org.opensearch.knn.index.query.filtered.FilteredIdsKNNIterator;
@@ -27,7 +25,6 @@ import org.opensearch.knn.index.vectorvalues.KNNBinaryVectorValues;
 import org.opensearch.knn.index.vectorvalues.KNNFloatVectorValues;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValuesFactory;
-import org.opensearch.knn.indices.ModelDao;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -36,8 +33,6 @@ import java.util.Map;
 @Log4j2
 @AllArgsConstructor
 public class ExactSearcher {
-
-    private final ModelDao modelDao;
 
     /**
      * Execute an exact search on a subset of documents of a leaf
@@ -113,7 +108,6 @@ public class ExactSearcher {
     ) throws IOException {
         final SegmentReader reader = Lucene.segmentReader(leafReaderContext.reader());
         final FieldInfo fieldInfo = reader.getFieldInfos().fieldInfo(knnQuery.getField());
-        final SpaceType spaceType = FieldInfoExtractor.getSpaceType(modelDao, fieldInfo);
 
         boolean isNestedRequired = isParentHits && knnQuery.getParentsFilter() != null;
 
@@ -123,7 +117,7 @@ public class ExactSearcher {
                 matchedDocs,
                 knnQuery.getByteQueryVector(),
                 (KNNBinaryVectorValues) vectorValues,
-                spaceType,
+                knnQuery.getSpaceType(),
                 knnQuery.getParentsFilter().getBitSet(leafReaderContext)
             );
         }
@@ -134,7 +128,7 @@ public class ExactSearcher {
                 matchedDocs,
                 knnQuery.getByteQueryVector(),
                 (KNNBinaryVectorValues) vectorValues,
-                spaceType
+                knnQuery.getSpaceType()
             );
         }
 
@@ -144,11 +138,16 @@ public class ExactSearcher {
                 matchedDocs,
                 knnQuery.getQueryVector(),
                 (KNNFloatVectorValues) vectorValues,
-                spaceType,
+                knnQuery.getSpaceType(),
                 knnQuery.getParentsFilter().getBitSet(leafReaderContext)
             );
         }
 
-        return new FilteredIdsKNNIterator(matchedDocs, knnQuery.getQueryVector(), (KNNFloatVectorValues) vectorValues, spaceType);
+        return new FilteredIdsKNNIterator(
+            matchedDocs,
+            knnQuery.getQueryVector(),
+            (KNNFloatVectorValues) vectorValues,
+            knnQuery.getSpaceType()
+        );
     }
 }

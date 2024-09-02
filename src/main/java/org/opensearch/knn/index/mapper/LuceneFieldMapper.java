@@ -21,9 +21,8 @@ import org.opensearch.common.Explicit;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.VectorField;
 import org.opensearch.knn.index.engine.KNNEngine;
-import org.opensearch.knn.index.engine.KNNIndexContext;
+import org.opensearch.knn.index.engine.KNNLibraryIndex;
 import org.opensearch.knn.index.engine.KNNMethodContext;
-import org.opensearch.knn.index.engine.UserProvidedParameters;
 
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.createStoredFieldForByteVector;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.createStoredFieldForFloatVector;
@@ -44,31 +43,31 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
     static LuceneFieldMapper createFieldMapper(
         String fullname,
         Map<String, String> metaValue,
-        KNNIndexContext knnIndexContext,
-        UserProvidedParameters originalParameters,
+        KNNLibraryIndex knnLibraryIndex,
+        OriginalMappingParameters originalParameters,
         CreateLuceneFieldMapperInput createLuceneFieldMapperInput
     ) {
         final KNNVectorFieldType mappedFieldType = new KNNVectorFieldType(
             fullname,
             metaValue,
             () -> KNNVectorFieldType.KNNVectorFieldTypeConfig.builder()
-                .dimension(knnIndexContext.getDimension())
-                .vectorDataType(knnIndexContext.getVectorDataType())
-                .knnIndexContext(knnIndexContext)
-                .spaceType(knnIndexContext.getSpaceType())
-                .knnEngine(knnIndexContext.getKNNEngine())
+                .dimension(knnLibraryIndex.getDimension())
+                .vectorDataType(knnLibraryIndex.getVectorDataType())
+                .knnLibraryIndex(knnLibraryIndex)
+                .spaceType(knnLibraryIndex.getSpaceType())
+                .knnEngine(KNNEngine.LUCENE)
                 .build(),
             null
         );
 
-        return new LuceneFieldMapper(mappedFieldType, createLuceneFieldMapperInput, knnIndexContext, originalParameters);
+        return new LuceneFieldMapper(mappedFieldType, createLuceneFieldMapperInput, knnLibraryIndex, originalParameters);
     }
 
     private LuceneFieldMapper(
         final KNNVectorFieldType mappedFieldType,
         final CreateLuceneFieldMapperInput input,
-        KNNIndexContext knnIndexContext,
-        UserProvidedParameters originalParameters
+        KNNLibraryIndex knnLibraryIndex,
+        OriginalMappingParameters originalParameters
     ) {
         super(
             input.getName(),
@@ -78,27 +77,25 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
             input.getIgnoreMalformed(),
             input.isStored(),
             input.isHasDocValues(),
-            knnIndexContext.getCreatedVersion(),
+            knnLibraryIndex.getCreatedVersion(),
             originalParameters
         );
-        VectorDataType vectorDataType = knnIndexContext.getVectorDataType();
+        VectorDataType vectorDataType = knnLibraryIndex.getVectorDataType();
 
-        final VectorSimilarityFunction vectorSimilarityFunction = knnIndexContext.getSpaceType()
+        final VectorSimilarityFunction vectorSimilarityFunction = knnLibraryIndex.getSpaceType()
             .getKnnVectorSimilarityFunction()
             .getVectorSimilarityFunction();
 
-        this.fieldType = vectorDataType.createKnnVectorFieldType(knnIndexContext.getDimension(), vectorSimilarityFunction);
-
-        KNNEngine knnEngine = knnIndexContext.getKNNEngine();
+        this.fieldType = vectorDataType.createKnnVectorFieldType(knnLibraryIndex.getDimension(), vectorSimilarityFunction);
         if (this.hasDocValues) {
-            this.vectorFieldType = buildDocValuesFieldType(knnEngine);
+            this.vectorFieldType = buildDocValuesFieldType(KNNEngine.LUCENE);
         } else {
             this.vectorFieldType = null;
         }
 
-        this.perDimensionProcessor = knnIndexContext.getPerDimensionProcessor();
-        this.perDimensionValidator = knnIndexContext.getPerDimensionValidator();
-        this.vectorValidator = knnIndexContext.getVectorValidator();
+        this.perDimensionProcessor = knnLibraryIndex.getPerDimensionProcessor();
+        this.perDimensionValidator = knnLibraryIndex.getPerDimensionValidator();
+        this.vectorValidator = knnLibraryIndex.getVectorValidator();
     }
 
     @Override

@@ -20,17 +20,4 @@ public final class ValidationUtil {
         input.addValidationError(newExceptionError);
         return input;
     }
-
-    public static ValidationException chainValidationErrors(ValidationException input, ValidationException newException) {
-        if (newException == null) {
-            return input;
-        }
-
-        if (input == null) {
-            return newException;
-        }
-
-        input.addValidationErrors(newException.validationErrors());
-        return input;
-    }
 }

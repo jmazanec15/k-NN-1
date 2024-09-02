@@ -22,12 +22,12 @@ public enum CompressionConfig {
     public static final CompressionConfig DEFAULT = x1;
 
     public static CompressionConfig fromString(String name) {
-        if (name == null || name.equals("NA")) {
+        if (name == null) {
             return NOT_CONFIGURED;
         }
 
         for (CompressionConfig config : CompressionConfig.values()) {
-            if (config.toString().equals(name)) {
+            if (config.toString() != null && config.toString().equals(name)) {
                 return config;
             }
         }
@@ -39,7 +39,7 @@ public enum CompressionConfig {
     @Override
     public String toString() {
         if (this == NOT_CONFIGURED) {
-            return "NA";
+            return null;
         }
         return "x" + compressionLevel;
     }

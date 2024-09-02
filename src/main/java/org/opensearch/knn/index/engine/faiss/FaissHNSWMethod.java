@@ -11,7 +11,7 @@ import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.AbstractKNNMethod;
-import org.opensearch.knn.index.engine.DefaultHnswSearchContext;
+import org.opensearch.knn.index.engine.DefaultHnswSearchResolver;
 import org.opensearch.knn.index.engine.Encoder;
 import org.opensearch.knn.index.engine.MethodComponent;
 import org.opensearch.knn.index.engine.MethodComponentContext;
@@ -28,13 +28,11 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static org.opensearch.knn.common.KNNConstants.FAISS_HNSW_DESCRIPTION;
-import static org.opensearch.knn.common.KNNConstants.INDEX_DESCRIPTION_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_SEARCH;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_M;
-import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 import static org.opensearch.knn.index.KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_CONSTRUCTION;
 import static org.opensearch.knn.index.KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_SEARCH;
 import static org.opensearch.knn.index.KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_M;
@@ -82,7 +80,7 @@ public class FaissHNSWMethod extends AbstractKNNMethod {
      * @see AbstractKNNMethod
      */
     public FaissHNSWMethod() {
-        super(initMethodComponent(), Set.copyOf(SUPPORTED_SPACES), new DefaultHnswSearchContext());
+        super(initMethodComponent(), Set.copyOf(SUPPORTED_SPACES));
     }
 
     private static MethodComponent initMethodComponent() {
@@ -94,7 +92,6 @@ public class FaissHNSWMethod extends AbstractKNNMethod {
                     vResolved = INDEX_KNN_DEFAULT_ALGO_PARAM_M;
                 }
                 context.getLibraryParameters().put(METHOD_PARAMETER_M, vResolved);
-                return null;
             }, v -> {
                 if (v == null) {
                     return null;
@@ -109,7 +106,6 @@ public class FaissHNSWMethod extends AbstractKNNMethod {
                         vResolved = INDEX_KNN_DEFAULT_ALGO_PARAM_EF_CONSTRUCTION;
                     }
                     context.getLibraryParameters().put(METHOD_PARAMETER_EF_CONSTRUCTION, vResolved);
-                    return null;
                 }, v -> {
                     if (v == null) {
                         return null;
@@ -123,7 +119,6 @@ public class FaissHNSWMethod extends AbstractKNNMethod {
                     vResolved = INDEX_KNN_DEFAULT_ALGO_PARAM_EF_SEARCH;
                 }
                 context.getLibraryParameters().put(METHOD_PARAMETER_EF_SEARCH, vResolved);
-                return null;
             }, v -> {
                 if (v == null) {
                     return null;
@@ -131,29 +126,17 @@ public class FaissHNSWMethod extends AbstractKNNMethod {
                 return ValidationUtil.chainValidationErrors(null, v > 0 ? null : "UPDATE ME");
             }))
             .addParameter(METHOD_ENCODER_PARAMETER, initEncoderParameter())
-            .setPostResolveProcessor(
-                ((methodComponent, knnIndexContext) -> {
-                    ValidationException validationException = IndexDescriptionPostResolveProcessor.builder(
-                            FAISS_HNSW_DESCRIPTION,
-                            methodComponent,
-                            knnIndexContext
-                    ).addParameter(METHOD_PARAMETER_M, "", "").addParameter(METHOD_ENCODER_PARAMETER, "", "").build();
-                    if (validationException != null) {
-                        return validationException;
-                    }
-                    if (knnIndexContext.getLibraryParameters().get(VECTOR_DATA_TYPE_FIELD) == null || knnIndexContext.getLibraryParameters().get(VECTOR_DATA_TYPE_FIELD) != VectorDataType.BINARY) {
-                        return null;
-                    }
-                    String description = (String) knnIndexContext.getLibraryParameters().get(INDEX_DESCRIPTION_PARAMETER);
-                    if (description == null) {
-                        return ValidationUtil.chainValidationErrors(null, "Unable to build faiss index. Index description was not generated.");
-                    }
-
-                    knnIndexContext.getLibraryParameters().put(VECTOR_DATA_TYPE_FIELD, "B" + description);
-                    return null;
+            .setPostResolveProcessor(((methodComponent, builder) -> {
+                ValidationException validationException = IndexDescriptionPostResolveProcessor.builder(
+                    FAISS_HNSW_DESCRIPTION,
+                    methodComponent,
+                    builder
+                ).setTopLevel(true).addParameter(METHOD_PARAMETER_M, "", "").addParameter(METHOD_ENCODER_PARAMETER, "", "").build();
+                if (validationException != null) {
+                    throw validationException;
                 }
-                )
-            )
+                builder.knnLibraryIndexSearchResolver(new DefaultHnswSearchResolver(builder.getKnnLibraryIndexSearchResolver()));
+            }))
             .build();
     }
 
@@ -162,22 +145,21 @@ public class FaissHNSWMethod extends AbstractKNNMethod {
             MethodComponentContext vResolved = v;
             if (vResolved == null) {
                 vResolved = getDefaultEncoderFromCompression(
-                    context.getResolvedRequiredParameters().getCompressionConfig(),
-                    context.getResolvedRequiredParameters().getMode()
+                    context.getKnnLibraryIndexConfig().getCompressionConfig(),
+                    context.getKnnLibraryIndexConfig().getMode()
                 );
             }
 
             if (vResolved.getName().isEmpty()) {
                 if (vResolved.getParameters().isPresent()) {
-                    return ValidationUtil.chainValidationErrors(null, "Invalid configuration. Need to specify the name");
+                    context.addValidationErrorMessage("Invalid configuration. Need to specify the name", true);
                 }
-                return null;
             }
 
-            return SUPPORTED_ENCODERS.stream()
+            SUPPORTED_ENCODERS.stream()
                 .collect(Collectors.toMap(Encoder::getName, Encoder::getMethodComponent))
                 .get(vResolved.getName().get())
-                .resolveKNNIndexContext(v, context);
+                .resolve(v, context);
         }, v -> {
             if (v == null) {
                 return null;

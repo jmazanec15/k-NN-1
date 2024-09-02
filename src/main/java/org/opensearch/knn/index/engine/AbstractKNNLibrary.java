@@ -8,9 +8,8 @@ package org.opensearch.knn.index.engine;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
-import org.opensearch.common.ValidationException;
+import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.engine.validation.ValidationUtil;
 
 import java.util.Locale;
 import java.util.Map;
@@ -25,57 +24,56 @@ public abstract class AbstractKNNLibrary implements KNNLibrary {
     protected final String version;
 
     @Override
-    public ValidationException resolveKNNIndexContext(KNNIndexContext knnIndexContext, boolean shouldTrain) {
-        String methodName = resolveMethod(knnIndexContext);
-        throwIllegalArgOnNonNull(validateMethodExists(methodName));
+    public KNNLibraryIndex resolve(KNNLibraryIndexConfig knnLibraryIndexConfig) {
+        KNNLibraryIndex.Builder builder = KNNLibraryIndex.builder();
+        builder.addValidationErrorMessage(
+            validateDimension(
+                knnLibraryIndexConfig.getDimension(),
+                knnLibraryIndexConfig.getVectorDataType(),
+                knnLibraryIndexConfig.getKnnEngine()
+            )
+        );
+        builder.addValidationErrorMessage(
+            validateSpaceType(knnLibraryIndexConfig.getSpaceType(), knnLibraryIndexConfig.getVectorDataType())
+        );
+        String methodName = resolveMethod(knnLibraryIndexConfig);
+        builder.addValidationErrorMessage(validateMethodExists(methodName), true);
         KNNMethod knnMethod = methods.get(methodName);
-        ValidationException validationException = knnMethod.resolveKNNIndexContext(knnIndexContext);
-        if (shouldTrain != knnIndexContext.isTrainingRequired()) {
-            validationException = ValidationUtil.chainValidationErrors(
-                validationException,
-                shouldTrain
-                    ? "Provided method does not require training, when it should"
-                    : "Provided method requires training, but should not."
-            );
-        }
-
-        validationException = ValidationUtil.chainValidationErrors(validationException, validateDimension(knnIndexContext));
-        validationException = ValidationUtil.chainValidationErrors(validationException, validateSpaceType(knnIndexContext));
-        return validationException;
+        knnMethod.resolve(knnLibraryIndexConfig, builder);
+        return builder.build();
     }
 
-    protected String resolveMethod(KNNIndexContext knnIndexContext) {
-        KNNMethodContext knnMethodContext = knnIndexContext.getResolvedRequiredParameters().getKnnMethodContext().orElse(null);
-        if (knnMethodContext != null && knnMethodContext.getMethodComponentContext().getName().isPresent()) {
-            return knnMethodContext.getMethodComponentContext().getName().get();
+    protected String resolveMethod(KNNLibraryIndexConfig resolvedRequiredParameters) {
+        MethodComponentContext methodComponentContext = resolvedRequiredParameters.getMethodComponentContext();
+        if (methodComponentContext.getName().isPresent()) {
+            return methodComponentContext.getName().get();
         }
-        return doResolveMethod(knnIndexContext);
+        return doResolveMethod(resolvedRequiredParameters);
     }
 
-    protected abstract String doResolveMethod(KNNIndexContext knnIndexContext);
+    protected abstract String doResolveMethod(KNNLibraryIndexConfig resolvedRequiredParameters);
 
-    private String validateSpaceType(KNNIndexContext knnIndexContext) {
+    private String validateSpaceType(SpaceType spaceType, VectorDataType vectorDataType) {
         try {
-            knnIndexContext.getSpaceType().validateVectorDataType(knnIndexContext.getVectorDataType());
+            spaceType.validateVectorDataType(vectorDataType);
         } catch (IllegalArgumentException e) {
             return e.getMessage();
         }
         return null;
     }
 
-    private String validateDimension(KNNIndexContext knnIndexContext) {
-        int dimension = knnIndexContext.getDimension();
-        KNNEngine knnEngine = knnIndexContext.getKNNEngine();
+    private String validateDimension(int dimension, VectorDataType vectorDataType, KNNEngine knnEngine) {
+        int maxDimension = KNNEngine.getMaxDimensionByEngine(knnEngine);
         if (dimension > KNNEngine.getMaxDimensionByEngine(knnEngine)) {
             return String.format(
                 Locale.ROOT,
-                "Dimension value cannot be greater than %s for vector with engine: %s",
-                KNNEngine.getMaxDimensionByEngine(knnEngine),
+                "Dimension value cannot be greater than %s for vector with library: %s",
+                maxDimension,
                 knnEngine.getName()
             );
         }
 
-        if (VectorDataType.BINARY == knnIndexContext.getVectorDataType() && dimension % 8 != 0) {
+        if (VectorDataType.BINARY == vectorDataType && dimension % 8 != 0) {
             return "Dimension should be multiply of 8 for binary vector data type";
         }
 
@@ -88,11 +86,5 @@ public abstract class AbstractKNNLibrary implements KNNLibrary {
             return String.format(Locale.ROOT, "Invalid method name: %s", methodName);
         }
         return null;
-    }
-
-    private void throwIllegalArgOnNonNull(String errorMessage) {
-        if (errorMessage != null) {
-            throw new IllegalArgumentException(errorMessage);
-        }
     }
 }

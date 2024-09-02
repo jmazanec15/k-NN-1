@@ -6,11 +6,10 @@
 package org.opensearch.knn.index.engine.faiss;
 
 import com.google.common.collect.ImmutableSet;
-import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.Encoder;
-import org.opensearch.knn.index.engine.FilterKNNLibrarySearchContext;
-import org.opensearch.knn.index.engine.KNNIndexContext;
+import org.opensearch.knn.index.engine.FilterKNNLibraryIndexSearchResolver;
+import org.opensearch.knn.index.engine.KNNLibraryIndex;
 import org.opensearch.knn.index.engine.MethodComponent;
 import org.opensearch.knn.index.engine.Parameter;
 import org.opensearch.knn.index.engine.config.CompressionConfig;
@@ -48,20 +47,19 @@ public class QFrameBitEncoder implements Encoder {
      */
     private final static MethodComponent METHOD_COMPONENT = MethodComponent.Builder.builder(NAME)
         .addSupportedDataTypes(SUPPORTED_DATA_TYPES)
-        .addParameter(BITCOUNT_PARAM, new Parameter.IntegerParameter(BITCOUNT_PARAM, (v, context) -> {
-            int vResolved = resolveBitCount(context, v);
-            context.setQuantizationConfig(resolveQuantizationConfig(vResolved));
-            context.getLibraryParameters().put(KNNConstants.VECTOR_DATA_TYPE_FIELD, VectorDataType.BINARY.getValue());
+        .addParameter(BITCOUNT_PARAM, new Parameter.IntegerParameter(BITCOUNT_PARAM, (v, builder) -> {
+            int vResolved = resolveBitCount(builder, v);
+            builder.quantizationConfig(resolveQuantizationConfig(vResolved));
+            builder.libraryVectorDataType(VectorDataType.BINARY);
             RescoreContext rescoreContext = resolveRescoreContextFromBitCount(vResolved);
             if (rescoreContext != null) {
-                context.setKnnLibrarySearchContext(new FilterKNNLibrarySearchContext(context.getKnnLibrarySearchContext()) {
+                builder.knnLibraryIndexSearchResolver(new FilterKNNLibraryIndexSearchResolver(builder.getKnnLibraryIndexSearchResolver()) {
                     @Override
-                    public RescoreContext getDefaultRescoreContext(QueryContext ctx) {
+                    public RescoreContext resolveRescoreContext(QueryContext ctx, RescoreContext userRescoreContext) {
                         return rescoreContext;
                     }
                 });
             }
-            return null;
         },
             (v) -> ValidationUtil.chainValidationErrors(
                 null,
@@ -70,9 +68,8 @@ public class QFrameBitEncoder implements Encoder {
         ))
         .setPostResolveProcessor(((methodComponent, knnIndexContext) -> {
             // We dont need the parameters any more. Lets remove
-            //TODO: We should clarify when we remove
+            // TODO: We should clarify when we remove
             knnIndexContext.getLibraryParameters().remove(PARAMETERS);
-            return null;
         }))
         .setRequiresTraining(false)
         .build();
@@ -82,12 +79,12 @@ public class QFrameBitEncoder implements Encoder {
         return METHOD_COMPONENT;
     }
 
-    private static int resolveBitCount(KNNIndexContext knnIndexContext, Integer bitCount) {
+    private static int resolveBitCount(KNNLibraryIndex.Builder builder, Integer bitCount) {
         if (bitCount != null) {
             return bitCount;
         }
 
-        CompressionConfig compressionConfig = knnIndexContext.getResolvedRequiredParameters().getCompressionConfig();
+        CompressionConfig compressionConfig = builder.getKnnLibraryIndexConfig().getCompressionConfig();
         if (compressionConfig.equals(CompressionConfig.NOT_CONFIGURED)) {
             return DEFAULT_BITS;
         }

@@ -15,7 +15,6 @@ import java.util.Optional;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
-import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.document.Field;
@@ -38,13 +37,16 @@ import org.opensearch.index.mapper.ParametrizedFieldMapper;
 import org.opensearch.index.mapper.ParseContext;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNSettings;
-import org.opensearch.knn.index.engine.KNNIndexContext;
+import org.opensearch.knn.index.engine.KNNEngineResolver;
+import org.opensearch.knn.index.engine.KNNLibraryIndex;
+import org.opensearch.knn.index.engine.KNNLibraryIndexResolver;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.VectorField;
 import org.opensearch.knn.index.engine.KNNEngine;
-import org.opensearch.knn.index.engine.ResolvedRequiredParameters;
-import org.opensearch.knn.index.engine.UserProvidedParameters;
+import org.opensearch.knn.index.engine.KNNLibraryIndexConfig;
+import org.opensearch.knn.index.engine.MethodComponentContext;
+import org.opensearch.knn.index.engine.SpaceTypeResolver;
 import org.opensearch.knn.index.engine.config.CompressionConfig;
 import org.opensearch.knn.index.engine.config.WorkloadModeConfig;
 import org.opensearch.knn.indices.ModelDao;
@@ -52,6 +54,7 @@ import org.opensearch.knn.indices.ModelDao;
 import static org.opensearch.knn.common.KNNConstants.KNN_METHOD;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 import static org.opensearch.knn.common.KNNValidationUtil.validateVectorDimension;
+import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.createKNNMethodContextFromLegacy;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.createStoredFieldForByteVector;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.createStoredFieldForFloatVector;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.validateIfCircuitBreakerIsNotTriggered;
@@ -172,15 +175,13 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         protected ModelDao modelDao;
         protected Version indexCreatedVersion;
 
-        // This contains the context needed to execute ann c
+        // This contains the context needed to execute ann searches
         @Setter
-        @Getter
-        private KNNIndexContext knnIndexContext;
+        private KNNLibraryIndex knnLibraryIndex;
         @Setter
-        @Getter
-        private UserProvidedParameters originalParameters;
+        private OriginalMappingParameters originalParameters;
 
-        public Builder(String name, ModelDao modelDao, Version indexCreatedVersion, UserProvidedParameters originalParameters) {
+        Builder(String name, ModelDao modelDao, Version indexCreatedVersion, OriginalMappingParameters originalParameters) {
             super(name);
             this.modelDao = modelDao;
             this.indexCreatedVersion = indexCreatedVersion;
@@ -211,7 +212,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             final Explicit<Boolean> ignoreMalformed = ignoreMalformed(context);
             final Map<String, String> metaValue = meta.getValue();
 
-            if (knnIndexContext != null && knnIndexContext.getKNNEngine() == KNNEngine.LUCENE) {
+            if (knnLibraryIndex != null && knnLibraryIndex.getKnnLibraryIndexConfig().getKnnEngine() == KNNEngine.LUCENE) {
                 log.debug(String.format(Locale.ROOT, "Use [LuceneFieldMapper] mapper for field [%s]", name));
                 LuceneFieldMapper.CreateLuceneFieldMapperInput createLuceneFieldMapperInput = LuceneFieldMapper.CreateLuceneFieldMapperInput
                     .builder()
@@ -226,13 +227,13 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 return LuceneFieldMapper.createFieldMapper(
                     buildFullName(context),
                     metaValue,
-                    knnIndexContext,
+                    knnLibraryIndex,
                     originalParameters,
                     createLuceneFieldMapperInput
                 );
             }
 
-            if (knnIndexContext != null) {
+            if (knnLibraryIndex != null) {
                 return MethodFieldMapper.createFieldMapper(
                     buildFullName(context),
                     name,
@@ -242,7 +243,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                     ignoreMalformed,
                     stored.getValue(),
                     hasDocValues.getValue(),
-                    knnIndexContext,
+                    knnLibraryIndex,
                     originalParameters
 
                 );
@@ -327,49 +328,46 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
 
             // Validate mix and match on user provided parameters
             BuilderValidator.INSTANCE.validate(builder, isKNNDisabled(parserContext.getSettings()), name);
-
-            // Setup object to track the original parameters provided by the user. We need this to ensure that
-            // merging of the field mapper works
-            UserProvidedParameters originalParameters = new UserProvidedParameters(
-                builder.dimension.get(),
-                builder.vectorDataType.get(),
-                builder.modelId.get(),
-                builder.mode.get(),
-                builder.compressionLevel.get(),
-                builder.knnMethodContext.get()
-            );
-
+            OriginalMappingParameters originalParameters = new OriginalMappingParameters(builder);
             builder.setOriginalParameters(originalParameters);
-            ResolvedRequiredParameters resolvedRequiredParameters = setResolvedRequiredParameters(
-                originalParameters,
-                builder,
-                parserContext.getSettings()
-            );
 
-            // At this point, if the index does not require training and knn is enabled, we resolve all parameters
-            // needed to build the index.
-            if (resolvedRequiredParameters != null) {
-                builder.setKnnIndexContext(resolvedRequiredParameters.resolveKNNIndexContext(false));
-            }
-            return builder;
-        }
-
-        private ResolvedRequiredParameters setResolvedRequiredParameters(
-            UserProvidedParameters originalParameters,
-            KNNVectorFieldMapper.Builder builder,
-            Settings settings
-        ) {
-            // To support our legacy field mapping, on parsing, if index.knn=true and no method is
-            // passed, we build a KNNMethodContext using the space type, ef_construction and m that are set in the index
-            // settings. Note that this will not necessarily align with the value in the parameter. Thus, in the
-            // field mapper, we keep track of the original mapping
-            if (isKNNDisabled(settings)) {
+            // Check if we need to get the KNNLibraryIndex and/or further parameters
+            if (isKNNDisabled(parserContext.getSettings())) {
                 return null;
             }
             if (builder.modelId.get() != null) {
                 return null;
             }
-            return new ResolvedRequiredParameters(originalParameters, settings, builder.indexCreatedVersion);
+
+            KNNMethodContext resolvedKNNMethodContext = originalParameters.isLegacyMapping()
+                ? createKNNMethodContextFromLegacy(parserContext.getSettings(), builder.indexCreatedVersion)
+                : builder.knnMethodContext.getValue();
+            VectorDataType resolvedVectorDataType = originalParameters.getVectorDataType() == null
+                ? VectorDataType.DEFAULT
+                : originalParameters.getVectorDataType();
+            WorkloadModeConfig resolvedWorkloadModeConfig = WorkloadModeConfig.fromString(originalParameters.getMode());
+            CompressionConfig resolvedCompressionConfig = CompressionConfig.fromString(originalParameters.getCompressionLevel());
+            KNNLibraryIndexConfig knnLibraryIndexConfig = new KNNLibraryIndexConfig(
+                resolvedVectorDataType,
+                SpaceTypeResolver.resolveSpaceType(resolvedKNNMethodContext, resolvedVectorDataType),
+                KNNEngineResolver.resolveKNNEngine(
+                    resolvedKNNMethodContext,
+                    resolvedVectorDataType,
+                    resolvedWorkloadModeConfig,
+                    resolvedCompressionConfig
+                ),
+                originalParameters.getDimension(),
+                Version.CURRENT,
+                resolvedKNNMethodContext == null ? MethodComponentContext.EMPTY : resolvedKNNMethodContext.getMethodComponentContext(),
+                resolvedWorkloadModeConfig,
+                resolvedCompressionConfig,
+                false
+            );
+
+            // Setup object to track the original parameters provided by the user. We need this to ensure that
+            // merging of the field mapper works
+            builder.setKnnLibraryIndex(KNNLibraryIndexResolver.resolve(knnLibraryIndexConfig));
+            return builder;
         }
     }
 
@@ -379,7 +377,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
     protected Explicit<Boolean> ignoreMalformed;
     protected boolean stored;
     protected boolean hasDocValues;
-    protected UserProvidedParameters originalParameters;
+    protected OriginalMappingParameters originalParameters;
     protected ModelDao modelDao;
     protected boolean useLuceneBasedVectorField;
 
@@ -392,7 +390,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         boolean stored,
         boolean hasDocValues,
         Version indexCreatedVersion,
-        UserProvidedParameters originalParameters
+        OriginalMappingParameters originalParameters
     ) {
         super(simpleName, mappedFieldType, multiFields, copyTo);
         this.ignoreMalformed = ignoreMalformed;
@@ -594,11 +592,11 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
 
     @Override
     public ParametrizedFieldMapper.Builder getMergeBuilder() {
+        Builder mergeBuilder = new KNNVectorFieldMapper.Builder(simpleName(), modelDao, indexCreatedVersion, originalParameters);
         // We cannot get the KNNIndexContext from the model based indices at this field because the
         // cluster state may not be available. So, we need to set it to null.
-        Builder mergeBuilder = new KNNVectorFieldMapper.Builder(simpleName(), modelDao, indexCreatedVersion, originalParameters);
         if (fieldType().getModelId().isEmpty()) {
-            mergeBuilder.setKnnIndexContext(fieldType().getKNNIndexContext().orElse(null));
+            mergeBuilder.setKnnLibraryIndex(fieldType().getKNNLibraryIndex().orElse(null));
         }
         mergeBuilder.init(this);
         BuilderValidator.INSTANCE.validate(mergeBuilder, !fieldType().isIndexedForAnn(), name());
@@ -641,95 +639,6 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             FIELD_TYPE.setIndexOptions(IndexOptions.NONE);
             FIELD_TYPE.putAttribute(KNN_FIELD, "true"); // This attribute helps to determine knn field type
             FIELD_TYPE.freeze();
-        }
-    }
-
-    // Helper class used to validate builder before build is called. Needs to be invoked in 2 places: during
-    // parsing and during merge.
-    private static class BuilderValidator {
-
-        private final static BuilderValidator INSTANCE = new BuilderValidator();
-
-        private void validate(Builder builder, boolean isKNNDisabled, String name) {
-            if (isKNNDisabled) {
-                validateFromFlat(builder, name);
-            } else if (builder.modelId.get() != null) {
-                validateFromModel(builder, name);
-            } else {
-                validateFromKNNMethod(builder, name);
-            }
-        }
-
-        private void validateFromFlat(KNNVectorFieldMapper.Builder builder, String name) {
-            if (builder.modelId.get() != null || builder.knnMethodContext.get() != null) {
-                throw new MapperParsingException("Cannot set modelId or method parameters when index.knn setting is false for field: %s");
-            }
-            validateDimensionSet(builder, "flat");
-            validateCompressionAndModeNotSet(builder, name, "flat");
-        }
-
-        private void validateFromModel(KNNVectorFieldMapper.Builder builder, String name) {
-            // Dimension should not be null unless modelId is used
-            if (builder.dimension.getValue() != UNSET_MODEL_DIMENSION_IDENTIFIER) {
-                throw new MapperParsingException(
-                    String.format(Locale.ROOT, "Dimension cannot be specified for model index for field: %s", builder.name())
-                );
-            }
-            validateMethodAndModelNotBothSet(builder, name);
-            validateCompressionAndModeNotSet(builder, name, "model");
-            validateVectorDataTypeNotSet(builder, name, "model");
-        }
-
-        private void validateFromKNNMethod(KNNVectorFieldMapper.Builder builder, String name) {
-            validateMethodAndModelNotBothSet(builder, name);
-            validateDimensionSet(builder, "method");
-        }
-
-        private void validateVectorDataTypeNotSet(KNNVectorFieldMapper.Builder builder, String name, String context) {
-            if (builder.vectorDataType.isConfigured()) {
-                throw new MapperParsingException(
-                    String.format(
-                        Locale.ROOT,
-                        "Vector data type can not be specified in a %s mapping configuration for field: %s",
-                        context,
-                        name
-                    )
-                );
-            }
-        }
-
-        private void validateCompressionAndModeNotSet(KNNVectorFieldMapper.Builder builder, String name, String context) {
-            if (builder.mode.isConfigured() == true || builder.compressionLevel.isConfigured() == true) {
-                throw new MapperParsingException(
-                    String.format(
-                        Locale.ROOT,
-                        "Compression and mode can not be specified in a %s mapping configuration for field: %s",
-                        context,
-                        name
-                    )
-                );
-            }
-        }
-
-        private void validateMethodAndModelNotBothSet(KNNVectorFieldMapper.Builder builder, String name) {
-            if (builder.knnMethodContext.isConfigured() == true && builder.modelId.isConfigured() == true) {
-                throw new MapperParsingException(
-                    String.format(Locale.ROOT, "Method and model can not be both specified in the mapping: %s", name)
-                );
-            }
-        }
-
-        private void validateDimensionSet(KNNVectorFieldMapper.Builder builder, String context) {
-            if (builder.dimension.getValue() == UNSET_MODEL_DIMENSION_IDENTIFIER) {
-                throw new MapperParsingException(
-                    String.format(
-                        Locale.ROOT,
-                        "Dimension value must be set in a %s mapping configuration for field: %s",
-                        context,
-                        builder.name()
-                    )
-                );
-            }
         }
     }
 

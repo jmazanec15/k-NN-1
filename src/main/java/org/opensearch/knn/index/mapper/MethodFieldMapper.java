@@ -13,8 +13,7 @@ import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
-import org.opensearch.knn.index.engine.KNNIndexContext;
-import org.opensearch.knn.index.engine.UserProvidedParameters;
+import org.opensearch.knn.index.engine.KNNLibraryIndex;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfigParser;
 
@@ -46,18 +45,18 @@ public class MethodFieldMapper extends KNNVectorFieldMapper {
         Explicit<Boolean> ignoreMalformed,
         boolean stored,
         boolean hasDocValues,
-        KNNIndexContext knnIndexContext,
-        UserProvidedParameters originalParameters
+        KNNLibraryIndex knnLibraryIndex,
+        OriginalMappingParameters originalParameters
     ) {
         final KNNVectorFieldType mappedFieldType = new KNNVectorFieldType(
             fullname,
             metaValue,
             () -> KNNVectorFieldType.KNNVectorFieldTypeConfig.builder()
-                .dimension(knnIndexContext.getDimension())
-                .knnIndexContext(knnIndexContext)
-                .vectorDataType(knnIndexContext.getVectorDataType())
-                .spaceType(knnIndexContext.getSpaceType())
-                .knnEngine(knnIndexContext.getKNNEngine())
+                .dimension(knnLibraryIndex.getDimension())
+                .knnLibraryIndex(knnLibraryIndex)
+                .vectorDataType(knnLibraryIndex.getVectorDataType())
+                .spaceType(knnLibraryIndex.getSpaceType())
+                .knnEngine(knnLibraryIndex.getKnnLibraryIndexConfig().getKnnEngine())
                 .build(),
             null
         );
@@ -69,7 +68,7 @@ public class MethodFieldMapper extends KNNVectorFieldMapper {
             ignoreMalformed,
             stored,
             hasDocValues,
-            knnIndexContext,
+            knnLibraryIndex,
             originalParameters
         );
     }
@@ -82,8 +81,8 @@ public class MethodFieldMapper extends KNNVectorFieldMapper {
         Explicit<Boolean> ignoreMalformed,
         boolean stored,
         boolean hasDocValues,
-        KNNIndexContext knnIndexContext,
-        UserProvidedParameters originalParameters
+        KNNLibraryIndex knnLibraryIndex,
+        OriginalMappingParameters originalParameters
     ) {
         super(
             simpleName,
@@ -93,16 +92,16 @@ public class MethodFieldMapper extends KNNVectorFieldMapper {
             ignoreMalformed,
             stored,
             hasDocValues,
-            knnIndexContext.getCreatedVersion(),
+            knnLibraryIndex.getCreatedVersion(),
             originalParameters
         );
         this.useLuceneBasedVectorField = KNNVectorFieldMapperUtil.useLuceneKNNVectorsFormat(indexCreatedVersion);
-        KNNEngine knnEngine = knnIndexContext.getKNNEngine();
-        QuantizationConfig quantizationConfig = knnIndexContext.getQuantizationConfig();
+        KNNEngine knnEngine = knnLibraryIndex.getKnnLibraryIndexConfig().getKnnEngine();
+        QuantizationConfig quantizationConfig = knnLibraryIndex.getQuantizationConfig();
 
         this.fieldType = new FieldType(KNNVectorFieldMapper.Defaults.FIELD_TYPE);
-        this.fieldType.putAttribute(DIMENSION, String.valueOf(knnIndexContext.getDimension()));
-        this.fieldType.putAttribute(SPACE_TYPE, knnIndexContext.getSpaceType().getValue());
+        this.fieldType.putAttribute(DIMENSION, String.valueOf(knnLibraryIndex.getDimension()));
+        this.fieldType.putAttribute(SPACE_TYPE, knnLibraryIndex.getSpaceType().getValue());
         // Conditionally add quantization config
         if (quantizationConfig != null && quantizationConfig != QuantizationConfig.EMPTY) {
             this.fieldType.putAttribute(QFRAMEWORK_CONFIG, QuantizationConfigParser.toCsv(quantizationConfig));
@@ -112,16 +111,16 @@ public class MethodFieldMapper extends KNNVectorFieldMapper {
         this.fieldType.putAttribute(KNN_ENGINE, knnEngine.getName());
 
         try {
-            this.fieldType.putAttribute(PARAMETERS, XContentFactory.jsonBuilder().map(knnIndexContext.getLibraryParameters()).toString());
+            this.fieldType.putAttribute(PARAMETERS, XContentFactory.jsonBuilder().map(knnLibraryIndex.getLibraryParameters()).toString());
         } catch (IOException ioe) {
             throw new RuntimeException(String.format("Unable to create KNNVectorFieldMapper: %s", ioe));
         }
 
         if (useLuceneBasedVectorField) {
-            int adjustedDimension = knnIndexContext.getVectorDataType() == VectorDataType.BINARY
-                ? knnIndexContext.getDimension() / 8
-                : knnIndexContext.getDimension();
-            final VectorEncoding encoding = knnIndexContext.getVectorDataType() == VectorDataType.FLOAT
+            int adjustedDimension = knnLibraryIndex.getVectorDataType() == VectorDataType.BINARY
+                ? knnLibraryIndex.getDimension() / 8
+                : knnLibraryIndex.getDimension();
+            final VectorEncoding encoding = knnLibraryIndex.getVectorDataType() == VectorDataType.FLOAT
                 ? VectorEncoding.FLOAT32
                 : VectorEncoding.BYTE;
             fieldType.setVectorAttributes(
@@ -134,9 +133,9 @@ public class MethodFieldMapper extends KNNVectorFieldMapper {
         }
 
         this.fieldType.freeze();
-        this.perDimensionProcessor = knnIndexContext.getPerDimensionProcessor();
-        this.perDimensionValidator = knnIndexContext.getPerDimensionValidator();
-        this.vectorValidator = knnIndexContext.getVectorValidator();
+        this.perDimensionProcessor = knnLibraryIndex.getPerDimensionProcessor();
+        this.perDimensionValidator = knnLibraryIndex.getPerDimensionValidator();
+        this.vectorValidator = knnLibraryIndex.getVectorValidator();
     }
 
     @Override

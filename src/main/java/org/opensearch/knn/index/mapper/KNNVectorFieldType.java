@@ -12,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import org.apache.lucene.search.DocValuesFieldExistsQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.util.BytesRef;
+import org.opensearch.Version;
 import org.opensearch.index.fielddata.IndexFieldData;
 import org.opensearch.index.mapper.MappedFieldType;
 import org.opensearch.index.mapper.TextSearchInfo;
@@ -21,11 +22,14 @@ import org.opensearch.index.query.QueryShardException;
 import org.opensearch.knn.index.KNNVectorIndexFieldData;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.engine.DefaultKNNLibraryIndexSearchResolver;
 import org.opensearch.knn.index.engine.KNNEngine;
-import org.opensearch.knn.index.engine.KNNIndexContext;
-import org.opensearch.knn.index.engine.KNNLibrarySearchContext;
-import org.opensearch.knn.index.engine.model.QueryContext;
-import org.opensearch.knn.index.query.rescore.RescoreContext;
+import org.opensearch.knn.index.engine.KNNLibraryIndex;
+import org.opensearch.knn.index.engine.KNNLibraryIndexConfig;
+import org.opensearch.knn.index.engine.KNNLibraryIndexSearchResolver;
+import org.opensearch.knn.index.engine.MethodComponentContext;
+import org.opensearch.knn.index.engine.config.CompressionConfig;
+import org.opensearch.knn.index.engine.config.WorkloadModeConfig;
 import org.opensearch.search.aggregations.support.CoreValuesSourceType;
 import org.opensearch.search.lookup.SearchLookup;
 
@@ -100,11 +104,7 @@ public class KNNVectorFieldType extends MappedFieldType {
     }
 
     public Map<String, Object> getLibraryParameters() {
-        return cachedKNNVectorFieldTypeConfig.getKnnVectorFieldTypeConfig().getKnnIndexContext().getLibraryParameters();
-    }
-
-    public KNNEngine getKNNEngine() {
-        return cachedKNNVectorFieldTypeConfig.getKnnVectorFieldTypeConfig().getKnnEngine();
+        return cachedKNNVectorFieldTypeConfig.getKnnVectorFieldTypeConfig().getKnnLibraryIndex().getLibraryParameters();
     }
 
     /**
@@ -140,49 +140,48 @@ public class KNNVectorFieldType extends MappedFieldType {
      * @return true if the field is built for ann-indexing, false otherwise
      */
     public boolean isIndexedForAnn() {
-        return getModelId().isPresent() || getKNNIndexContext().isPresent();
+        return modelId != null || getKNNLibraryIndex().isPresent();
     }
 
-    /**
-     * Return a map of query parameters that are valid for the given query context and augmented with other
-     * parameters
-     *
-     * @param queryContext Context of the query
-     * @param originalMethodParameters user provided query parameters
-     * @return parameters to be passed to the library augmented based on the field type
-     */
-    public Map<String, Object> getProcessedQueryMethodParameters(QueryContext queryContext, Map<String, Object> originalMethodParameters) {
-        if (originalMethodParameters == null || originalMethodParameters.isEmpty()) {
-            return originalMethodParameters;
+    public KNNEngine getKNNEngine() {
+        KNNEngine knnEngine = cachedKNNVectorFieldTypeConfig.getKnnVectorFieldTypeConfig().getKnnEngine();
+        if (knnEngine == null) {
+            throw new IllegalArgumentException("Invaliid no engine");
+        }
+        return knnEngine;
+    }
+
+    public KNNLibraryIndexSearchResolver getKnnLibraryIndexSearchResolver() {
+        if (isIndexedForAnn() == false) {
+            throw new IllegalArgumentException("FIX ME");
         }
 
-        // If we are unable to get the configuration and the user is trying to passs in parameters, we have to fail
-        // the request
-        KNNIndexContext knnIndexContext = getKNNIndexContext().orElseThrow(
-            () -> new IllegalArgumentException(
-                "Unable to validate passed in method parameters because index was built with model before 2.14"
-            )
-        );
-
-        final KNNLibrarySearchContext engineSpecificMethodContext = knnIndexContext.getKnnLibrarySearchContext();
-        return engineSpecificMethodContext.processMethodParameters(queryContext, originalMethodParameters);
-    }
-
-    public RescoreContext getProcessedRescoreQueryContext(QueryContext queryContext, RescoreContext originalRescoreContext) {
-        if (originalRescoreContext != null) {
-            return originalRescoreContext;
+        if (getKNNLibraryIndex().isEmpty()) {
+            // TODO: This case needs to be handeld more gracefully. Maybe pass in the config via field type
+            return new DefaultKNNLibraryIndexSearchResolver(
+                new KNNLibraryIndexConfig(
+                    getVectorDataType(),
+                    getSpaceType(),
+                    getKNNEngine(),
+                    getDimension(),
+                    Version.V_EMPTY,
+                    MethodComponentContext.EMPTY,
+                    WorkloadModeConfig.NOT_CONFIGURED,
+                    CompressionConfig.NOT_CONFIGURED,
+                    true
+                )
+            );
         }
-        Optional<KNNIndexContext> knnIndexContext = getKNNIndexContext();
-        return knnIndexContext.map(indexContext -> indexContext.getKnnLibrarySearchContext().getDefaultRescoreContext(queryContext))
-            .orElse(RescoreContext.DISABLED_RESCORE_CONTEXT);
+
+        return getKNNLibraryIndex().get().getKnnLibraryIndexSearchResolver();
     }
 
-    Optional<KNNIndexContext> getKNNIndexContext() {
+    Optional<KNNLibraryIndex> getKNNLibraryIndex() {
         KNNVectorFieldTypeConfig knnVectorFieldTypeConfig = cachedKNNVectorFieldTypeConfig.getKnnVectorFieldTypeConfig();
         if (knnVectorFieldTypeConfig == null) {
             return Optional.empty();
         }
-        return Optional.ofNullable(knnVectorFieldTypeConfig.getKnnIndexContext());
+        return Optional.ofNullable(knnVectorFieldTypeConfig.getKnnLibraryIndex());
     }
 
     public SpaceType getSpaceType() {
@@ -198,9 +197,10 @@ public class KNNVectorFieldType extends MappedFieldType {
     public static final class KNNVectorFieldTypeConfig {
         private final int dimension;
         private final VectorDataType vectorDataType;
-        private final KNNIndexContext knnIndexContext;
         private final SpaceType spaceType;
         private final KNNEngine knnEngine;
+        // null in the case of old model and/or flat mapper
+        private final KNNLibraryIndex knnLibraryIndex;
     }
 
     @RequiredArgsConstructor

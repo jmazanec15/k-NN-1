@@ -17,6 +17,13 @@ import java.util.List;
 public interface KNNLibrary {
 
     /**
+     * Gets the name of the library that is being used
+     *
+     * @return the string representing the library's name
+     */
+    String getName();
+
+    /**
      * Gets the version of the library that is being used. In general, this can be used for ensuring compatibility of
      * serialized artifacts. For instance, this can be used to check if a given file that was created on a different
      * cluster is compatible with this instance of the library.
@@ -71,14 +78,13 @@ public interface KNNLibrary {
     Float scoreToRadialThreshold(Float score, SpaceType spaceType);
 
     /**
-     * Validate the knnMethodContext for the given library. A ValidationException should be thrown if the method is
-     * deemed invalid.
+     * Creates a KNNLibraryIndex given the provided KNNLibraryIndexConfig
      *
-     * @param knnIndexContext KNNIndexContextBuilder used to build the KNNIndexContext
-     * @param shouldTrain whether the library should be trained or not
-     * @return ValidationException produced by validation errors; null if no validations errors.
+     * @param knnLibraryIndexConfig {@link KNNLibraryIndexConfig}
+     * @return KNNIndexContext produced by validation;
+     * @throws ValidationException throw if the KNNLibraryIndexConfig is invalid
     */
-    ValidationException resolveKNNIndexContext(KNNIndexContext knnIndexContext, boolean shouldTrain);
+    KNNLibraryIndex resolve(KNNLibraryIndexConfig knnLibraryIndexConfig);
 
     /**
      * Getter for initialized

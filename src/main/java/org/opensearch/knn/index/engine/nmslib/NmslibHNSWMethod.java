@@ -11,7 +11,7 @@ import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.AbstractKNNMethod;
-import org.opensearch.knn.index.engine.DefaultHnswSearchContext;
+import org.opensearch.knn.index.engine.DefaultHnswSearchResolver;
 import org.opensearch.knn.index.engine.MethodComponent;
 import org.opensearch.knn.index.engine.Parameter;
 
@@ -44,7 +44,7 @@ public class NmslibHNSWMethod extends AbstractKNNMethod {
      * @see AbstractKNNMethod
      */
     public NmslibHNSWMethod() {
-        super(initMethodComponent(), Set.copyOf(SUPPORTED_SPACES), new DefaultHnswSearchContext());
+        super(initMethodComponent(), Set.copyOf(SUPPORTED_SPACES));
     }
 
     private static MethodComponent initMethodComponent() {
@@ -56,7 +56,6 @@ public class NmslibHNSWMethod extends AbstractKNNMethod {
                     vResolved = KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_M;
                 }
                 context.getLibraryParameters().put(METHOD_PARAMETER_M, vResolved);
-                return null;
             }, (v) -> {
                 if (v == null) {
                     return null;
@@ -81,7 +80,6 @@ public class NmslibHNSWMethod extends AbstractKNNMethod {
                         vResolved = KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_CONSTRUCTION;
                     }
                     context.getLibraryParameters().put(METHOD_PARAMETER_EF_CONSTRUCTION, vResolved);
-                    return null;
                 }, v -> {
                     if (v == null) {
                         return null;
@@ -98,6 +96,9 @@ public class NmslibHNSWMethod extends AbstractKNNMethod {
                     validationException.addValidationError(message);
                     return validationException;
                 })
+            )
+            .setPostResolveProcessor(
+                (a, b) -> b.knnLibraryIndexSearchResolver(new DefaultHnswSearchResolver(b.getKnnLibraryIndexSearchResolver()))
             )
             .build();
     }

@@ -9,13 +9,14 @@ import com.google.common.collect.ImmutableMap;
 import org.apache.lucene.util.Version;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.engine.JVMLibrary;
-import org.opensearch.knn.index.engine.KNNIndexContext;
+import org.opensearch.knn.index.engine.KNNLibraryIndexConfig;
 import org.opensearch.knn.index.engine.KNNMethod;
 
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 
+import static org.opensearch.knn.common.KNNConstants.LUCENE_NAME;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 
 /**
@@ -48,6 +49,11 @@ public class Lucene extends JVMLibrary {
     Lucene(Map<String, KNNMethod> methods, String version, Map<SpaceType, Function<Float, Float>> distanceTransform) {
         super(methods, version);
         this.distanceTransform = distanceTransform;
+    }
+
+    @Override
+    public String getName() {
+        return LUCENE_NAME;
     }
 
     @Override
@@ -89,7 +95,7 @@ public class Lucene extends JVMLibrary {
     }
 
     @Override
-    protected String doResolveMethod(KNNIndexContext knnIndexContext) {
+    protected String doResolveMethod(KNNLibraryIndexConfig resolvedRequiredParameters) {
         return METHOD_HNSW;
     }
 }

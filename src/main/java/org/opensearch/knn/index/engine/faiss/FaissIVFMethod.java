@@ -10,7 +10,7 @@ import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.AbstractKNNMethod;
-import org.opensearch.knn.index.engine.DefaultIVFSearchContext;
+import org.opensearch.knn.index.engine.DefaultIVFSearchResolver;
 import org.opensearch.knn.index.engine.Encoder;
 import org.opensearch.knn.index.engine.MethodComponent;
 import org.opensearch.knn.index.engine.MethodComponentContext;
@@ -77,7 +77,7 @@ public class FaissIVFMethod extends AbstractKNNMethod {
      * @see AbstractKNNMethod
      */
     public FaissIVFMethod() {
-        super(initMethodComponent(), Set.copyOf(SUPPORTED_SPACES), new DefaultIVFSearchContext());
+        super(initMethodComponent(), Set.copyOf(SUPPORTED_SPACES));
     }
 
     private static MethodComponent initMethodComponent() {
@@ -89,7 +89,6 @@ public class FaissIVFMethod extends AbstractKNNMethod {
                     vResolved = METHOD_PARAMETER_NPROBES_DEFAULT;
                 }
                 context.getLibraryParameters().put(METHOD_PARAMETER_NPROBES, vResolved);
-                return null;
             }, v -> {
                 if (v == null) {
                     return null;
@@ -97,13 +96,12 @@ public class FaissIVFMethod extends AbstractKNNMethod {
                 boolean isValid = v > 0 && v < METHOD_PARAMETER_NPROBES_LIMIT;
                 return ValidationUtil.chainValidationErrors(null, isValid ? null : "UPDATE ME");
             }))
-            .addParameter(METHOD_PARAMETER_NLIST, new Parameter.IntegerParameter(METHOD_PARAMETER_NLIST, (v, context) -> {
+            .addParameter(METHOD_PARAMETER_NLIST, new Parameter.IntegerParameter(METHOD_PARAMETER_NLIST, (v, builder) -> {
                 Integer vResolved = v;
                 if (vResolved == null) {
                     vResolved = METHOD_PARAMETER_NLIST_DEFAULT;
                 }
-                context.getLibraryParameters().put(METHOD_PARAMETER_NLIST, vResolved);
-                return null;
+                builder.getLibraryParameters().put(METHOD_PARAMETER_NLIST, vResolved);
             }, v -> {
                 if (v == null) {
                     return null;
@@ -113,43 +111,45 @@ public class FaissIVFMethod extends AbstractKNNMethod {
             }))
             .addParameter(METHOD_ENCODER_PARAMETER, initEncoderParameter())
             .setRequiresTraining(true)
-            .setPostResolveProcessor(
-                ((methodComponent, knnIndexContext) -> IndexDescriptionPostResolveProcessor.builder(
-                    FAISS_IVF_DESCRIPTION,
-                    methodComponent,
-                    knnIndexContext
-                ).addParameter(METHOD_PARAMETER_NLIST, "", "").addParameter(METHOD_ENCODER_PARAMETER, "", "").build())
-            )
-            .setOverheadInKBEstimator((methodComponent, methodComponentContext, knnIndexContext) -> {
-                int centroids = (Integer) ((Map<String, Object>) knnIndexContext.getLibraryParameters().get(PARAMETERS)).get(
+            .setPostResolveProcessor(((methodComponent, builder) -> {
+                int centroids = (Integer) ((Map<String, Object>) builder.getLibraryParameters().get(PARAMETERS)).get(
                     METHOD_PARAMETER_NLIST
                 );
-                return Math.toIntExact(((4L * centroids * knnIndexContext.getDimension()) / BYTES_PER_KILOBYTES) + 1);
-            })
+                builder.incEstimatedIndexOverhead(
+                    Math.toIntExact(((4L * centroids * builder.getKnnLibraryIndexConfig().getDimension()) / BYTES_PER_KILOBYTES) + 1)
+                );
+                IndexDescriptionPostResolveProcessor.builder(FAISS_IVF_DESCRIPTION, methodComponent, builder)
+                    .setTopLevel(true)
+                    .addParameter(METHOD_PARAMETER_NLIST, "", "")
+                    .addParameter(METHOD_ENCODER_PARAMETER, "", "")
+                    .build();
+
+                builder.knnLibraryIndexSearchResolver(new DefaultIVFSearchResolver(builder.getKnnLibraryIndexSearchResolver()));
+            }))
             .build();
     }
 
     private static Parameter.MethodComponentContextParameter initEncoderParameter() {
-        return new Parameter.MethodComponentContextParameter(METHOD_ENCODER_PARAMETER, (v, context) -> {
+        return new Parameter.MethodComponentContextParameter(METHOD_ENCODER_PARAMETER, (v, builder) -> {
             MethodComponentContext vResolved = v;
             if (vResolved == null) {
                 vResolved = getDefaultEncoderFromCompression(
-                    context.getResolvedRequiredParameters().getCompressionConfig(),
-                    context.getResolvedRequiredParameters().getMode()
+                    builder.getKnnLibraryIndexConfig().getCompressionConfig(),
+                    builder.getKnnLibraryIndexConfig().getMode()
                 );
             }
 
             if (vResolved.getName().isEmpty()) {
                 if (vResolved.getParameters().isPresent()) {
-                    return ValidationUtil.chainValidationErrors(null, "Invalid configuration. Need to specify the name");
+                    builder.addValidationErrorMessage("Invalid configuration. Need to specify the name", true);
                 }
-                return null;
+                return;
             }
 
-            return SUPPORTED_ENCODERS.stream()
+            SUPPORTED_ENCODERS.stream()
                 .collect(Collectors.toMap(Encoder::getName, Encoder::getMethodComponent))
                 .get(vResolved.getName().get())
-                .resolveKNNIndexContext(v, context);
+                .resolve(v, builder);
         }, v -> {
             if (v == null) {
                 return null;

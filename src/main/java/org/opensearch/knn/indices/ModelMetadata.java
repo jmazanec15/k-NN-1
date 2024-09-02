@@ -11,11 +11,11 @@
 
 package org.opensearch.knn.indices;
 
-import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
 import org.apache.commons.lang.builder.EqualsBuilder;
 import org.apache.commons.lang.builder.HashCodeBuilder;
+import org.opensearch.Version;
 import org.opensearch.common.xcontent.json.JsonXContent;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
@@ -25,6 +25,8 @@ import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.index.engine.KNNLibraryIndex;
+import org.opensearch.knn.index.engine.KNNLibraryIndexConfig;
 import org.opensearch.knn.index.engine.config.CompressionConfig;
 import org.opensearch.knn.index.engine.config.WorkloadModeConfig;
 import org.opensearch.knn.index.util.IndexUtil;
@@ -36,31 +38,38 @@ import org.opensearch.knn.index.engine.KNNEngine;
 import java.io.IOException;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.opensearch.core.xcontent.DeprecationHandler.IGNORE_DEPRECATIONS;
 
-@EqualsAndHashCode
 @Log4j2
 public class ModelMetadata implements Writeable, ToXContentObject {
 
     public static final String DELIMITER = ",";
-
-    final private KNNEngine knnEngine;
-    final private SpaceType spaceType;
-    final private int dimension;
-
-    private AtomicReference<ModelState> state;
-    final private String timestamp;
-    final private String description;
-    final private String trainingNodeAssignment;
-    final private VectorDataType vectorDataType;
+    @Getter
+    private final KNNEngine knnEngine;
+    @Getter
+    private final SpaceType spaceType;
+    @Getter
+    private final int dimension;
+    private final AtomicReference<ModelState> state;
+    @Getter
+    private final String timestamp;
+    @Getter
+    private final String description;
+    private final String trainingNodeAssignment;
+    @Getter
+    private final VectorDataType vectorDataType;
+    @Getter
     private MethodComponentContext methodComponentContext;
+    @Getter
     private String error;
     @Getter
     private final WorkloadModeConfig workloadModeConfig;
     @Getter
     private final CompressionConfig compressionConfig;
+    private final KNNLibraryIndex knnLibraryIndex;
 
     /**
      * Constructor
@@ -105,6 +114,7 @@ public class ModelMetadata implements Writeable, ToXContentObject {
             this.workloadModeConfig = WorkloadModeConfig.NOT_CONFIGURED;
             this.compressionConfig = CompressionConfig.NOT_CONFIGURED;
         }
+        this.knnLibraryIndex = initKNNLibraryIndex();
     }
 
     /**
@@ -159,33 +169,37 @@ public class ModelMetadata implements Writeable, ToXContentObject {
         this.vectorDataType = Objects.requireNonNull(vectorDataType, "vector data type must not be null");
         this.workloadModeConfig = workloadModeConfig;
         this.compressionConfig = compressionConfig;
+        this.knnLibraryIndex = initKNNLibraryIndex();
+    }
+
+    private KNNLibraryIndex initKNNLibraryIndex() {
+        // Before 2.14, this information wasnt available. So, we have to return empty
+        if (methodComponentContext == MethodComponentContext.EMPTY) {
+            return null;
+        }
+        KNNLibraryIndexConfig knnLibraryIndexConfig = new KNNLibraryIndexConfig(
+            vectorDataType,
+            spaceType,
+            knnEngine,
+            dimension,
+            Version.CURRENT, // TODO: Fix
+            methodComponentContext,
+            workloadModeConfig,
+            compressionConfig,
+            true
+        );
+        return knnEngine.resolve(knnLibraryIndexConfig);
     }
 
     /**
-     * getter for model's knnEngine
+     * Gets the KNNLibraryIndex backing this model. Models created on or after 2.14 will have access to all of the
+     * configuration information and will therefore be able to produce the {@link KNNLibraryIndex}. Models created
+     * before 2.14 will not and will there return null
      *
-     * @return knnEngine
+     * @return {@link KNNLibraryIndex} or null if model is pre 2.14
      */
-    public KNNEngine getKnnEngine() {
-        return knnEngine;
-    }
-
-    /**
-     * getter for model's spaceType
-     *
-     * @return spaceType
-     */
-    public SpaceType getSpaceType() {
-        return spaceType;
-    }
-
-    /**
-     * getter for model's dimension
-     *
-     * @return dimension
-     */
-    public int getDimension() {
-        return dimension;
+    public Optional<KNNLibraryIndex> getKNNLibraryIndex() {
+        return Optional.ofNullable(knnLibraryIndex);
     }
 
     /**
@@ -198,52 +212,12 @@ public class ModelMetadata implements Writeable, ToXContentObject {
     }
 
     /**
-     * getter for model's timestamp
-     *
-     * @return timestamp
-     */
-    public String getTimestamp() {
-        return timestamp;
-    }
-
-    /**
-     * getter for model's description
-     *
-     * @return description
-     */
-    public String getDescription() {
-        return description;
-    }
-
-    /**
-     * getter for model's error
-     *
-     * @return error
-     */
-    public String getError() {
-        return error;
-    }
-
-    /**
      * getter for model's node assignment
      *
      * @return trainingNodeAssignment
      */
     public String getNodeAssignment() {
         return trainingNodeAssignment;
-    }
-
-    /**
-     * getter for model's method context
-     *
-     * @return knnMethodContext
-     */
-    public MethodComponentContext getMethodComponentContext() {
-        return methodComponentContext;
-    }
-
-    public VectorDataType getVectorDataType() {
-        return vectorDataType;
     }
 
     /**

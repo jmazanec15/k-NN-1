@@ -6,7 +6,6 @@
 package org.opensearch.knn.index.engine.faiss;
 
 import com.google.common.collect.ImmutableSet;
-import org.opensearch.common.ValidationException;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.Encoder;
@@ -36,29 +35,40 @@ public class FaissHNSWPQEncoder implements Encoder {
 
     private final static MethodComponent METHOD_COMPONENT = MethodComponent.Builder.builder(KNNConstants.ENCODER_PQ)
         .addSupportedDataTypes(SUPPORTED_DATA_TYPES)
-        .addParameter(ENCODER_PARAMETER_PQ_M, new Parameter.IntegerParameter(ENCODER_PARAMETER_PQ_M, (v, context) -> {
+        .addParameter(ENCODER_PARAMETER_PQ_M, new Parameter.IntegerParameter(ENCODER_PARAMETER_PQ_M, (v, builder) -> {
             Integer vResolved = v;
             if (vResolved == null) {
                 vResolved = ENCODER_PARAMETER_PQ_CODE_COUNT_DEFAULT;
             }
 
-            ValidationException validationException = ValidationUtil.chainValidationErrors(
-                null,
-                context.getDimension() % vResolved == 0 ? null : String.format(Locale.ROOT, "Invalid parameter for m parameter of product quantization: dimension \"[%d]\" must be divisible by m \"[%d]\"", context.getDimension(), vResolved)
-            );
-            if (validationException != null) {
-                return validationException;
+            if (builder.getKnnLibraryIndexConfig().getDimension() % vResolved == 0) {
+                builder.addValidationErrorMessage(
+                    String.format(
+                        Locale.ROOT,
+                        "Invalid parameter for m parameter of product quantization: dimension \"[%d]\" must be divisible by m \"[%d]\"",
+                        builder.getKnnLibraryIndexConfig().getDimension(),
+                        vResolved
+                    )
+                );
             }
-
-            context.getLibraryParameters().put(ENCODER_PARAMETER_PQ_M, vResolved);
-            return null;
+            builder.getLibraryParameters().put(ENCODER_PARAMETER_PQ_M, vResolved);
         }, v -> {
             if (v == null) {
                 return null;
             }
             boolean isValueGreaterThan0 = v > 0;
             boolean isValueLessThanCodeCountLimit = v < ENCODER_PARAMETER_PQ_CODE_COUNT_LIMIT;
-            return ValidationUtil.chainValidationErrors(null, isValueGreaterThan0 && isValueLessThanCodeCountLimit ? null : String.format(Locale.ROOT, "Invalid parameter for m parameter of product quantization: m \"[%d]\"  must be greater than 0 and less than \"[%d]\"", v, ENCODER_PARAMETER_PQ_CODE_COUNT_LIMIT));
+            return ValidationUtil.chainValidationErrors(
+                null,
+                isValueGreaterThan0 && isValueLessThanCodeCountLimit
+                    ? null
+                    : String.format(
+                        Locale.ROOT,
+                        "Invalid parameter for m parameter of product quantization: m \"[%d]\"  must be greater than 0 and less than \"[%d]\"",
+                        v,
+                        ENCODER_PARAMETER_PQ_CODE_COUNT_LIMIT
+                    )
+            );
         }))
         .addParameter(ENCODER_PARAMETER_PQ_CODE_SIZE, new Parameter.IntegerParameter(ENCODER_PARAMETER_PQ_CODE_SIZE, (v, context) -> {
             Integer vResolved = v;
@@ -66,26 +76,34 @@ public class FaissHNSWPQEncoder implements Encoder {
                 vResolved = ENCODER_PARAMETER_PQ_CODE_SIZE_DEFAULT;
             }
             context.getLibraryParameters().put(ENCODER_PARAMETER_PQ_CODE_SIZE, vResolved);
-            return null;
         }, v -> {
             if (v == null) {
                 return null;
             }
             boolean isValueDefault = Objects.equals(v, ENCODER_PARAMETER_PQ_CODE_SIZE_DEFAULT);
-            return ValidationUtil.chainValidationErrors(null, isValueDefault ? null : String.format(Locale.ROOT, "Invalid parameter for code_size parameter of product quantization: code_size \"[%d]\"  must be \"[%d]\"", v, ENCODER_PARAMETER_PQ_CODE_SIZE_DEFAULT));
+            return ValidationUtil.chainValidationErrors(
+                null,
+                isValueDefault
+                    ? null
+                    : String.format(
+                        Locale.ROOT,
+                        "Invalid parameter for code_size parameter of product quantization: code_size \"[%d]\"  must be \"[%d]\"",
+                        v,
+                        ENCODER_PARAMETER_PQ_CODE_SIZE_DEFAULT
+                    )
+            );
         }))
         .setRequiresTraining(true)
-        .setPostResolveProcessor(
-            ((methodComponent, knnIndexContext) -> IndexDescriptionPostResolveProcessor.builder(
-                "," + FAISS_PQ_DESCRIPTION,
-                methodComponent,
-                knnIndexContext
-            ).addParameter(ENCODER_PARAMETER_PQ_M, "", "").addParameter(ENCODER_PARAMETER_PQ_CODE_SIZE, "x", "").build())
-        )
-        .setOverheadInKBEstimator((methodComponent, methodComponentContext, knnIndexContext) -> {
+        .setPostResolveProcessor(((methodComponent, builder) -> {
             int codeSize = ENCODER_PARAMETER_PQ_CODE_SIZE_DEFAULT;
-            return Math.toIntExact(((4L * (1L << codeSize) * knnIndexContext.getDimension()) / BYTES_PER_KILOBYTES) + 1);
-        })
+            builder.incEstimatedIndexOverhead(
+                Math.toIntExact(((4L * (1L << codeSize) * builder.getKnnLibraryIndexConfig().getDimension()) / BYTES_PER_KILOBYTES) + 1)
+            );
+            IndexDescriptionPostResolveProcessor.builder("," + FAISS_PQ_DESCRIPTION, methodComponent, builder)
+                .addParameter(ENCODER_PARAMETER_PQ_M, "", "")
+                .addParameter(ENCODER_PARAMETER_PQ_CODE_SIZE, "x", "")
+                .build();
+        }))
         .build();
 
     @Override

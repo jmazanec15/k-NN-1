@@ -18,9 +18,8 @@ import org.apache.logging.log4j.Logger;
 import org.opensearch.common.UUIDs;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNSettings;
-import org.opensearch.knn.index.engine.KNNIndexContext;
+import org.opensearch.knn.index.engine.KNNLibraryIndex;
 import org.opensearch.knn.jni.JNIService;
-import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.memory.NativeMemoryAllocation;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.memory.NativeMemoryEntryContext;
@@ -29,8 +28,6 @@ import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelState;
 import org.opensearch.knn.plugin.stats.KNNCounter;
 
-import java.time.ZoneOffset;
-import java.time.ZonedDateTime;
 import java.util.Map;
 import java.util.Objects;
 
@@ -49,7 +46,6 @@ public class TrainingJob implements Runnable {
 
     @Getter
     private final String modelId;
-    private final KNNIndexContext knnIndexContext;
 
     /**
      * Constructor.
@@ -58,45 +54,21 @@ public class TrainingJob implements Runnable {
      * @param nativeMemoryCacheManager Cache manager loads training data into native memory.
      * @param trainingDataEntryContext Training data configuration
      * @param modelAnonymousEntryContext Model allocation context
-     * @param description user provided description of the model.
+     *                                   TODO: FIX ME
      */
     public TrainingJob(
         String modelId,
         NativeMemoryCacheManager nativeMemoryCacheManager,
         NativeMemoryEntryContext.TrainingDataEntryContext trainingDataEntryContext,
         NativeMemoryEntryContext.AnonymousEntryContext modelAnonymousEntryContext,
-        KNNIndexContext knnIndexContext,
-        String description,
-        String nodeAssignment
+        ModelMetadata modelMetadata
     ) {
         // Generate random base64 string if one is not provided
         this.modelId = StringUtils.isNotBlank(modelId) ? modelId : UUIDs.randomBase64UUID();
         this.nativeMemoryCacheManager = Objects.requireNonNull(nativeMemoryCacheManager, "NativeMemoryCacheManager cannot be null.");
         this.trainingDataEntryContext = Objects.requireNonNull(trainingDataEntryContext, "TrainingDataEntryContext cannot be null.");
         this.modelAnonymousEntryContext = Objects.requireNonNull(modelAnonymousEntryContext, "AnonymousEntryContext cannot be null.");
-        this.knnIndexContext = Objects.requireNonNull(knnIndexContext, "KNNLibraryIndexingContext cannot be null.");
-
-        this.model = new Model(
-            new ModelMetadata(
-                knnIndexContext.getKNNEngine(),
-                knnIndexContext.getSpaceType(),
-                knnIndexContext.getDimension(),
-                ModelState.TRAINING,
-                ZonedDateTime.now(ZoneOffset.UTC).toString(),
-                description,
-                "",
-                nodeAssignment,
-                knnIndexContext.getResolvedRequiredParameters()
-                    .getKnnMethodContext()
-                    .map(KNNMethodContext::getMethodComponentContext)
-                    .orElseThrow(() -> new IllegalStateException("KNNConfiguration needs to be passed")),
-                knnIndexContext.getVectorDataType(),
-                knnIndexContext.getResolvedRequiredParameters().getMode(),
-                knnIndexContext.getResolvedRequiredParameters().getCompressionConfig()
-            ),
-            null,
-            this.modelId
-        );
+        this.model = new Model(modelMetadata, null, this.modelId);
     }
 
     @Override
@@ -165,7 +137,9 @@ public class TrainingJob implements Runnable {
             if (trainingDataAllocation.isClosed()) {
                 throw new RuntimeException("Unable to load training data into memory: allocation is already closed");
             }
-            Map<String, Object> trainParameters = knnIndexContext.getLibraryParameters();
+            Map<String, Object> trainParameters = modelMetadata.getKNNLibraryIndex()
+                .map(KNNLibraryIndex::getLibraryParameters)
+                .orElseThrow(() -> new IllegalStateException("No library context TODO"));
             trainParameters.put(
                 KNNConstants.INDEX_THREAD_QTY,
                 KNNSettings.state().getSettingValue(KNNSettings.KNN_ALGO_PARAM_INDEX_THREAD_QTY)

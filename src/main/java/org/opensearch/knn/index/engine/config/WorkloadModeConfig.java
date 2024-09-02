@@ -14,14 +14,14 @@ import static org.opensearch.knn.common.KNNConstants.MODE_ON_DISK_NAME;
 @AllArgsConstructor
 @Getter
 public enum WorkloadModeConfig {
-    NOT_CONFIGURED("NA"),
+    NOT_CONFIGURED(null),
     IN_MEMORY(MODE_IN_MEMORY_NAME),
     ON_DISK(MODE_ON_DISK_NAME);
 
     public static final WorkloadModeConfig DEFAULT = IN_MEMORY;
 
     public static WorkloadModeConfig fromString(String name) {
-        if (name == null || name.equals("NA")) {
+        if (name == null) {
             return NOT_CONFIGURED;
         }
 

@@ -22,6 +22,10 @@ public class BuildIndexParams {
     String fieldName;
     KNNEngine knnEngine;
     String indexPath;
+    /**
+     * Vector data type represents the type used to build the library index. If something like binary quantization is
+     * done, then this will be different from the vector data type the user provides
+     */
     VectorDataType vectorDataType;
     Map<String, Object> parameters;
     /**

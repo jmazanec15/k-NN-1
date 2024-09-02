@@ -34,8 +34,7 @@ import static org.opensearch.knn.common.KNNConstants.NMSLIB_NAME;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 
 /**
- * KNNMethodContext will contain the information necessary to produce a library index from an Opensearch mapping.
- * It will encompass all parameters necessary to build the index.
+ * Provides context user gives to build a knn method.
  */
 @AllArgsConstructor
 public class KNNMethodContext implements ToXContentFragment, Writeable {

@@ -68,10 +68,7 @@ public class DiskBasedFeatureIT extends KNNRestTestCase {
                 .shouldRescoreSearchWork(true)
                 .isKNNSettingEnabled(true)
                 .methodMappingBuilderConsumer(
-                    builder -> builder
-                            .field(NAME, "hnsw")
-                            .field(METHOD_PARAMETER_SPACE_TYPE, "l2")
-                            .field(KNN_ENGINE, "faiss")
+                    builder -> builder.field(NAME, "hnsw").field(METHOD_PARAMETER_SPACE_TYPE, "l2").field(KNN_ENGINE, "faiss")
                 )
                 .build()
         );
@@ -87,16 +84,16 @@ public class DiskBasedFeatureIT extends KNNRestTestCase {
                 .isKNNSettingEnabled(true)
                 .methodMappingBuilderConsumer(
                     builder -> builder.field(NAME, "hnsw")
-                            .field(METHOD_PARAMETER_SPACE_TYPE, "l2")
-                            .field(KNN_ENGINE, "faiss")
-                            .startObject(PARAMETERS)
-                            .startObject(METHOD_ENCODER_PARAMETER)
-                            .field(NAME, "binary")
-                            .startObject(PARAMETERS)
-                            .field("bits", 2)
-                            .endObject()
-                            .endObject()
-                            .endObject()
+                        .field(METHOD_PARAMETER_SPACE_TYPE, "l2")
+                        .field(KNN_ENGINE, "faiss")
+                        .startObject(PARAMETERS)
+                        .startObject(METHOD_ENCODER_PARAMETER)
+                        .field(NAME, "binary")
+                        .startObject(PARAMETERS)
+                        .field("bits", 2)
+                        .endObject()
+                        .endObject()
+                        .endObject()
                 )
                 .build()
         );
@@ -105,53 +102,52 @@ public class DiskBasedFeatureIT extends KNNRestTestCase {
     @SneakyThrows
     public void testValid_Mode_OnDiskAndDefaults() {
         execTestFeature(
-                TestConfiguration.builder()
-                        .testDescription("Mode based disk")
-                        .shouldBasicSearchWork(true)
-                        .shouldRescoreSearchWork(true)
-                        .isKNNSettingEnabled(true)
-                        .mode(WorkloadModeConfig.ON_DISK.toString())
-                        .build()
+            TestConfiguration.builder()
+                .testDescription("Mode based disk")
+                .shouldBasicSearchWork(true)
+                .shouldRescoreSearchWork(true)
+                .isKNNSettingEnabled(true)
+                .mode(WorkloadModeConfig.ON_DISK.toString())
+                .build()
         );
     }
 
     @SneakyThrows
     public void testValid_Mode_OnDiskAndCompression16x() {
         execTestFeature(
-                TestConfiguration.builder()
-                        .testDescription("Mode based disk")
-                        .shouldBasicSearchWork(true)
-                        .shouldRescoreSearchWork(true)
-                        .isKNNSettingEnabled(true)
-                        .mode(WorkloadModeConfig.ON_DISK.toString())
-                        .compression("x16")
-                        .build()
+            TestConfiguration.builder()
+                .testDescription("Mode based disk")
+                .shouldBasicSearchWork(true)
+                .shouldRescoreSearchWork(true)
+                .isKNNSettingEnabled(true)
+                .mode(WorkloadModeConfig.ON_DISK.toString())
+                .compression("x16")
+                .build()
         );
     }
 
     @SneakyThrows
     public void testValid_NoMode_FromModel() {
         execTestFeature(
-                TestConfiguration.builder()
-                        .testDescription("Mode based disk")
-                        .shouldBasicSearchWork(true)
-                        .shouldRescoreSearchWork(true)
-                        .isKNNSettingEnabled(true)
-                        .requiresTraining(true)
-                        .methodMappingBuilderConsumer(
-                                builder -> builder.field(NAME, "hnsw")
-                                        .field(METHOD_PARAMETER_SPACE_TYPE, "l2")
-                                        .field(KNN_ENGINE, "faiss")
-                                        .startObject(PARAMETERS)
-                                        .startObject(METHOD_ENCODER_PARAMETER)
-                                        .field(NAME, "pq")
-                                        .endObject()
-                                        .endObject()
-                        )
-                        .build()
+            TestConfiguration.builder()
+                .testDescription("Mode based disk")
+                .shouldBasicSearchWork(true)
+                .shouldRescoreSearchWork(true)
+                .isKNNSettingEnabled(true)
+                .requiresTraining(true)
+                .methodMappingBuilderConsumer(
+                    builder -> builder.field(NAME, "hnsw")
+                        .field(METHOD_PARAMETER_SPACE_TYPE, "l2")
+                        .field(KNN_ENGINE, "faiss")
+                        .startObject(PARAMETERS)
+                        .startObject(METHOD_ENCODER_PARAMETER)
+                        .field(NAME, "pq")
+                        .endObject()
+                        .endObject()
+                )
+                .build()
         );
     }
-
 
     @SneakyThrows
     private void execTestFeature(TestConfiguration testConfiguration) {
@@ -176,7 +172,7 @@ public class DiskBasedFeatureIT extends KNNRestTestCase {
             validateIndexDeletion(testConfiguration);
             validateModelDeletion(testConfiguration);
         }
-//        fail();
+        // fail();
     }
 
     @SneakyThrows
@@ -220,7 +216,7 @@ public class DiskBasedFeatureIT extends KNNRestTestCase {
             testConfiguration.indexName,
             DEFAULT_FIELD_NAME,
             testConfiguration.dimension,
-                xContentBuilderToMap(builder),
+            xContentBuilderToMap(builder),
             ""
         );
         assertEquals(RestStatus.OK, RestStatus.fromCode(trainResponse.getStatusLine().getStatusCode()));
@@ -231,7 +227,11 @@ public class DiskBasedFeatureIT extends KNNRestTestCase {
     private void validateCreateIndex(TestConfiguration testConfiguration, boolean isTraining) {
         log.info("Mapping: {}", createVectorMappings(testConfiguration, false));
         log.info("Settings: {}", createSettings(testConfiguration));
-        createKnnIndex(testConfiguration.getIndexName(), createSettings(testConfiguration), createVectorMappings(testConfiguration, isTraining));
+        createKnnIndex(
+            testConfiguration.getIndexName(),
+            createSettings(testConfiguration),
+            createVectorMappings(testConfiguration, isTraining)
+        );
         log.info("Mapping: {}", getIndexMappingAsMap(testConfiguration.getIndexName()));
         log.info("Settings: {}", getIndexSettings(testConfiguration.getIndexName()));
     }

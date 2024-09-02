@@ -284,18 +284,6 @@ public class IndexUtil {
     }
 
     /**
-     * Update vector data type into parameters
-     *
-     * @param parameters parameters associated with an index
-     * @param vectorDataType vector data type
-     */
-    public static void updateVectorDataTypeToParameters(Map<String, Object> parameters, VectorDataType vectorDataType) {
-        if (VectorDataType.BINARY == vectorDataType) {
-            parameters.put(VECTOR_DATA_TYPE_FIELD, vectorDataType.getValue());
-        }
-    }
-
-    /**
      * This method retrieves the field mapping by a given field path from the index metadata.
      *
      * @param properties Index metadata mapping properties.

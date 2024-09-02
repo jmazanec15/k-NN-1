@@ -27,11 +27,10 @@ public class FaissFlatEncoder implements Encoder {
 
     private final static MethodComponent METHOD_COMPONENT = MethodComponent.Builder.builder(KNNConstants.ENCODER_FLAT)
         .setPostResolveProcessor(
-            ((methodComponent, contextMap, knnIndexContext) -> IndexDescriptionPostResolveProcessor.builder(
+            ((methodComponent, builder) -> IndexDescriptionPostResolveProcessor.builder(
                 "," + KNNConstants.FAISS_FLAT_DESCRIPTION,
                 methodComponent,
-                knnIndexContext,
-                contextMap
+                builder
             ).build())
         )
         .addSupportedDataTypes(SUPPORTED_DATA_TYPES)

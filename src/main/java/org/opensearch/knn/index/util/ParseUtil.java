@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.index.engine;
+package org.opensearch.knn.index.util;
 
 import java.util.Objects;
 
