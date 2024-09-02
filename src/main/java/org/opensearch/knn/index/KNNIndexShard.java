@@ -34,9 +34,9 @@ import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
+import static org.opensearch.knn.common.FieldInfoExtractor.extractVectorDataTypeForTransfer;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
-import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 import static org.opensearch.knn.index.util.IndexUtil.getParametersAtLoading;
 import static org.opensearch.knn.index.codec.util.KNNCodecUtil.buildEngineFilePrefix;
 import static org.opensearch.knn.index.codec.util.KNNCodecUtil.buildEngineFileSuffix;
@@ -182,7 +182,7 @@ public class KNNIndexShard {
                             shardPath,
                             spaceType,
                             modelId,
-                            VectorDataType.get(fieldInfo.attributes().getOrDefault(VECTOR_DATA_TYPE_FIELD, VectorDataType.FLOAT.getValue()))
+                            extractVectorDataTypeForTransfer(fieldInfo, null)
                         )
                     );
                 }

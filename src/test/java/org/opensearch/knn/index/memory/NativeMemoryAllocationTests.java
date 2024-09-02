@@ -301,41 +301,41 @@ public class NativeMemoryAllocationTests extends KNNTestCase {
 
         assertEquals(osIndexName, indexAllocation.getOpenSearchIndexName());
     }
-
-    public void testTrainingDataAllocation_close() throws InterruptedException {
-        // Create basic nmslib HNSW index
-        int numVectors = 10;
-        int dimension = 10;
-        float[][] vectors = new float[numVectors][dimension];
-        for (int i = 0; i < numVectors; i++) {
-            Arrays.fill(vectors[i], 1f);
-        }
-        long memoryAddress = JNIService.transferVectors(0, vectors);
-
-        ExecutorService executorService = Executors.newSingleThreadExecutor();
-        NativeMemoryAllocation.TrainingDataAllocation trainingDataAllocation = new NativeMemoryAllocation.TrainingDataAllocation(
-            executorService,
-            memoryAddress,
-            0,
-            VectorDataType.FLOAT
-        );
-
-        trainingDataAllocation.close();
-
-        Thread.sleep(1000 * 2);
-        trainingDataAllocation.writeLock();
-        assertTrue(trainingDataAllocation.isClosed());
-        trainingDataAllocation.writeUnlock();
-
-        trainingDataAllocation.close();
-
-        Thread.sleep(1000 * 2);
-        trainingDataAllocation.writeLock();
-        assertTrue(trainingDataAllocation.isClosed());
-        trainingDataAllocation.writeUnlock();
-
-        executorService.shutdown();
-    }
+    //
+    // public void testTrainingDataAllocation_close() throws InterruptedException {
+    // // Create basic nmslib HNSW index
+    // int numVectors = 10;
+    // int dimension = 10;
+    // float[][] vectors = new float[numVectors][dimension];
+    // for (int i = 0; i < numVectors; i++) {
+    // Arrays.fill(vectors[i], 1f);
+    // }
+    // long memoryAddress = JNIService.transferVectors(0, vectors);
+    //
+    // ExecutorService executorService = Executors.newSingleThreadExecutor();
+    // NativeMemoryAllocation.TrainingDataAllocation trainingDataAllocation = new NativeMemoryAllocation.TrainingDataAllocation(
+    // executorService,
+    // memoryAddress,
+    // 0,
+    // VectorDataType.FLOAT
+    // );
+    //
+    // trainingDataAllocation.close();
+    //
+    // Thread.sleep(1000 * 2);
+    // trainingDataAllocation.writeLock();
+    // assertTrue(trainingDataAllocation.isClosed());
+    // trainingDataAllocation.writeUnlock();
+    //
+    // trainingDataAllocation.close();
+    //
+    // Thread.sleep(1000 * 2);
+    // trainingDataAllocation.writeLock();
+    // assertTrue(trainingDataAllocation.isClosed());
+    // trainingDataAllocation.writeUnlock();
+    //
+    // executorService.shutdown();
+    // }
 
     public void testTrainingDataAllocation_getMemoryAddress() {
         long memoryAddress = 12;

@@ -6,7 +6,6 @@
 package org.opensearch.knn.index.engine;
 
 import com.google.common.collect.ImmutableSet;
-import org.opensearch.common.ValidationException;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.engine.faiss.Faiss;
 import org.opensearch.knn.index.engine.lucene.Lucene;
@@ -16,18 +15,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static org.opensearch.knn.common.KNNConstants.FAISS_NAME;
-import static org.opensearch.knn.common.KNNConstants.LUCENE_NAME;
-import static org.opensearch.knn.common.KNNConstants.NMSLIB_NAME;
-
 /**
  * KNNEngine provides the functionality to validate and transform user defined indices into information that can be
  * passed to the respective k-NN library's JNI layer.
  */
 public enum KNNEngine implements KNNLibrary {
-    NMSLIB(NMSLIB_NAME, Nmslib.INSTANCE),
-    FAISS(FAISS_NAME, Faiss.INSTANCE),
-    LUCENE(LUCENE_NAME, Lucene.INSTANCE);
+    NMSLIB(Nmslib.INSTANCE),
+    FAISS(Faiss.INSTANCE),
+    LUCENE(Lucene.INSTANCE);
 
     public static final KNNEngine DEFAULT = NMSLIB;
 
@@ -47,15 +42,12 @@ public enum KNNEngine implements KNNLibrary {
     /**
      * Constructor for KNNEngine
      *
-     * @param name name of engine
      * @param knnLibrary library the engine uses
      */
-    KNNEngine(String name, KNNLibrary knnLibrary) {
-        this.name = name;
+    KNNEngine(KNNLibrary knnLibrary) {
         this.knnLibrary = knnLibrary;
     }
 
-    private final String name;
     private final KNNLibrary knnLibrary;
 
     /**
@@ -120,13 +112,9 @@ public enum KNNEngine implements KNNLibrary {
         return MAX_DIMENSIONS_BY_ENGINE.getOrDefault(knnEngine, MAX_DIMENSIONS_BY_ENGINE.get(KNNEngine.DEFAULT));
     }
 
-    /**
-     * Get the name of the engine
-     *
-     * @return name of the engine
-     */
+    @Override
     public String getName() {
-        return name;
+        return knnLibrary.getName();
     }
 
     @Override
@@ -160,31 +148,8 @@ public enum KNNEngine implements KNNLibrary {
     }
 
     @Override
-    public ValidationException validateMethod(KNNMethodContext knnMethodContext, KNNMethodConfigContext knnMethodConfigContext) {
-        return knnLibrary.validateMethod(knnMethodContext, knnMethodConfigContext);
-    }
-
-    @Override
-    public boolean isTrainingRequired(KNNMethodContext knnMethodContext) {
-        return knnLibrary.isTrainingRequired(knnMethodContext);
-    }
-
-    @Override
-    public KNNLibraryIndexingContext getKNNLibraryIndexingContext(
-        KNNMethodContext knnMethodContext,
-        KNNMethodConfigContext knnMethodConfigContext
-    ) {
-        return knnLibrary.getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext);
-    }
-
-    @Override
-    public KNNLibrarySearchContext getKNNLibrarySearchContext(String methodName) {
-        return knnLibrary.getKNNLibrarySearchContext(methodName);
-    }
-
-    @Override
-    public int estimateOverheadInKB(KNNMethodContext knnMethodContext, KNNMethodConfigContext knnMethodConfigContext) {
-        return knnLibrary.estimateOverheadInKB(knnMethodContext, knnMethodConfigContext);
+    public KNNLibraryIndex resolve(KNNLibraryIndexConfig knnLibraryIndexConfig) {
+        return knnLibrary.resolve(knnLibraryIndexConfig);
     }
 
     @Override

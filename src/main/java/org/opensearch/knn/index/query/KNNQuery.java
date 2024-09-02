@@ -20,7 +20,9 @@ import org.apache.lucene.search.ScoreMode;
 import org.apache.lucene.search.Weight;
 import org.apache.lucene.search.join.BitSetProducer;
 import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
 
 import java.io.IOException;
@@ -43,120 +45,18 @@ public class KNNQuery extends Query {
     private int k;
     private Map<String, ?> methodParameters;
     private final String indexName;
-    private final VectorDataType vectorDataType;
     private final RescoreContext rescoreContext;
-    private final String indexUUID;
-    private final int shardId;
+
+    private final VectorDataType vectorDataType;
+    private final SpaceType spaceType;
+    private final KNNEngine knnEngine;
+    private final String modelId;
 
     @Setter
     private Query filterQuery;
     private BitSetProducer parentsFilter;
     private Float radius;
     private Context context;
-
-    public KNNQuery(
-        final String field,
-        final float[] queryVector,
-        final int k,
-        final String indexName,
-        final BitSetProducer parentsFilter
-    ) {
-        this(field, queryVector, null, k, indexName, null, parentsFilter, VectorDataType.FLOAT, null);
-    }
-
-    public KNNQuery(
-        final String field,
-        final float[] queryVector,
-        final int k,
-        final String indexName,
-        final Query filterQuery,
-        final BitSetProducer parentsFilter,
-        final RescoreContext rescoreContext
-    ) {
-        this(field, queryVector, null, k, indexName, filterQuery, parentsFilter, VectorDataType.FLOAT, rescoreContext);
-    }
-
-    public KNNQuery(
-        final String field,
-        final byte[] byteQueryVector,
-        final int k,
-        final String indexName,
-        final Query filterQuery,
-        final BitSetProducer parentsFilter,
-        final VectorDataType vectorDataType,
-        final RescoreContext rescoreContext
-    ) {
-        this(field, null, byteQueryVector, k, indexName, filterQuery, parentsFilter, vectorDataType, rescoreContext);
-    }
-
-    private KNNQuery(
-        final String field,
-        final float[] queryVector,
-        final byte[] byteQueryVector,
-        final int k,
-        final String indexName,
-        final Query filterQuery,
-        final BitSetProducer parentsFilter,
-        final VectorDataType vectorDataType,
-        final RescoreContext rescoreContext
-    ) {
-        this.field = field;
-        this.queryVector = queryVector;
-        this.byteQueryVector = byteQueryVector;
-        this.k = k;
-        this.indexName = indexName;
-        this.filterQuery = filterQuery;
-        this.parentsFilter = parentsFilter;
-        this.vectorDataType = vectorDataType;
-        this.rescoreContext = rescoreContext;
-        this.indexUUID = null;
-        this.shardId = -1;
-    }
-
-    /**
-     * Constructor for KNNQuery with query vector, index name and parent filter
-     *
-     * @param field field name
-     * @param queryVector query vector
-     * @param indexName index name
-     * @param parentsFilter parent filter
-     */
-    public KNNQuery(String field, float[] queryVector, String indexName, BitSetProducer parentsFilter) {
-        this(field, queryVector, null, 0, indexName, null, parentsFilter, VectorDataType.FLOAT, null);
-    }
-
-    /**
-     * Constructor for KNNQuery with radius
-     *
-     * @param radius engine radius
-     * @return KNNQuery
-     */
-    public KNNQuery radius(Float radius) {
-        this.radius = radius;
-        return this;
-    }
-
-    /**
-     * Constructor for KNNQuery with Context
-     *
-     * @param context Context for KNNQuery
-     * @return KNNQuery
-     */
-    public KNNQuery kNNQueryContext(Context context) {
-        this.context = context;
-        return this;
-    }
-
-    /**
-     * Constructor for KNNQuery with filter query
-     *
-     * @param filterQuery filter query
-     * @return KNNQuery
-     */
-    public KNNQuery filterQuery(Query filterQuery) {
-        this.filterQuery = filterQuery;
-        return this;
-    }
 
     /**
      * Constructs Weight implementation for this query
@@ -173,9 +73,9 @@ public class KNNQuery extends Query {
         }
         final Weight filterWeight = getFilterWeight(searcher);
         if (filterWeight != null) {
-            return new KNNWeight(this, boost, filterWeight, indexUUID, shardId);
+            return new KNNWeight(this, boost, filterWeight);
         }
-        return new KNNWeight(this, boost, indexUUID, shardId);
+        return new KNNWeight(this, boost);
     }
 
     private Weight getFilterWeight(IndexSearcher searcher) throws IOException {
@@ -211,7 +111,8 @@ public class KNNQuery extends Query {
             context,
             parentsFilter,
             radius,
-            methodParameters
+            methodParameters,
+            rescoreContext
         );
     }
 
@@ -231,6 +132,7 @@ public class KNNQuery extends Query {
             && Objects.equals(context, other.context)
             && Objects.equals(indexName, other.indexName)
             && Objects.equals(parentsFilter, other.parentsFilter)
+            && Objects.equals(rescoreContext, other.rescoreContext)
             && Objects.equals(filterQuery, other.filterQuery);
     }
 

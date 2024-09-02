@@ -53,7 +53,7 @@ public class NativeEngineKnnVectorQuery extends Query {
         List<Map<Integer, Float>> perLeafResults;
         RescoreContext rescoreContext = knnQuery.getRescoreContext();
         int finalK = knnQuery.getK();
-        if (rescoreContext == null) {
+        if (rescoreContext == null || rescoreContext == RescoreContext.DISABLED_RESCORE_CONTEXT) {
             perLeafResults = doSearch(indexSearcher, leafReaderContexts, knnWeight, finalK);
         } else {
             int firstPassK = rescoreContext.getFirstPassK(finalK);

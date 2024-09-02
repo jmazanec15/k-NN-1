@@ -24,11 +24,9 @@ import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
 import org.opensearch.knn.index.engine.KNNEngine;
-import org.opensearch.knn.index.quantizationService.QuantizationService;
-import org.opensearch.knn.index.util.IndexUtil;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 import org.opensearch.knn.indices.Model;
-import org.opensearch.knn.indices.ModelCache;
+import org.opensearch.knn.indices.ModelUtil;
 import org.opensearch.knn.plugin.stats.KNNGraphValue;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationState;
 
@@ -45,9 +43,10 @@ import java.util.Map;
 import static org.apache.lucene.codecs.CodecUtil.FOOTER_MAGIC;
 import static org.apache.lucene.search.DocIdSetIterator.NO_MORE_DOCS;
 import static org.opensearch.knn.common.FieldInfoExtractor.extractKNNEngine;
-import static org.opensearch.knn.common.FieldInfoExtractor.extractVectorDataType;
+import static org.opensearch.knn.common.FieldInfoExtractor.extractVectorDataTypeForTransfer;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
+import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 import static org.opensearch.knn.common.KNNVectorUtil.iterateVectorValuesOnce;
 import static org.opensearch.knn.index.codec.util.KNNCodecUtil.buildEngineFileName;
 import static org.opensearch.knn.index.engine.faiss.Faiss.FAISS_BINARY_INDEX_DESCRIPTION_PREFIX;
@@ -158,17 +157,14 @@ public class NativeIndexWriter {
     // TODO: Refactor this so its scalable. Possibly move it out of this class
     private BuildIndexParams indexParams(FieldInfo fieldInfo, String indexPath, KNNEngine knnEngine) throws IOException {
         final Map<String, Object> parameters;
-        VectorDataType vectorDataType;
-        if (quantizationState != null) {
-            vectorDataType = QuantizationService.getInstance().getVectorDataTypeForTransfer(fieldInfo);
-        } else {
-            vectorDataType = extractVectorDataType(fieldInfo);
-        }
-        if (fieldInfo.attributes().containsKey(MODEL_ID)) {
-            Model model = getModel(fieldInfo);
-            parameters = getTemplateParameters(fieldInfo, model);
-        } else {
+        VectorDataType vectorDataType = extractVectorDataTypeForTransfer(
+            fieldInfo,
+            quantizationState == null ? null : quantizationState.getQuantizationParams()
+        );
+        if (fieldInfo.attributes().containsKey(MODEL_ID) == false) {
             parameters = getParameters(fieldInfo, vectorDataType, knnEngine);
+        } else {
+            parameters = getTemplateParameters(fieldInfo, vectorDataType);
         }
 
         return BuildIndexParams.builder()
@@ -212,7 +208,6 @@ public class NativeIndexWriter {
             );
         }
 
-        parameters.put(KNNConstants.VECTOR_DATA_TYPE_FIELD, vectorDataType.getValue());
         // In OpenSearch 2.16, we added the prefix for binary indices in the index description in the codec logic.
         // After 2.16, we added the binary prefix in the faiss library code. However, to ensure backwards compatibility,
         // we need to ensure that if the description does not contain the prefix but the type is binary, we add the
@@ -225,47 +220,18 @@ public class NativeIndexWriter {
         return parameters;
     }
 
-    private void maybeAddBinaryPrefixForFaissBWC(KNNEngine knnEngine, Map<String, Object> parameters, Map<String, String> fieldAttributes) {
-        if (KNNEngine.FAISS != knnEngine) {
-            return;
+    private Map<String, Object> getTemplateParameters(FieldInfo fieldInfo, VectorDataType vectorDataTypeForTransfer) {
+        Model model = ModelUtil.getModel(fieldInfo.getAttribute(MODEL_ID));
+        if (model == null) {
+            throw new IllegalStateException("Model not found for field " + fieldInfo.name);
         }
 
-        if (!VectorDataType.BINARY.getValue()
-            .equals(fieldAttributes.getOrDefault(KNNConstants.VECTOR_DATA_TYPE_FIELD, VectorDataType.DEFAULT.getValue()))) {
-            return;
-        }
-
-        if (parameters.get(KNNConstants.INDEX_DESCRIPTION_PARAMETER) == null) {
-            return;
-        }
-
-        if (parameters.get(KNNConstants.INDEX_DESCRIPTION_PARAMETER).toString().startsWith(FAISS_BINARY_INDEX_DESCRIPTION_PREFIX)) {
-            return;
-        }
-
-        parameters.put(
-            KNNConstants.INDEX_DESCRIPTION_PARAMETER,
-            FAISS_BINARY_INDEX_DESCRIPTION_PREFIX + parameters.get(KNNConstants.INDEX_DESCRIPTION_PARAMETER).toString()
-        );
-        IndexUtil.updateVectorDataTypeToParameters(parameters, VectorDataType.BINARY);
-    }
-
-    private Map<String, Object> getTemplateParameters(FieldInfo fieldInfo, Model model) throws IOException {
         Map<String, Object> parameters = new HashMap<>();
         parameters.put(KNNConstants.INDEX_THREAD_QTY, KNNSettings.state().getSettingValue(KNNSettings.KNN_ALGO_PARAM_INDEX_THREAD_QTY));
-        parameters.put(KNNConstants.MODEL_ID, fieldInfo.attributes().get(MODEL_ID));
+        parameters.put(KNNConstants.MODEL_ID, model.getModelID());
         parameters.put(KNNConstants.MODEL_BLOB_PARAMETER, model.getModelBlob());
-        IndexUtil.updateVectorDataTypeToParameters(parameters, model.getModelMetadata().getVectorDataType());
+        parameters.put(VECTOR_DATA_TYPE_FIELD, vectorDataTypeForTransfer.getValue());
         return parameters;
-    }
-
-    private Model getModel(FieldInfo fieldInfo) {
-        String modelId = fieldInfo.attributes().get(MODEL_ID);
-        Model model = ModelCache.getInstance().get(modelId);
-        if (model.getModelBlob() == null) {
-            throw new RuntimeException(String.format("There is no trained model with id \"%s\"", modelId));
-        }
-        return model;
     }
 
     private void startMergeStats(int numDocs, long bytesPerVector) {
@@ -343,5 +309,31 @@ public class NativeIndexWriter {
             ? MemOptimizedNativeIndexBuildStrategy.getInstance()
             : DefaultIndexBuildStrategy.getInstance();
         return new NativeIndexWriter(state, fieldInfo, strategy, quantizationState);
+    }
+
+    private void maybeAddBinaryPrefixForFaissBWC(KNNEngine knnEngine, Map<String, Object> parameters, Map<String, String> fieldAttributes) {
+        if (KNNEngine.FAISS != knnEngine) {
+            return;
+        }
+
+        if (!VectorDataType.BINARY.getValue()
+            .equals(fieldAttributes.getOrDefault(KNNConstants.VECTOR_DATA_TYPE_FIELD, VectorDataType.DEFAULT.getValue()))) {
+            return;
+        }
+
+        if (parameters.get(KNNConstants.INDEX_DESCRIPTION_PARAMETER) == null) {
+            return;
+        }
+
+        if (parameters.get(KNNConstants.INDEX_DESCRIPTION_PARAMETER).toString().startsWith(FAISS_BINARY_INDEX_DESCRIPTION_PREFIX)) {
+            return;
+        }
+
+        parameters.put(
+            KNNConstants.INDEX_DESCRIPTION_PARAMETER,
+            FAISS_BINARY_INDEX_DESCRIPTION_PREFIX + parameters.get(KNNConstants.INDEX_DESCRIPTION_PARAMETER).toString()
+        );
+
+        parameters.put(VECTOR_DATA_TYPE_FIELD, VectorDataType.BINARY.getValue());
     }
 }

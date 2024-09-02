@@ -7,6 +7,7 @@ package org.opensearch.knn.index.engine.nmslib;
 
 import com.google.common.collect.ImmutableMap;
 import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.engine.KNNLibraryIndexConfig;
 import org.opensearch.knn.index.engine.KNNMethod;
 import org.opensearch.knn.index.engine.NativeLibrary;
 
@@ -15,6 +16,7 @@ import java.util.Map;
 import java.util.function.Function;
 
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
+import static org.opensearch.knn.common.KNNConstants.NMSLIB_NAME;
 
 /**
  * Implements NativeLibrary for the nmslib native library
@@ -46,11 +48,21 @@ public class Nmslib extends NativeLibrary {
     }
 
     @Override
+    public String getName() {
+        return NMSLIB_NAME;
+    }
+
+    @Override
     public Float distanceToRadialThreshold(Float distance, SpaceType spaceType) {
         return distance;
     }
 
     public Float scoreToRadialThreshold(Float score, SpaceType spaceType) {
         return score;
+    }
+
+    @Override
+    protected String doResolveMethod(KNNLibraryIndexConfig resolvedRequiredParameters) {
+        return METHOD_HNSW;
     }
 }

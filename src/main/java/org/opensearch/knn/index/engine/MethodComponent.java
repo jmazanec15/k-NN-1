@@ -6,20 +6,16 @@
 package org.opensearch.knn.index.engine;
 
 import lombok.Getter;
-import org.opensearch.Version;
-import org.opensearch.common.TriFunction;
-import org.opensearch.common.ValidationException;
-import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.util.IndexHyperParametersUtil;
 
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.BiConsumer;
 
-import static org.opensearch.knn.index.engine.validation.ParameterValidator.validateParameters;
+import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 
 /**
  * MethodComponent defines the structure of an individual component that can make up an index
@@ -30,12 +26,7 @@ public class MethodComponent {
     private final String name;
     @Getter
     private final Map<String, Parameter<?>> parameters;
-    private final TriFunction<
-        MethodComponent,
-        MethodComponentContext,
-        KNNMethodConfigContext,
-        KNNLibraryIndexingContext> knnLibraryIndexingContextGenerator;
-    private final TriFunction<MethodComponent, MethodComponentContext, Integer, Long> overheadInKBEstimator;
+    private final BiConsumer<MethodComponent, KNNLibraryIndex.Builder> postResolveProcessor;
     private final boolean requiresTraining;
     private final Set<VectorDataType> supportedVectorDataTypes;
 
@@ -47,166 +38,86 @@ public class MethodComponent {
     private MethodComponent(Builder builder) {
         this.name = builder.name;
         this.parameters = builder.parameters;
-        this.knnLibraryIndexingContextGenerator = builder.knnLibraryIndexingContextGenerator;
-        this.overheadInKBEstimator = builder.overheadInKBEstimator;
+        this.postResolveProcessor = builder.postResolveProcessor;
         this.requiresTraining = builder.requiresTraining;
         this.supportedVectorDataTypes = builder.supportedDataTypes;
     }
 
     /**
-     * Parse methodComponentContext into a map that the library can use to configure the method
+     * Resolve KNNLibraryIndex.Builder for the provide {@link KNNLibraryIndexConfig} and {@link MethodComponentContext}.
+     * In general, a {@link MethodComponent} is an individual component of an overall k-NN index.
      *
-     * @param methodComponentContext from which to generate map
-     * @return Method component as a map
+     * @param methodComponentContext {@link MethodComponentContext}
+     * @param builder {@link KNNLibraryIndex.Builder}
      */
-    public KNNLibraryIndexingContext getKNNLibraryIndexingContext(
-        MethodComponentContext methodComponentContext,
-        KNNMethodConfigContext knnMethodConfigContext
-    ) {
-        if (knnLibraryIndexingContextGenerator == null) {
-            Map<String, Object> parameterMap = new HashMap<>();
-            parameterMap.put(KNNConstants.NAME, methodComponentContext.getName());
-            parameterMap.put(
-                KNNConstants.PARAMETERS,
-                getParameterMapWithDefaultsAdded(methodComponentContext, this, knnMethodConfigContext)
-            );
-            return KNNLibraryIndexingContextImpl.builder().parameters(parameterMap).build();
-        }
-        return knnLibraryIndexingContextGenerator.apply(this, methodComponentContext, knnMethodConfigContext);
-    }
-
-    /**
-     * Validate that the methodComponentContext is a valid configuration for this methodComponent
-     *
-     * @param methodComponentContext to be validated
-     * @param knnMethodConfigContext context for the method configuration
-     * @return ValidationException produced by validation errors; null if no validations errors.
-     */
-    public ValidationException validate(MethodComponentContext methodComponentContext, KNNMethodConfigContext knnMethodConfigContext) {
-        Map<String, Object> providedParameters = methodComponentContext.getParameters();
-
-        ValidationException validationException = null;
-        if (!supportedVectorDataTypes.contains(knnMethodConfigContext.getVectorDataType())) {
-            validationException = new ValidationException();
-            validationException.addValidationError(
+    public void resolve(MethodComponentContext methodComponentContext, KNNLibraryIndex.Builder builder) {
+        if (!supportedVectorDataTypes.contains(builder.getKnnLibraryIndexConfig().getVectorDataType())) {
+            builder.addValidationErrorMessage(
                 String.format(
                     Locale.ROOT,
                     "Method \"%s\" is not supported for vector data type \"%s\".",
                     name,
-                    knnMethodConfigContext.getVectorDataType()
-                )
+                    builder.getKnnLibraryIndexConfig().getVectorDataType()
+                ),
+                true
             );
         }
 
-        ValidationException methodValidationException = validateParameters(parameters, providedParameters, knnMethodConfigContext);
-
-        if (methodValidationException != null) {
-            validationException = validationException == null ? new ValidationException() : validationException;
-            validationException.addValidationErrors(methodValidationException.validationErrors());
+        if (builder.getKnnLibraryIndexConfig().isShouldIndexConfigRequireTraining() != requiresTraining) {
+            builder.addValidationErrorMessage("Make this a better message!");
         }
 
-        return validationException;
+        Map<String, Object> libraryParameters = builder.getLibraryParameters();
+        Map<String, Object> subParametersMap = new HashMap<>();
+
+        libraryParameters.put(PARAMETERS, subParametersMap);
+
+        builder.libraryParameters(subParametersMap);
+        resolveNonRecursiveParameters(builder, methodComponentContext);
+        resolveRecursiveParameters(builder, methodComponentContext);
+        builder.libraryParameters(libraryParameters);
+        postResolveProcess(builder);
     }
 
-    /**
-     * gets requiresTraining value
-     *
-     * @return requiresTraining
-     */
-    public boolean isTrainingRequired(MethodComponentContext methodComponentContext) {
-        if (requiresTraining) {
-            return true;
-        }
-
-        // Check if any of the parameters the user provided require training. For example, PQ as an encoder.
-        // If so, return true as well
-        Map<String, Object> providedParameters = methodComponentContext.getParameters();
-        if (providedParameters == null || providedParameters.isEmpty()) {
-            return false;
-        }
-
-        for (Map.Entry<String, Object> providedParameter : providedParameters.entrySet()) {
-            // MethodComponentContextParameters are parameters that are MethodComponentContexts.
-            // MethodComponent may or may not require training. So, we have to check if the parameter requires training.
-            // If the parameter does not exist, the parameter estimate will be skipped. It is not this function's job
-            // to validate the parameters.
-            Parameter<?> parameter = parameters.get(providedParameter.getKey());
-            if (!(parameter instanceof Parameter.MethodComponentContextParameter)) {
+    protected void resolveNonRecursiveParameters(KNNLibraryIndex.Builder builder, MethodComponentContext methodComponentContext) {
+        for (Parameter<?> parameter : parameters.values()) {
+            if (parameter instanceof Parameter.MethodComponentContextParameter) {
                 continue;
             }
-
-            Parameter.MethodComponentContextParameter methodParameter = (Parameter.MethodComponentContextParameter) parameter;
-            Object providedValue = providedParameter.getValue();
-            if (!(providedValue instanceof MethodComponentContext)) {
-                continue;
-            }
-
-            MethodComponentContext parameterMethodComponentContext = (MethodComponentContext) providedValue;
-            MethodComponent methodComponent = methodParameter.getMethodComponent(parameterMethodComponentContext.getName());
-            if (methodComponent.isTrainingRequired(parameterMethodComponentContext)) {
-                return true;
-            }
+            Object innerParameter = extractInnerParameter(parameter.getName(), methodComponentContext);
+            parameter.resolve(innerParameter, builder);
         }
-
-        return false;
     }
 
-    /**
-     * Estimates the overhead in KB
-     *
-     * @param methodComponentContext context to make estimate for
-     * @param dimension dimension to make estimate with
-     * @return overhead estimate in kb
-     */
-    public int estimateOverheadInKB(MethodComponentContext methodComponentContext, int dimension) {
-        // Assume we have the following KNNMethodContext:
-        // "method": {
-        // "name":"METHOD_1",
-        // "engine":"faiss",
-        // "space_type": "l2",
-        // "parameters":{
-        // "P1":1,
-        // "P2":{
-        // "name":"METHOD_2",
-        // "parameters":{
-        // "P3":2
-        // }
-        // }
-        // }
-        // }
-        //
-        // First, we get the overhead estimate of METHOD_1. Then, we add the overhead
-        // estimate for METHOD_2 by looping over parameters of METHOD_1.
-
-        long size = overheadInKBEstimator.apply(this, methodComponentContext, dimension);
-
-        // Check if any of the parameters add overhead
-        Map<String, Object> providedParameters = methodComponentContext.getParameters();
-        if (providedParameters == null || providedParameters.isEmpty()) {
-            return Math.toIntExact(size);
-        }
-
-        for (Map.Entry<String, Object> providedParameter : providedParameters.entrySet()) {
-            // MethodComponentContextParameters are parameters that are MethodComponentContexts. We need to check if
-            // these parameters add overhead. If the parameter does not exist, the parameter estimate will be skipped.
-            // It is not this function's job to validate the parameters.
-            Parameter<?> parameter = parameters.get(providedParameter.getKey());
-            if (!(parameter instanceof Parameter.MethodComponentContextParameter)) {
+    protected void resolveRecursiveParameters(KNNLibraryIndex.Builder builder, MethodComponentContext methodComponentContext) {
+        for (Parameter<?> parameter : parameters.values()) {
+            if (parameter instanceof Parameter.MethodComponentContextParameter == false) {
                 continue;
             }
 
-            Parameter.MethodComponentContextParameter methodParameter = (Parameter.MethodComponentContextParameter) parameter;
-            Object providedValue = providedParameter.getValue();
-            if (!(providedValue instanceof MethodComponentContext)) {
-                continue;
-            }
-
-            MethodComponentContext parameterMethodComponentContext = (MethodComponentContext) providedValue;
-            MethodComponent methodComponent = methodParameter.getMethodComponent(parameterMethodComponentContext.getName());
-            size += methodComponent.estimateOverheadInKB(parameterMethodComponentContext, dimension);
+            Object innerParameter = extractInnerParameter(parameter.getName(), methodComponentContext);
+            Map<String, Object> parametersMap = builder.getLibraryParameters();
+            Map<String, Object> subParametersMap = new HashMap<>();
+            parametersMap.put(parameter.getName(), subParametersMap);
+            builder.libraryParameters(subParametersMap);
+            parameter.resolve(innerParameter, builder);
+            builder.libraryParameters(parametersMap);
         }
+    }
 
-        return Math.toIntExact(size);
+    protected void postResolveProcess(KNNLibraryIndex.Builder builder) {
+        if (postResolveProcessor != null) {
+            postResolveProcessor.accept(this, builder);
+        }
+    }
+
+    private Object extractInnerParameter(String parameter, MethodComponentContext methodComponentContext) {
+        if (methodComponentContext == null
+            || methodComponentContext.getParameters().isEmpty()
+            || methodComponentContext.getParameters().get().containsKey(parameter) == false) {
+            return null;
+        }
+        return methodComponentContext.getParameters().get().get(parameter);
     }
 
     /**
@@ -216,12 +127,7 @@ public class MethodComponent {
 
         private final String name;
         private final Map<String, Parameter<?>> parameters;
-        private TriFunction<
-            MethodComponent,
-            MethodComponentContext,
-            KNNMethodConfigContext,
-            KNNLibraryIndexingContext> knnLibraryIndexingContextGenerator;
-        private TriFunction<MethodComponent, MethodComponentContext, Integer, Long> overheadInKBEstimator;
+        private BiConsumer<MethodComponent, KNNLibraryIndex.Builder> postResolveProcessor;
         private boolean requiresTraining;
         private final Set<VectorDataType> supportedDataTypes;
 
@@ -238,7 +144,6 @@ public class MethodComponent {
         private Builder(String name) {
             this.name = name;
             this.parameters = new HashMap<>();
-            this.overheadInKBEstimator = (mc, mcc, d) -> 0L;
             this.supportedDataTypes = new HashSet<>();
         }
 
@@ -257,17 +162,11 @@ public class MethodComponent {
         /**
          * Set the function used to parse a MethodComponentContext as a map
          *
-         * @param knnLibraryIndexingContextGenerator function to parse a MethodComponentContext as a knnLibraryIndexingContext
+         * @param postResolveProcessor function to parse a MethodComponentContext as a knnLibraryIndexingContext
          * @return this builder
          */
-        public Builder setKnnLibraryIndexingContextGenerator(
-            TriFunction<
-                MethodComponent,
-                MethodComponentContext,
-                KNNMethodConfigContext,
-                KNNLibraryIndexingContext> knnLibraryIndexingContextGenerator
-        ) {
-            this.knnLibraryIndexingContextGenerator = knnLibraryIndexingContextGenerator;
+        public Builder setPostResolveProcessor(BiConsumer<MethodComponent, KNNLibraryIndex.Builder> postResolveProcessor) {
+            this.postResolveProcessor = postResolveProcessor;
             return this;
         }
 
@@ -278,17 +177,6 @@ public class MethodComponent {
          */
         public Builder setRequiresTraining(boolean requiresTraining) {
             this.requiresTraining = requiresTraining;
-            return this;
-        }
-
-        /**
-         * Set the function used to compute an estimate of the size of the component in KB
-         *
-         * @param overheadInKBEstimator function that will compute the estimation
-         * @return Builder instance
-         */
-        public Builder setOverheadInKBEstimator(TriFunction<MethodComponent, MethodComponentContext, Integer, Long> overheadInKBEstimator) {
-            this.overheadInKBEstimator = overheadInKBEstimator;
             return this;
         }
 
@@ -311,43 +199,5 @@ public class MethodComponent {
         public MethodComponent build() {
             return new MethodComponent(this);
         }
-    }
-
-    /**
-     * Returns a map of the user provided parameters in addition to default parameters the user may not have passed
-     *
-     * @param methodComponentContext context containing user provided parameter
-     * @param methodComponent component containing method parameters and defaults
-     * @return Map of user provided parameters with defaults filled in as needed
-     */
-    public static Map<String, Object> getParameterMapWithDefaultsAdded(
-        MethodComponentContext methodComponentContext,
-        MethodComponent methodComponent,
-        KNNMethodConfigContext knnMethodConfigContext
-    ) {
-        Map<String, Object> parametersWithDefaultsMap = new HashMap<>();
-        Map<String, Object> userProvidedParametersMap = methodComponentContext.getParameters();
-        Version indexCreationVersion = knnMethodConfigContext.getVersionCreated();
-        for (Parameter<?> parameter : methodComponent.getParameters().values()) {
-            if (methodComponentContext.getParameters().containsKey(parameter.getName())) {
-                parametersWithDefaultsMap.put(parameter.getName(), userProvidedParametersMap.get(parameter.getName()));
-            } else {
-                // Picking the right values for the parameters whose values are different based on different index
-                // created version.
-                if (parameter.getName().equals(KNNConstants.METHOD_PARAMETER_EF_SEARCH)) {
-                    parametersWithDefaultsMap.put(parameter.getName(), IndexHyperParametersUtil.getHNSWEFSearchValue(indexCreationVersion));
-                } else if (parameter.getName().equals(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION)) {
-                    parametersWithDefaultsMap.put(
-                        parameter.getName(),
-                        IndexHyperParametersUtil.getHNSWEFConstructionValue(indexCreationVersion)
-                    );
-                } else {
-                    parametersWithDefaultsMap.put(parameter.getName(), parameter.getDefaultValue());
-                }
-
-            }
-        }
-
-        return parametersWithDefaultsMap;
     }
 }

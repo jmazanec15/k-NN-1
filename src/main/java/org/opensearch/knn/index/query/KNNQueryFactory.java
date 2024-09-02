@@ -49,8 +49,6 @@ public class KNNQueryFactory extends BaseQueryFactory {
         final Query filterQuery = getFilterQuery(createQueryRequest);
         final Map<String, ?> methodParameters = createQueryRequest.getMethodParameters();
         final RescoreContext rescoreContext = createQueryRequest.getRescoreContext().orElse(null);
-        final String indexUUID = createQueryRequest.getIndexUuid();
-        final int shardId = createQueryRequest.getShardId();
 
         BitSetProducer parentFilter = null;
         if (createQueryRequest.getContext().isPresent()) {
@@ -59,14 +57,12 @@ public class KNNQueryFactory extends BaseQueryFactory {
         }
 
         if (KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(createQueryRequest.getKnnEngine())) {
-            final Query validatedFilterQuery = validateFilterQuerySupport(filterQuery, createQueryRequest.getKnnEngine());
-
             log.debug(
                 "Creating custom k-NN query for index:{}, field:{}, k:{}, filterQuery:{}, efSearch:{}",
                 indexName,
                 fieldName,
                 k,
-                validatedFilterQuery,
+                filterQuery,
                 methodParameters
             );
 
@@ -74,32 +70,33 @@ public class KNNQueryFactory extends BaseQueryFactory {
             switch (vectorDataType) {
                 case BINARY:
                     knnQuery = KNNQuery.builder()
+                        .knnEngine(createQueryRequest.getKnnEngine())
+                        .modelId(createQueryRequest.getModelId())
+                        .spaceType(createQueryRequest.getSpaceType())
                         .field(fieldName)
                         .byteQueryVector(byteVector)
                         .indexName(indexName)
                         .parentsFilter(parentFilter)
                         .k(k)
                         .methodParameters(methodParameters)
-                        .filterQuery(validatedFilterQuery)
+                        .filterQuery(filterQuery)
                         .vectorDataType(vectorDataType)
                         .rescoreContext(rescoreContext)
-                        .indexUUID(indexUUID)
-                        .shardId(shardId)
                         .build();
                     break;
                 default:
                     knnQuery = KNNQuery.builder()
+                        .knnEngine(createQueryRequest.getKnnEngine())
+                        .modelId(createQueryRequest.getModelId())
+                        .spaceType(createQueryRequest.getSpaceType())
                         .field(fieldName)
                         .queryVector(vector)
                         .indexName(indexName)
                         .parentsFilter(parentFilter)
                         .k(k)
                         .methodParameters(methodParameters)
-                        .filterQuery(validatedFilterQuery)
+                        .filterQuery(filterQuery)
                         .vectorDataType(vectorDataType)
-                        .rescoreContext(rescoreContext)
-                        .indexUUID(indexUUID)
-                        .shardId(shardId)
                         .build();
             }
             return isKnnQueryRewriteEnabled() ? new NativeEngineKnnVectorQuery(knnQuery) : knnQuery;
@@ -127,14 +124,6 @@ public class KNNQueryFactory extends BaseQueryFactory {
                     )
                 );
         }
-    }
-
-    private static Query validateFilterQuerySupport(final Query filterQuery, final KNNEngine knnEngine) {
-        log.debug("filter query {}, knnEngine {}", filterQuery, knnEngine);
-        if (filterQuery != null && KNNEngine.getEnginesThatSupportsFilters().contains(knnEngine)) {
-            return filterQuery;
-        }
-        return null;
     }
 
     /**

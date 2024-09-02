@@ -27,36 +27,6 @@ import org.opensearch.knn.index.engine.KNNEngine;
  */
 @Log4j2
 public class RNNQueryFactory extends BaseQueryFactory {
-
-    /**
-     * Creates a Lucene query for a particular engine.
-     *
-     * @param knnEngine Engine to create the query for
-     * @param indexName Name of the OpenSearch index that is being queried
-     * @param fieldName Name of the field in the OpenSearch index that will be queried
-     * @param vector The query vector to get the nearest neighbors for
-     * @param radius the radius threshold for the nearest neighbors
-     * @return Lucene Query
-     */
-    public static Query create(
-        KNNEngine knnEngine,
-        String indexName,
-        String fieldName,
-        float[] vector,
-        Float radius,
-        VectorDataType vectorDataType
-    ) {
-        final CreateQueryRequest createQueryRequest = CreateQueryRequest.builder()
-            .knnEngine(knnEngine)
-            .indexName(indexName)
-            .fieldName(fieldName)
-            .vector(vector)
-            .vectorDataType(vectorDataType)
-            .radius(radius)
-            .build();
-        return create(createQueryRequest);
-    }
-
     /**
      * Creates a Lucene query for a particular engine.
      * @param createQueryRequest request object that has all required fields to construct the query
@@ -83,6 +53,10 @@ public class RNNQueryFactory extends BaseQueryFactory {
             KNNQuery.Context knnQueryContext = new KNNQuery.Context(indexSettings.getMaxResultWindow());
 
             return KNNQuery.builder()
+                .knnEngine(createQueryRequest.getKnnEngine())
+                .modelId(createQueryRequest.getModelId())
+                .spaceType(createQueryRequest.getSpaceType())
+                .vectorDataType(vectorDataType)
                 .field(fieldName)
                 .queryVector(vector)
                 .indexName(indexName)

@@ -13,9 +13,7 @@ import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.cluster.metadata.MappingMetadata;
 import org.opensearch.common.ValidationException;
 import org.opensearch.knn.common.KNNConstants;
-import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.KNNSettings;
-import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
@@ -50,6 +48,7 @@ public class IndexUtil {
     private static final Version MINIMAL_SUPPORTED_VERSION_FOR_METHOD_PARAMETERS = Version.V_2_16_0;
     private static final Version MINIMAL_SUPPORTED_VERSION_FOR_MODEL_VECTOR_DATA_TYPE = Version.V_2_16_0;
     private static final Version MINIMAL_RESCORE_FEATURE = Version.V_2_17_0;
+    private static final Version MINIMAL_MODE_AND_COMPRESSION_FEATURE = Version.V_2_17_0;
     // public so neural search can access it
     public static final Map<String, Version> minimalRequiredVersionMap = initializeMinimalRequiredVersionMap();
 
@@ -87,9 +86,7 @@ public class IndexUtil {
         IndexMetadata indexMetadata,
         String field,
         int expectedDimension,
-        ModelDao modelDao,
-        VectorDataType trainRequestVectorDataType,
-        KNNMethodContext trainRequestKnnMethodContext
+        ModelDao modelDao
     ) {
         // Index metadata should not be null
         if (indexMetadata == null) {
@@ -142,55 +139,6 @@ public class IndexUtil {
         if (!(type instanceof String) || !KNNVectorFieldMapper.CONTENT_TYPE.equals(type)) {
             exception.addValidationError(String.format("Field \"%s\" is not of type %s.", field, KNNVectorFieldMapper.CONTENT_TYPE));
             return exception;
-        }
-
-        if (trainRequestVectorDataType != null) {
-            if (VectorDataType.BYTE == trainRequestVectorDataType) {
-                exception.addValidationError(
-                    String.format(
-                        Locale.ROOT,
-                        "vector data type \"%s\" is not supported for training.",
-                        trainRequestVectorDataType.getValue()
-                    )
-                );
-                return exception;
-            }
-            VectorDataType trainIndexDataType = getVectorDataTypeFromFieldMapping(fieldMap);
-
-            if (trainIndexDataType != trainRequestVectorDataType) {
-                exception.addValidationError(
-                    String.format(
-                        Locale.ROOT,
-                        "Field \"%s\" has data type %s, which is different from data type used in the training request: %s",
-                        field,
-                        trainIndexDataType.getValue(),
-                        trainRequestVectorDataType.getValue()
-                    )
-                );
-                return exception;
-            }
-
-            // Block binary vector data type for pq encoder
-            if (trainRequestKnnMethodContext != null) {
-                MethodComponentContext methodComponentContext = trainRequestKnnMethodContext.getMethodComponentContext();
-                Map<String, Object> parameters = methodComponentContext.getParameters();
-
-                if (parameters != null && parameters.containsKey(KNNConstants.METHOD_ENCODER_PARAMETER)) {
-                    MethodComponentContext encoder = (MethodComponentContext) parameters.get(KNNConstants.METHOD_ENCODER_PARAMETER);
-                    if (encoder != null
-                        && KNNConstants.ENCODER_PQ.equals(encoder.getName())
-                        && VectorDataType.BINARY == trainRequestVectorDataType) {
-                        exception.addValidationError(
-                            String.format(
-                                Locale.ROOT,
-                                "vector data type \"%s\" is not supported for pq encoder.",
-                                trainRequestVectorDataType.getValue()
-                            )
-                        );
-                        return exception;
-                    }
-                }
-            }
         }
 
         // Return if dimension does not need to be checked
@@ -336,18 +284,6 @@ public class IndexUtil {
     }
 
     /**
-     * Update vector data type into parameters
-     *
-     * @param parameters parameters associated with an index
-     * @param vectorDataType vector data type
-     */
-    public static void updateVectorDataTypeToParameters(Map<String, Object> parameters, VectorDataType vectorDataType) {
-        if (VectorDataType.BINARY == vectorDataType) {
-            parameters.put(VECTOR_DATA_TYPE_FIELD, vectorDataType.getValue());
-        }
-    }
-
-    /**
      * This method retrieves the field mapping by a given field path from the index metadata.
      *
      * @param properties Index metadata mapping properties.
@@ -379,18 +315,6 @@ public class IndexUtil {
     }
 
     /**
-     *  This method is used to get the vector data type from field mapping
-     * @param fieldMap field mapping
-     * @return vector data type
-     */
-    private static VectorDataType getVectorDataTypeFromFieldMapping(Map<String, Object> fieldMap) {
-        if (fieldMap.containsKey(VECTOR_DATA_TYPE_FIELD)) {
-            return VectorDataType.get((String) fieldMap.get(VECTOR_DATA_TYPE_FIELD));
-        }
-        return VectorDataType.DEFAULT;
-    }
-
-    /**
      * Initialize the minimal required version map
      *
      * @return minimal required version map
@@ -405,6 +329,7 @@ public class IndexUtil {
                 put(KNNConstants.METHOD_PARAMETER, MINIMAL_SUPPORTED_VERSION_FOR_METHOD_PARAMETERS);
                 put(KNNConstants.MODEL_VECTOR_DATA_TYPE_KEY, MINIMAL_SUPPORTED_VERSION_FOR_MODEL_VECTOR_DATA_TYPE);
                 put(RESCORE_PARAMETER, MINIMAL_RESCORE_FEATURE);
+                put(KNNConstants.MINIMAL_MODE_AND_COMPRESSION_FEATURE, MINIMAL_MODE_AND_COMPRESSION_FEATURE);
             }
         };
 

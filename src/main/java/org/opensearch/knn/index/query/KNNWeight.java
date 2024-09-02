@@ -26,18 +26,13 @@ import org.opensearch.common.io.PathUtils;
 import org.opensearch.common.lucene.Lucene;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNSettings;
-import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.KNN990Codec.QuantizationConfigKNNCollector;
 import org.opensearch.knn.index.memory.NativeMemoryAllocation;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.memory.NativeMemoryEntryContext;
 import org.opensearch.knn.index.memory.NativeMemoryLoadStrategy;
-import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.quantizationService.QuantizationService;
-import org.opensearch.knn.indices.ModelDao;
-import org.opensearch.knn.indices.ModelMetadata;
-import org.opensearch.knn.indices.ModelUtil;
 import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.plugin.stats.KNNCounter;
 import org.opensearch.knn.quantization.models.quantizationOutput.QuantizationOutput;
@@ -56,10 +51,7 @@ import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
-import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
-import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
-import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
-import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
+import static org.opensearch.knn.common.FieldInfoExtractor.extractVectorDataTypeForTransfer;
 import static org.opensearch.knn.index.util.IndexUtil.getParametersAtLoading;
 import static org.opensearch.knn.plugin.stats.KNNCounter.GRAPH_QUERY_ERRORS;
 
@@ -68,7 +60,6 @@ import static org.opensearch.knn.plugin.stats.KNNCounter.GRAPH_QUERY_ERRORS;
  */
 @Log4j2
 public class KNNWeight extends Weight {
-    private static ModelDao modelDao;
 
     private final KNNQuery knnQuery;
     private final float boost;
@@ -77,37 +68,24 @@ public class KNNWeight extends Weight {
     private final Weight filterWeight;
     private final ExactSearcher exactSearcher;
 
-    private static ExactSearcher DEFAULT_EXACT_SEARCHER;
     private final QuantizationService quantizationService = QuantizationService.getInstance();
 
-    private final String indexUUID;
-    private final int shardId;
-
-    public KNNWeight(KNNQuery query, float boost, String indexUUID, int shardId) {
+    public KNNWeight(KNNQuery query, float boost) {
         super(query);
         this.knnQuery = query;
         this.boost = boost;
         this.nativeMemoryCacheManager = NativeMemoryCacheManager.getInstance();
         this.filterWeight = null;
-        this.exactSearcher = DEFAULT_EXACT_SEARCHER;
-        this.indexUUID = indexUUID;
-        this.shardId = shardId;
+        this.exactSearcher = new ExactSearcher();
     }
 
-    public KNNWeight(KNNQuery query, float boost, Weight filterWeight, String indexUUID, int shardId) {
+    public KNNWeight(KNNQuery query, float boost, Weight filterWeight) {
         super(query);
         this.knnQuery = query;
         this.boost = boost;
         this.nativeMemoryCacheManager = NativeMemoryCacheManager.getInstance();
         this.filterWeight = filterWeight;
-        this.exactSearcher = DEFAULT_EXACT_SEARCHER;
-        this.indexUUID = indexUUID;
-        this.shardId = shardId;
-    }
-
-    public static void initialize(ModelDao modelDao) {
-        KNNWeight.modelDao = modelDao;
-        KNNWeight.DEFAULT_EXACT_SEARCHER = new ExactSearcher(modelDao);
+        this.exactSearcher = new ExactSearcher();
     }
 
     @Override
@@ -225,10 +203,6 @@ public class KNNWeight extends Weight {
         return intArray;
     }
 
-    private String createQCacheKey(String segmentName) {
-        return indexUUID + "_ABC_" + shardId + "_ABC_" + segmentName + "_ABC_" + knnQuery.getField();
-    }
-
     private Map<Integer, Float> doANNSearch(
         final LeafReaderContext context,
         final BitSet filterIdsBitSet,
@@ -246,32 +220,6 @@ public class KNNWeight extends Weight {
             return null;
         }
 
-        KNNEngine knnEngine;
-        SpaceType spaceType;
-        VectorDataType vectorDataType;
-
-        // Check if a modelId exists. If so, the space type and engine will need to be picked up from the model's
-        // metadata.
-        String modelId = fieldInfo.getAttribute(MODEL_ID);
-        if (modelId != null) {
-            ModelMetadata modelMetadata = modelDao.getMetadata(modelId);
-            if (!ModelUtil.isModelCreated(modelMetadata)) {
-                throw new RuntimeException("Model \"" + modelId + "\" is not created.");
-            }
-
-            knnEngine = modelMetadata.getKnnEngine();
-            spaceType = modelMetadata.getSpaceType();
-            vectorDataType = modelMetadata.getVectorDataType();
-        } else {
-            String engineName = fieldInfo.attributes().getOrDefault(KNN_ENGINE, KNNEngine.NMSLIB.getName());
-            knnEngine = KNNEngine.getEngine(engineName);
-            String spaceTypeName = fieldInfo.attributes().getOrDefault(SPACE_TYPE, SpaceType.L2.getValue());
-            spaceType = SpaceType.getSpace(spaceTypeName);
-            vectorDataType = VectorDataType.get(
-                fieldInfo.attributes().getOrDefault(VECTOR_DATA_TYPE_FIELD, VectorDataType.FLOAT.getValue())
-            );
-        }
-
         QuantizationParams quantizationParams = quantizationService.getQuantizationParams(fieldInfo);
 
         byte[] quantizedVector = null;
@@ -285,18 +233,13 @@ public class KNNWeight extends Weight {
 
             QuantizationState quantizationState = QuantizationStateCacheManager.getInstance()
                 .getQuantizationState(
-                    new QuantizationStateReadConfig(
-                        tempCollector.getSegmentReadState(),
-                        quantizationParams,
-                        knnQuery.getField(),
-                        createQCacheKey(reader.getSegmentName())
-                    )
+                    new QuantizationStateReadConfig(tempCollector.getSegmentReadState(), quantizationParams, knnQuery.getField(), "NA")
                 );
             QuantizationOutput quantizationOutput = quantizationService.createQuantizationOutput(quantizationParams);
             quantizedVector = (byte[]) quantizationService.quantize(quantizationState, knnQuery.getQueryVector(), quantizationOutput);
         }
 
-        List<String> engineFiles = getEngineFiles(reader, knnEngine.getExtension());
+        List<String> engineFiles = getEngineFiles(reader, knnQuery.getKnnEngine().getExtension());
         if (engineFiles.isEmpty()) {
             log.debug("[KNN] No engine index found for field {} for segment {}", knnQuery.getField(), reader.getSegmentName());
             return null;
@@ -314,13 +257,13 @@ public class KNNWeight extends Weight {
                     indexPath.toString(),
                     NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance(),
                     getParametersAtLoading(
-                        spaceType,
-                        knnEngine,
+                        knnQuery.getSpaceType(),
+                        knnQuery.getKnnEngine(),
                         knnQuery.getIndexName(),
-                        quantizationParams == null ? vectorDataType : VectorDataType.BINARY
+                        extractVectorDataTypeForTransfer(fieldInfo, quantizationParams)
                     ),
                     knnQuery.getIndexName(),
-                    modelId
+                    knnQuery.getModelId()
                 ),
                 true
             );
@@ -348,7 +291,7 @@ public class KNNWeight extends Weight {
                         quantizationParams == null ? knnQuery.getByteQueryVector() : quantizedVector,
                         k,
                         knnQuery.getMethodParameters(),
-                        knnEngine,
+                        knnQuery.getKnnEngine(),
                         filterIds,
                         filterType.getValue(),
                         parentIds
@@ -359,7 +302,7 @@ public class KNNWeight extends Weight {
                         knnQuery.getQueryVector(),
                         k,
                         knnQuery.getMethodParameters(),
-                        knnEngine,
+                        knnQuery.getKnnEngine(),
                         filterIds,
                         filterType.getValue(),
                         parentIds
@@ -371,7 +314,7 @@ public class KNNWeight extends Weight {
                     knnQuery.getQueryVector(),
                     knnQuery.getRadius(),
                     knnQuery.getMethodParameters(),
-                    knnEngine,
+                    knnQuery.getKnnEngine(),
                     knnQuery.getContext().getMaxResultWindow(),
                     filterIds,
                     filterType.getValue(),
@@ -397,7 +340,9 @@ public class KNNWeight extends Weight {
         }
 
         return Arrays.stream(results)
-            .collect(Collectors.toMap(KNNQueryResult::getId, result -> knnEngine.score(result.getScore(), spaceType)));
+            .collect(
+                Collectors.toMap(KNNQueryResult::getId, result -> knnQuery.getKnnEngine().score(result.getScore(), knnQuery.getSpaceType()))
+            );
     }
 
     @VisibleForTesting

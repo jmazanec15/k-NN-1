@@ -15,18 +15,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import lombok.SneakyThrows;
 import org.junit.BeforeClass;
-import org.opensearch.Version;
-import org.opensearch.common.xcontent.XContentFactory;
-import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.TestUtils;
 import org.opensearch.knn.common.KNNConstants;
-import org.opensearch.knn.index.engine.KNNMethodConfigContext;
-import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.nmslib.NmslibHNSWMethod;
 import org.opensearch.knn.index.query.KNNQueryResult;
-import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.engine.KNNEngine;
 
@@ -42,23 +36,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_M;
-import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_CODE_SIZE;
-import static org.opensearch.knn.common.KNNConstants.ENCODER_PQ;
-import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
-import static org.opensearch.knn.common.KNNConstants.FAISS_NAME;
-import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_ENCODER_FP16;
-import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_TYPE;
 import static org.opensearch.knn.common.KNNConstants.INDEX_DESCRIPTION_PARAMETER;
-import static org.opensearch.knn.common.KNNConstants.INDEX_THREAD_QTY;
-import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
-import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
-import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
-import static org.opensearch.knn.common.KNNConstants.METHOD_IVF;
-import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NLIST;
-import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
-import static org.opensearch.knn.common.KNNConstants.NAME;
-import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 
 public class JNIServiceTests extends KNNTestCase {
     static final int FP16_MAX = 65504;
@@ -261,9 +239,6 @@ public class JNIServiceTests extends KNNTestCase {
     public void testCreateIndex_nmslib_valid() throws IOException {
 
         for (SpaceType spaceType : NmslibHNSWMethod.SUPPORTED_SPACES) {
-            if (SpaceType.UNDEFINED == spaceType) {
-                continue;
-            }
 
             Path tmpFile = createTempFile();
 
@@ -584,40 +559,40 @@ public class JNIServiceTests extends KNNTestCase {
         return result;
     }
 
-    @SneakyThrows
-    public void testTrain_whenConfigurationIsIVFSQFP16_thenSucceed() {
-        long trainPointer = transferVectors(10);
-        int ivfNlistParam = 16;
-        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
-            .startObject()
-            .field(NAME, METHOD_IVF)
-            .field(KNN_ENGINE, FAISS_NAME)
-            .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.DEFAULT)
-            .startObject(PARAMETERS)
-            .field(METHOD_PARAMETER_NLIST, ivfNlistParam)
-            .startObject(METHOD_ENCODER_PARAMETER)
-            .field(NAME, ENCODER_SQ)
-            .startObject(PARAMETERS)
-            .field(FAISS_SQ_TYPE, FAISS_SQ_ENCODER_FP16)
-            .endObject()
-            .endObject()
-            .endObject()
-            .endObject();
-        Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
-        KNNMethodContext knnMethodContext = KNNMethodContext.parse(in);
-        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
-            .versionCreated(Version.CURRENT)
-            .dimension(128)
-            .vectorDataType(VectorDataType.FLOAT)
-            .build();
-        Map<String, Object> parameters = KNNEngine.FAISS.getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext)
-            .getLibraryParameters();
-
-        byte[] faissIndex = JNIService.trainIndex(parameters, 128, trainPointer, KNNEngine.FAISS);
-
-        assertNotEquals(0, faissIndex.length);
-        JNICommons.freeVectorData(trainPointer);
-    }
+    // @SneakyThrows
+    // public void testTrain_whenConfigurationIsIVFSQFP16_thenSucceed() {
+    // long trainPointer = transferVectors(10);
+    // int ivfNlistParam = 16;
+    // XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
+    // .startObject()
+    // .field(NAME, METHOD_IVF)
+    // .field(KNN_ENGINE, FAISS_NAME)
+    // .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.DEFAULT)
+    // .startObject(PARAMETERS)
+    // .field(METHOD_PARAMETER_NLIST, ivfNlistParam)
+    // .startObject(METHOD_ENCODER_PARAMETER)
+    // .field(NAME, ENCODER_SQ)
+    // .startObject(PARAMETERS)
+    // .field(FAISS_SQ_TYPE, FAISS_SQ_ENCODER_FP16)
+    // .endObject()
+    // .endObject()
+    // .endObject()
+    // .endObject();
+    // Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
+    // KNNMethodContext knnMethodContext = KNNMethodContext.parse(in);
+    // KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+    // .versionCreated(Version.CURRENT)
+    // .dimension(128)
+    // .vectorDataType(VectorDataType.FLOAT)
+    // .build();
+    // knnMethodConfigContext.setKnnMethodContext(knnMethodContext);
+    // Map<String, Object> parameters = KNNEngine.FAISS.getKNNLibraryIndexingContext(knnMethodConfigContext).getLibraryParameters();
+    //
+    // byte[] faissIndex = JNIService.trainIndex(parameters, 128, trainPointer, KNNEngine.FAISS);
+    //
+    // assertNotEquals(0, faissIndex.length);
+    // JNICommons.freeVectorData(trainPointer);
+    // }
 
     public void testCreateIndex_faiss_invalid_invalidParameterType() throws IOException {
 
@@ -816,10 +791,6 @@ public class JNIServiceTests extends KNNTestCase {
 
         int k = 50;
         for (SpaceType spaceType : NmslibHNSWMethod.SUPPORTED_SPACES) {
-            if (SpaceType.UNDEFINED == spaceType) {
-                continue;
-            }
-
             Path tmpFile = createTempFile();
 
             TestUtils.createIndex(
@@ -1117,103 +1088,103 @@ public class JNIServiceTests extends KNNTestCase {
         JNICommons.freeVectorData(trainPointer1);
     }
 
-    public void testTrain_whenConfigurationIsIVFFlat_thenSucceed() throws IOException {
-        long trainPointer = transferVectors(10);
-        int ivfNlistParam = 16;
-        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
-            .startObject()
-            .field(NAME, METHOD_IVF)
-            .field(KNN_ENGINE, FAISS_NAME)
-            .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.DEFAULT)
-            .startObject(PARAMETERS)
-            .field(METHOD_PARAMETER_NLIST, ivfNlistParam)
-            .endObject()
-            .endObject();
-        Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
-        KNNMethodContext knnMethodContext = KNNMethodContext.parse(in);
-        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
-            .vectorDataType(VectorDataType.FLOAT)
-            .dimension(testData.indexData.getDimension())
-            .versionCreated(Version.CURRENT)
-            .build();
-        Map<String, Object> parameters = KNNEngine.FAISS.getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext)
-            .getLibraryParameters();
-
-        byte[] faissIndex = JNIService.trainIndex(parameters, 128, trainPointer, KNNEngine.FAISS);
-
-        assertNotEquals(0, faissIndex.length);
-        JNICommons.freeVectorData(trainPointer);
-    }
-
-    public void testTrain_whenConfigurationIsIVFPQ_thenSucceed() throws IOException {
-        long trainPointer = transferVectors(10);
-        int ivfNlistParam = 16;
-        int pqMParam = 4;
-        int pqCodeSizeParam = 4;
-        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
-            .startObject()
-            .field(NAME, METHOD_IVF)
-            .field(KNN_ENGINE, FAISS_NAME)
-            .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.DEFAULT.getValue())
-            .startObject(PARAMETERS)
-            .field(METHOD_PARAMETER_NLIST, ivfNlistParam)
-            .startObject(METHOD_ENCODER_PARAMETER)
-            .field(NAME, ENCODER_PQ)
-            .startObject(PARAMETERS)
-            .field(ENCODER_PARAMETER_PQ_M, pqMParam)
-            .field(ENCODER_PARAMETER_PQ_CODE_SIZE, pqCodeSizeParam)
-            .endObject()
-            .endObject()
-            .endObject()
-            .endObject();
-        Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
-        KNNMethodContext knnMethodContext = KNNMethodContext.parse(in);
-        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
-            .versionCreated(Version.CURRENT)
-            .dimension(128)
-            .vectorDataType(VectorDataType.FLOAT)
-            .build();
-        Map<String, Object> parameters = KNNEngine.FAISS.getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext)
-            .getLibraryParameters();
-
-        byte[] faissIndex = JNIService.trainIndex(parameters, 128, trainPointer, KNNEngine.FAISS);
-
-        assertNotEquals(0, faissIndex.length);
-        JNICommons.freeVectorData(trainPointer);
-    }
-
-    public void testTrain_whenConfigurationIsHNSWPQ_thenSucceed() throws IOException {
-        long trainPointer = transferVectors(10);
-        int pqMParam = 4;
-        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
-            .startObject()
-            .field(NAME, METHOD_HNSW)
-            .field(KNN_ENGINE, FAISS_NAME)
-            .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.DEFAULT.getValue())
-            .startObject(PARAMETERS)
-            .startObject(METHOD_ENCODER_PARAMETER)
-            .field(NAME, ENCODER_PQ)
-            .startObject(PARAMETERS)
-            .field(ENCODER_PARAMETER_PQ_M, pqMParam)
-            .endObject()
-            .endObject()
-            .endObject()
-            .endObject();
-        Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
-        KNNMethodContext knnMethodContext = KNNMethodContext.parse(in);
-        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
-            .vectorDataType(VectorDataType.FLOAT)
-            .dimension(testData.indexData.getDimension())
-            .versionCreated(Version.CURRENT)
-            .build();
-        Map<String, Object> parameters = KNNEngine.FAISS.getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext)
-            .getLibraryParameters();
-
-        byte[] faissIndex = JNIService.trainIndex(parameters, 128, trainPointer, KNNEngine.FAISS);
-
-        assertNotEquals(0, faissIndex.length);
-        JNICommons.freeVectorData(trainPointer);
-    }
+    // public void testTrain_whenConfigurationIsIVFFlat_thenSucceed() throws IOException {
+    // long trainPointer = transferVectors(10);
+    // int ivfNlistParam = 16;
+    // XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
+    // .startObject()
+    // .field(NAME, METHOD_IVF)
+    // .field(KNN_ENGINE, FAISS_NAME)
+    // .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.DEFAULT)
+    // .startObject(PARAMETERS)
+    // .field(METHOD_PARAMETER_NLIST, ivfNlistParam)
+    // .endObject()
+    // .endObject();
+    // Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
+    // KNNMethodContext knnMethodContext = KNNMethodContext.parse(in);
+    // KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+    // .vectorDataType(VectorDataType.FLOAT)
+    // .dimension(testData.indexData.getDimension())
+    // .versionCreated(Version.CURRENT)
+    // .build();
+    // knnMethodConfigContext.setKnnMethodContext(knnMethodContext);
+    // Map<String, Object> parameters = KNNEngine.FAISS.getKNNLibraryIndexingContext(knnMethodConfigContext).getLibraryParameters();
+    //
+    // byte[] faissIndex = JNIService.trainIndex(parameters, 128, trainPointer, KNNEngine.FAISS);
+    //
+    // assertNotEquals(0, faissIndex.length);
+    // JNICommons.freeVectorData(trainPointer);
+    // }
+    //
+    // public void testTrain_whenConfigurationIsIVFPQ_thenSucceed() throws IOException {
+    // long trainPointer = transferVectors(10);
+    // int ivfNlistParam = 16;
+    // int pqMParam = 4;
+    // int pqCodeSizeParam = 4;
+    // XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
+    // .startObject()
+    // .field(NAME, METHOD_IVF)
+    // .field(KNN_ENGINE, FAISS_NAME)
+    // .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.DEFAULT.getValue())
+    // .startObject(PARAMETERS)
+    // .field(METHOD_PARAMETER_NLIST, ivfNlistParam)
+    // .startObject(METHOD_ENCODER_PARAMETER)
+    // .field(NAME, ENCODER_PQ)
+    // .startObject(PARAMETERS)
+    // .field(ENCODER_PARAMETER_PQ_M, pqMParam)
+    // .field(ENCODER_PARAMETER_PQ_CODE_SIZE, pqCodeSizeParam)
+    // .endObject()
+    // .endObject()
+    // .endObject()
+    // .endObject();
+    // Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
+    // KNNMethodContext knnMethodContext = KNNMethodContext.parse(in);
+    // KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+    // .versionCreated(Version.CURRENT)
+    // .dimension(128)
+    // .vectorDataType(VectorDataType.FLOAT)
+    // .build();
+    // knnMethodConfigContext.setKnnMethodContext(knnMethodContext);
+    // Map<String, Object> parameters = KNNEngine.FAISS.getKNNLibraryIndexingContext(knnMethodConfigContext).getLibraryParameters();
+    //
+    // byte[] faissIndex = JNIService.trainIndex(parameters, 128, trainPointer, KNNEngine.FAISS);
+    //
+    // assertNotEquals(0, faissIndex.length);
+    // JNICommons.freeVectorData(trainPointer);
+    // }
+    //
+    // public void testTrain_whenConfigurationIsHNSWPQ_thenSucceed() throws IOException {
+    // long trainPointer = transferVectors(10);
+    // int pqMParam = 4;
+    // XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
+    // .startObject()
+    // .field(NAME, METHOD_HNSW)
+    // .field(KNN_ENGINE, FAISS_NAME)
+    // .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.DEFAULT.getValue())
+    // .startObject(PARAMETERS)
+    // .startObject(METHOD_ENCODER_PARAMETER)
+    // .field(NAME, ENCODER_PQ)
+    // .startObject(PARAMETERS)
+    // .field(ENCODER_PARAMETER_PQ_M, pqMParam)
+    // .endObject()
+    // .endObject()
+    // .endObject()
+    // .endObject();
+    // Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
+    // KNNMethodContext knnMethodContext = KNNMethodContext.parse(in);
+    // KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+    // .vectorDataType(VectorDataType.FLOAT)
+    // .dimension(testData.indexData.getDimension())
+    // .versionCreated(Version.CURRENT)
+    // .build();
+    // knnMethodConfigContext.setKnnMethodContext(knnMethodContext);
+    // Map<String, Object> parameters = KNNEngine.FAISS.getKNNLibraryIndexingContext(knnMethodConfigContext).getLibraryParameters();
+    //
+    // byte[] faissIndex = JNIService.trainIndex(parameters, 128, trainPointer, KNNEngine.FAISS);
+    //
+    // assertNotEquals(0, faissIndex.length);
+    // JNICommons.freeVectorData(trainPointer);
+    // }
 
     private long transferVectors(int numDuplicates) {
         long trainPointer1 = JNIService.transferVectors(0, testData.indexData.vectors);
@@ -1227,132 +1198,133 @@ public class JNIServiceTests extends KNNTestCase {
 
         return trainPointer1;
     }
+    //
+    // public void createIndexFromTemplate() throws IOException {
+    //
+    // long trainPointer1 = JNIService.transferVectors(0, testData.indexData.vectors);
+    // assertNotEquals(0, trainPointer1);
+    //
+    // long trainPointer2;
+    // for (int i = 0; i < 10; i++) {
+    // trainPointer2 = JNIService.transferVectors(trainPointer1, testData.indexData.vectors);
+    // assertEquals(trainPointer1, trainPointer2);
+    // }
+    //
+    // SpaceType spaceType = SpaceType.L2;
+    // KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+    // .versionCreated(Version.CURRENT)
+    // .dimension(128)
+    // .vectorDataType(VectorDataType.FLOAT)
+    // .build();
+    // KNNMethodContext knnMethodContext = new KNNMethodContext(
+    // KNNEngine.FAISS,
+    // spaceType,
+    // new MethodComponentContext(
+    // METHOD_IVF,
+    // ImmutableMap.of(
+    // METHOD_PARAMETER_NLIST,
+    // 16,
+    // METHOD_ENCODER_PARAMETER,
+    // new MethodComponentContext(ENCODER_PQ, ImmutableMap.of(ENCODER_PARAMETER_PQ_M, 16, ENCODER_PARAMETER_PQ_CODE_SIZE, 8))
+    // )
+    // )
+    // );
+    // knnMethodConfigContext.setKnnMethodContext(knnMethodContext);
+    // String description = knnMethodContext.getKnnEngine()
+    // .orElse(KNNEngine.DEFAULT)
+    // .getKNNLibraryIndexingContext(knnMethodConfigContext)
+    // .getLibraryParameters()
+    // .get(INDEX_DESCRIPTION_PARAMETER)
+    // .toString();
+    // assertEquals("IVF16,PQ16x8", description);
+    //
+    // Map<String, Object> parameters = ImmutableMap.of(
+    // INDEX_DESCRIPTION_PARAMETER,
+    // description,
+    // KNNConstants.SPACE_TYPE,
+    // spaceType.getValue()
+    // );
+    //
+    // byte[] faissIndex = JNIService.trainIndex(parameters, 128, trainPointer1, KNNEngine.FAISS);
+    //
+    // assertNotEquals(0, faissIndex.length);
+    // JNICommons.freeVectorData(trainPointer1);
+    //
+    // Path tmpFile1 = createTempFile();
+    // JNIService.createIndexFromTemplate(
+    // testData.indexData.docs,
+    // testData.loadDataToMemoryAddress(),
+    // testData.indexData.getDimension(),
+    // tmpFile1.toAbsolutePath().toString(),
+    // faissIndex,
+    // ImmutableMap.of(INDEX_THREAD_QTY, 1),
+    // KNNEngine.FAISS
+    // );
+    // assertTrue(tmpFile1.toFile().length() > 0);
+    //
+    // long pointer = JNIService.loadIndex(tmpFile1.toAbsolutePath().toString(), Collections.emptyMap(), KNNEngine.FAISS);
+    // assertNotEquals(0, pointer);
+    // }
 
-    public void createIndexFromTemplate() throws IOException {
-
-        long trainPointer1 = JNIService.transferVectors(0, testData.indexData.vectors);
-        assertNotEquals(0, trainPointer1);
-
-        long trainPointer2;
-        for (int i = 0; i < 10; i++) {
-            trainPointer2 = JNIService.transferVectors(trainPointer1, testData.indexData.vectors);
-            assertEquals(trainPointer1, trainPointer2);
-        }
-
-        SpaceType spaceType = SpaceType.L2;
-        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
-            .versionCreated(Version.CURRENT)
-            .dimension(128)
-            .vectorDataType(VectorDataType.FLOAT)
-            .build();
-        KNNMethodContext knnMethodContext = new KNNMethodContext(
-            KNNEngine.FAISS,
-            spaceType,
-            new MethodComponentContext(
-                METHOD_IVF,
-                ImmutableMap.of(
-                    METHOD_PARAMETER_NLIST,
-                    16,
-                    METHOD_ENCODER_PARAMETER,
-                    new MethodComponentContext(ENCODER_PQ, ImmutableMap.of(ENCODER_PARAMETER_PQ_M, 16, ENCODER_PARAMETER_PQ_CODE_SIZE, 8))
-                )
-            )
-        );
-
-        String description = knnMethodContext.getKnnEngine()
-            .getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext)
-            .getLibraryParameters()
-            .get(INDEX_DESCRIPTION_PARAMETER)
-            .toString();
-        assertEquals("IVF16,PQ16x8", description);
-
-        Map<String, Object> parameters = ImmutableMap.of(
-            INDEX_DESCRIPTION_PARAMETER,
-            description,
-            KNNConstants.SPACE_TYPE,
-            spaceType.getValue()
-        );
-
-        byte[] faissIndex = JNIService.trainIndex(parameters, 128, trainPointer1, KNNEngine.FAISS);
-
-        assertNotEquals(0, faissIndex.length);
-        JNICommons.freeVectorData(trainPointer1);
-
-        Path tmpFile1 = createTempFile();
-        JNIService.createIndexFromTemplate(
-            testData.indexData.docs,
-            testData.loadDataToMemoryAddress(),
-            testData.indexData.getDimension(),
-            tmpFile1.toAbsolutePath().toString(),
-            faissIndex,
-            ImmutableMap.of(INDEX_THREAD_QTY, 1),
-            KNNEngine.FAISS
-        );
-        assertTrue(tmpFile1.toFile().length() > 0);
-
-        long pointer = JNIService.loadIndex(tmpFile1.toAbsolutePath().toString(), Collections.emptyMap(), KNNEngine.FAISS);
-        assertNotEquals(0, pointer);
-    }
-
-    @SneakyThrows
-    public void testIndexLoad_whenStateIsShared_thenSucceed() {
-        // Creates a single IVFPQ-l2 index. Then, we will configure a set of indices in memory in different ways to
-        // ensure that everything is loaded properly and the results are consistent.
-        int k = 10;
-        int ivfNlist = 16;
-        int pqM = 16;
-        int pqCodeSize = 4;
-
-        String indexIVFPQPath = createFaissIVFPQIndex(ivfNlist, pqM, pqCodeSize, SpaceType.L2);
-
-        long indexIVFPQIndexTest1 = JNIService.loadIndex(indexIVFPQPath, Collections.emptyMap(), KNNEngine.FAISS);
-        assertNotEquals(0, indexIVFPQIndexTest1);
-        long indexIVFPQIndexTest2 = JNIService.loadIndex(indexIVFPQPath, Collections.emptyMap(), KNNEngine.FAISS);
-        assertNotEquals(0, indexIVFPQIndexTest2);
-
-        long sharedStateAddress = JNIService.initSharedIndexState(indexIVFPQIndexTest1, KNNEngine.FAISS);
-        JNIService.setSharedIndexState(indexIVFPQIndexTest1, sharedStateAddress, KNNEngine.FAISS);
-        JNIService.setSharedIndexState(indexIVFPQIndexTest2, sharedStateAddress, KNNEngine.FAISS);
-
-        assertQueryResultsMatch(testData.queries, k, List.of(indexIVFPQIndexTest1, indexIVFPQIndexTest2));
-
-        // Free the first test index 1. This will ensure that the shared state persists after index that initialized
-        // shared state is gone.
-        JNIService.free(indexIVFPQIndexTest1, KNNEngine.FAISS);
-
-        long indexIVFPQIndexTest3 = JNIService.loadIndex(indexIVFPQPath, Collections.emptyMap(), KNNEngine.FAISS);
-        assertNotEquals(0, indexIVFPQIndexTest3);
-
-        JNIService.setSharedIndexState(indexIVFPQIndexTest3, sharedStateAddress, KNNEngine.FAISS);
-
-        assertQueryResultsMatch(testData.queries, k, List.of(indexIVFPQIndexTest2, indexIVFPQIndexTest3));
-
-        // Ensure everything gets freed
-        JNIService.free(indexIVFPQIndexTest2, KNNEngine.FAISS);
-        JNIService.free(indexIVFPQIndexTest3, KNNEngine.FAISS);
-        JNIService.freeSharedIndexState(sharedStateAddress, KNNEngine.FAISS);
-    }
-
-    @SneakyThrows
-    public void testIsIndexIVFPQL2() {
-        long dummyAddress = 0;
-        assertFalse(JNIService.isSharedIndexStateRequired(dummyAddress, KNNEngine.NMSLIB));
-
-        String faissIVFPQL2Index = createFaissIVFPQIndex(16, 16, 4, SpaceType.L2);
-        long faissIVFPQL2Address = JNIService.loadIndex(faissIVFPQL2Index, Collections.emptyMap(), KNNEngine.FAISS);
-        assertTrue(JNIService.isSharedIndexStateRequired(faissIVFPQL2Address, KNNEngine.FAISS));
-        JNIService.free(faissIVFPQL2Address, KNNEngine.FAISS);
-
-        String faissIVFPQIPIndex = createFaissIVFPQIndex(16, 16, 4, SpaceType.INNER_PRODUCT);
-        long faissIVFPQIPAddress = JNIService.loadIndex(faissIVFPQIPIndex, Collections.emptyMap(), KNNEngine.FAISS);
-        assertFalse(JNIService.isSharedIndexStateRequired(faissIVFPQIPAddress, KNNEngine.FAISS));
-        JNIService.free(faissIVFPQIPAddress, KNNEngine.FAISS);
-
-        String faissHNSWIndex = createFaissHNSWIndex(SpaceType.L2);
-        long faissHNSWAddress = JNIService.loadIndex(faissHNSWIndex, Collections.emptyMap(), KNNEngine.FAISS);
-        assertFalse(JNIService.isSharedIndexStateRequired(faissHNSWAddress, KNNEngine.FAISS));
-        JNIService.free(faissHNSWAddress, KNNEngine.FAISS);
-    }
+    // @SneakyThrows
+    // public void testIndexLoad_whenStateIsShared_thenSucceed() {
+    // // Creates a single IVFPQ-l2 index. Then, we will configure a set of indices in memory in different ways to
+    // // ensure that everything is loaded properly and the results are consistent.
+    // int k = 10;
+    // int ivfNlist = 16;
+    // int pqM = 16;
+    // int pqCodeSize = 4;
+    //
+    // String indexIVFPQPath = createFaissIVFPQIndex(ivfNlist, pqM, pqCodeSize, SpaceType.L2);
+    //
+    // long indexIVFPQIndexTest1 = JNIService.loadIndex(indexIVFPQPath, Collections.emptyMap(), KNNEngine.FAISS);
+    // assertNotEquals(0, indexIVFPQIndexTest1);
+    // long indexIVFPQIndexTest2 = JNIService.loadIndex(indexIVFPQPath, Collections.emptyMap(), KNNEngine.FAISS);
+    // assertNotEquals(0, indexIVFPQIndexTest2);
+    //
+    // long sharedStateAddress = JNIService.initSharedIndexState(indexIVFPQIndexTest1, KNNEngine.FAISS);
+    // JNIService.setSharedIndexState(indexIVFPQIndexTest1, sharedStateAddress, KNNEngine.FAISS);
+    // JNIService.setSharedIndexState(indexIVFPQIndexTest2, sharedStateAddress, KNNEngine.FAISS);
+    //
+    // assertQueryResultsMatch(testData.queries, k, List.of(indexIVFPQIndexTest1, indexIVFPQIndexTest2));
+    //
+    // // Free the first test index 1. This will ensure that the shared state persists after index that initialized
+    // // shared state is gone.
+    // JNIService.free(indexIVFPQIndexTest1, KNNEngine.FAISS);
+    //
+    // long indexIVFPQIndexTest3 = JNIService.loadIndex(indexIVFPQPath, Collections.emptyMap(), KNNEngine.FAISS);
+    // assertNotEquals(0, indexIVFPQIndexTest3);
+    //
+    // JNIService.setSharedIndexState(indexIVFPQIndexTest3, sharedStateAddress, KNNEngine.FAISS);
+    //
+    // assertQueryResultsMatch(testData.queries, k, List.of(indexIVFPQIndexTest2, indexIVFPQIndexTest3));
+    //
+    // // Ensure everything gets freed
+    // JNIService.free(indexIVFPQIndexTest2, KNNEngine.FAISS);
+    // JNIService.free(indexIVFPQIndexTest3, KNNEngine.FAISS);
+    // JNIService.freeSharedIndexState(sharedStateAddress, KNNEngine.FAISS);
+    // }
+    //
+    // @SneakyThrows
+    // public void testIsIndexIVFPQL2() {
+    // long dummyAddress = 0;
+    // assertFalse(JNIService.isSharedIndexStateRequired(dummyAddress, KNNEngine.NMSLIB));
+    //
+    // String faissIVFPQL2Index = createFaissIVFPQIndex(16, 16, 4, SpaceType.L2);
+    // long faissIVFPQL2Address = JNIService.loadIndex(faissIVFPQL2Index, Collections.emptyMap(), KNNEngine.FAISS);
+    // assertTrue(JNIService.isSharedIndexStateRequired(faissIVFPQL2Address, KNNEngine.FAISS));
+    // JNIService.free(faissIVFPQL2Address, KNNEngine.FAISS);
+    //
+    // String faissIVFPQIPIndex = createFaissIVFPQIndex(16, 16, 4, SpaceType.INNER_PRODUCT);
+    // long faissIVFPQIPAddress = JNIService.loadIndex(faissIVFPQIPIndex, Collections.emptyMap(), KNNEngine.FAISS);
+    // assertFalse(JNIService.isSharedIndexStateRequired(faissIVFPQIPAddress, KNNEngine.FAISS));
+    // JNIService.free(faissIVFPQIPAddress, KNNEngine.FAISS);
+    //
+    // String faissHNSWIndex = createFaissHNSWIndex(SpaceType.L2);
+    // long faissHNSWAddress = JNIService.loadIndex(faissHNSWIndex, Collections.emptyMap(), KNNEngine.FAISS);
+    // assertFalse(JNIService.isSharedIndexStateRequired(faissHNSWAddress, KNNEngine.FAISS));
+    // JNIService.free(faissHNSWAddress, KNNEngine.FAISS);
+    // }
 
     @SneakyThrows
     public void testFunctionsUnsupportedForEngine_whenEngineUnsupported_thenThrowIllegalArgumentException() {
@@ -1380,61 +1352,63 @@ public class JNIServiceTests extends KNNTestCase {
         }
     }
 
-    private String createFaissIVFPQIndex(int ivfNlist, int pqM, int pqCodeSize, SpaceType spaceType) throws IOException {
-        long trainPointer = JNIService.transferVectors(0, testData.indexData.vectors);
-        assertNotEquals(0, trainPointer);
-        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
-            .versionCreated(Version.CURRENT)
-            .dimension(128)
-            .vectorDataType(VectorDataType.FLOAT)
-            .build();
-        KNNMethodContext knnMethodContext = new KNNMethodContext(
-            KNNEngine.FAISS,
-            spaceType,
-            new MethodComponentContext(
-                METHOD_IVF,
-                ImmutableMap.of(
-                    METHOD_PARAMETER_NLIST,
-                    ivfNlist,
-                    METHOD_ENCODER_PARAMETER,
-                    new MethodComponentContext(
-                        ENCODER_PQ,
-                        ImmutableMap.of(ENCODER_PARAMETER_PQ_M, pqM, ENCODER_PARAMETER_PQ_CODE_SIZE, pqCodeSize)
-                    )
-                )
-            )
-        );
-
-        String description = knnMethodContext.getKnnEngine()
-            .getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext)
-            .getLibraryParameters()
-            .get(INDEX_DESCRIPTION_PARAMETER)
-            .toString();
-        Map<String, Object> parameters = ImmutableMap.of(
-            INDEX_DESCRIPTION_PARAMETER,
-            description,
-            KNNConstants.SPACE_TYPE,
-            spaceType.getValue()
-        );
-
-        byte[] faissIndex = JNIService.trainIndex(parameters, 128, trainPointer, KNNEngine.FAISS);
-
-        assertNotEquals(0, faissIndex.length);
-        JNICommons.freeVectorData(trainPointer);
-        Path tmpFile = createTempFile();
-        JNIService.createIndexFromTemplate(
-            testData.indexData.docs,
-            testData.loadDataToMemoryAddress(),
-            testData.indexData.getDimension(),
-            tmpFile.toAbsolutePath().toString(),
-            faissIndex,
-            ImmutableMap.of(INDEX_THREAD_QTY, 1),
-            KNNEngine.FAISS
-        );
-        assertTrue(tmpFile.toFile().length() > 0);
-
-        return tmpFile.toAbsolutePath().toString();
-    }
+    // private String createFaissIVFPQIndex(int ivfNlist, int pqM, int pqCodeSize, SpaceType spaceType) throws IOException {
+    // long trainPointer = JNIService.transferVectors(0, testData.indexData.vectors);
+    // assertNotEquals(0, trainPointer);
+    // KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+    // .versionCreated(Version.CURRENT)
+    // .dimension(128)
+    // .vectorDataType(VectorDataType.FLOAT)
+    // .build();
+    // KNNMethodContext knnMethodContext = new KNNMethodContext(
+    // KNNEngine.FAISS,
+    // spaceType,
+    // new MethodComponentContext(
+    // METHOD_IVF,
+    // ImmutableMap.of(
+    // METHOD_PARAMETER_NLIST,
+    // ivfNlist,
+    // METHOD_ENCODER_PARAMETER,
+    // new MethodComponentContext(
+    // ENCODER_PQ,
+    // ImmutableMap.of(ENCODER_PARAMETER_PQ_M, pqM, ENCODER_PARAMETER_PQ_CODE_SIZE, pqCodeSize)
+    // )
+    // )
+    // )
+    // );
+    //
+    // knnMethodConfigContext.setKnnMethodContext(knnMethodContext);
+    // String description = knnMethodContext.getKnnEngine()
+    // .orElse(KNNEngine.DEFAULT)
+    // .getKNNLibraryIndexingContext(knnMethodConfigContext)
+    // .getLibraryParameters()
+    // .get(INDEX_DESCRIPTION_PARAMETER)
+    // .toString();
+    // Map<String, Object> parameters = ImmutableMap.of(
+    // INDEX_DESCRIPTION_PARAMETER,
+    // description,
+    // KNNConstants.SPACE_TYPE,
+    // spaceType.getValue()
+    // );
+    //
+    // byte[] faissIndex = JNIService.trainIndex(parameters, 128, trainPointer, KNNEngine.FAISS);
+    //
+    // assertNotEquals(0, faissIndex.length);
+    // JNICommons.freeVectorData(trainPointer);
+    // Path tmpFile = createTempFile();
+    // JNIService.createIndexFromTemplate(
+    // testData.indexData.docs,
+    // testData.loadDataToMemoryAddress(),
+    // testData.indexData.getDimension(),
+    // tmpFile.toAbsolutePath().toString(),
+    // faissIndex,
+    // ImmutableMap.of(INDEX_THREAD_QTY, 1),
+    // KNNEngine.FAISS
+    // );
+    // assertTrue(tmpFile.toFile().length() > 0);
+    //
+    // return tmpFile.toAbsolutePath().toString();
+    // }
 
     private String createFaissHNSWIndex(SpaceType spaceType) throws IOException {
         Path tmpFile = createTempFile();

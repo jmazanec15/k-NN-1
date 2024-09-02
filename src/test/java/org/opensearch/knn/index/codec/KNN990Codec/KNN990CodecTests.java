@@ -38,8 +38,8 @@ public class KNN990CodecTests extends KNNCodecTestCase {
     // write with a read only codec, which will fail
     @SneakyThrows
     public void testKnnVectorIndex() {
-        Function<MapperService, PerFieldKnnVectorsFormat> perFieldKnnVectorsFormatProvider = (
-            mapperService) -> new KNN990PerFieldKnnVectorsFormat(Optional.of(mapperService));
+        Function<MapperService, PerFieldKnnVectorsFormat> perFieldKnnVectorsFormatProvider =
+            mapperService -> new KNN990PerFieldKnnVectorsFormat(Optional.ofNullable(mapperService));
 
         Function<PerFieldKnnVectorsFormat, Codec> knnCodecProvider = (knnVectorFormat) -> KNN990Codec.builder()
             .delegate(V_9_9_0.getDefaultCodecDelegate())

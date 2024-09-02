@@ -41,14 +41,19 @@ public class ModelUtil {
 
     /**
      * Gets Model Metadata from a given model id.
+     *
      * @param modelId {@link String}
-     * @return {@link ModelMetadata}
+     * @return {@link ModelMetadata} or null if modelId is null or empty
      */
     public static ModelMetadata getModelMetadata(final String modelId) {
         if (StringUtils.isEmpty(modelId)) {
             return null;
         }
-        final Model model = ModelCache.getInstance().get(modelId);
+        // TODO: We need to initialize this class with ModelDao and get modelMetadata from there.
+        final Model model = getModel(modelId);
+        if (model == null) {
+            throw new IllegalArgumentException(String.format(Locale.ROOT, "Model ID '%s' does not exist.", modelId));
+        }
         final ModelMetadata modelMetadata = model.getModelMetadata();
         if (isModelCreated(modelMetadata) == false) {
             throw new IllegalArgumentException(String.format(Locale.ROOT, "Model ID '%s' is not created.", modelId));
@@ -56,4 +61,16 @@ public class ModelUtil {
         return modelMetadata;
     }
 
+    /**
+     * Gets the model from the cache
+     *
+     * @param modelId {@link String}
+     * @return {@link Model} or null if modelId is null or empty
+     */
+    public static Model getModel(final String modelId) {
+        if (StringUtils.isEmpty(modelId)) {
+            return null;
+        }
+        return ModelCache.getInstance().get(modelId);
+    }
 }

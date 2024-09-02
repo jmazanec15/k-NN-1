@@ -8,12 +8,14 @@ package org.opensearch.knn.index.engine.faiss;
 import com.google.common.collect.ImmutableMap;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.engine.KNNLibraryIndexConfig;
 import org.opensearch.knn.index.engine.KNNMethod;
 import org.opensearch.knn.index.engine.NativeLibrary;
 
 import java.util.Map;
 import java.util.function.Function;
 
+import static org.opensearch.knn.common.KNNConstants.FAISS_NAME;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.common.KNNConstants.METHOD_IVF;
 
@@ -76,6 +78,11 @@ public class Faiss extends NativeLibrary {
     }
 
     @Override
+    public String getName() {
+        return FAISS_NAME;
+    }
+
+    @Override
     public Float distanceToRadialThreshold(Float distance, SpaceType spaceType) {
         // Faiss engine uses distance as is and does not need transformation
         return distance;
@@ -88,5 +95,10 @@ public class Faiss extends NativeLibrary {
             return this.scoreTransform.get(spaceType).apply(score);
         }
         return spaceType.scoreToDistanceTranslation(score);
+    }
+
+    @Override
+    protected String doResolveMethod(KNNLibraryIndexConfig resolvedRequiredParameters) {
+        return METHOD_HNSW;
     }
 }

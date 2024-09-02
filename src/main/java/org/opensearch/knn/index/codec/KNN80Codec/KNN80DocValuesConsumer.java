@@ -25,8 +25,8 @@ import org.opensearch.knn.plugin.stats.KNNGraphValue;
 
 import java.io.IOException;
 
-import static org.opensearch.knn.common.FieldInfoExtractor.extractKNNEngine;
 import static org.opensearch.knn.common.FieldInfoExtractor.extractVectorDataType;
+import static org.opensearch.knn.common.FieldInfoExtractor.extractKNNEngine;
 
 /**
  * This class writes the KNN docvalues to the segments

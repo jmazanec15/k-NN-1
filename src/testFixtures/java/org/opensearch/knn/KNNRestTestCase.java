@@ -1512,6 +1512,35 @@ public class KNNRestTestCase extends ODFERestTestCase {
         return client().performRequest(request);
     }
 
+    public Response trainModel(
+        String modelId,
+        String trainingIndexName,
+        String trainingFieldName,
+        int dimension,
+        String method,
+        String description
+    ) throws IOException {
+
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(TRAIN_INDEX_PARAMETER, trainingIndexName)
+            .field(TRAIN_FIELD_PARAMETER, trainingFieldName)
+            .field(DIMENSION, dimension)
+            .field(KNN_METHOD, method)
+            .field(MODEL_DESCRIPTION, description)
+            .endObject();
+
+        if (modelId == null) {
+            modelId = "";
+        } else {
+            modelId = "/" + modelId;
+        }
+
+        Request request = new Request("POST", "/_plugins/_knn/models" + modelId + "/_train");
+        request.setJsonEntity(builder.toString());
+        return client().performRequest(request);
+    }
+
     public Response trainModel(String modelId, XContentBuilder builder) throws IOException {
         if (modelId == null) {
             modelId = "";

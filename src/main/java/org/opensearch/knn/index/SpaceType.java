@@ -25,19 +25,6 @@ import static org.opensearch.knn.common.KNNVectorUtil.isZeroVector;
  * nmslib calls the inner_product space "negdotprod". This translation should take place in the nmslib's jni layer.
  */
 public enum SpaceType {
-    // This undefined space type is used to indicate that space type is not provided by user
-    // Later, we need to assign a default value based on data type
-    UNDEFINED("undefined") {
-        @Override
-        public float scoreTranslation(final float rawScore) {
-            throw new IllegalStateException("Unsupported method");
-        }
-
-        @Override
-        public void validateVectorDataType(VectorDataType vectorDataType) {
-            throw new IllegalStateException("Unsupported method");
-        }
-    },
     L2("l2") {
         @Override
         public float scoreTranslation(float rawScore) {

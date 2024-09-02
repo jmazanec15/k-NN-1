@@ -8,7 +8,7 @@ package org.opensearch.knn.index.engine;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
-import org.opensearch.common.ValidationException;
+import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 
 import java.util.Locale;
@@ -19,101 +19,72 @@ import java.util.Map;
  */
 @AllArgsConstructor(access = AccessLevel.PACKAGE)
 public abstract class AbstractKNNLibrary implements KNNLibrary {
-
     protected final Map<String, KNNMethod> methods;
     @Getter
     protected final String version;
 
     @Override
-    public KNNLibrarySearchContext getKNNLibrarySearchContext(String methodName) {
-        throwIllegalArgOnNonNull(validateMethodExists(methodName));
-        KNNMethod method = methods.get(methodName);
-        return method.getKNNLibrarySearchContext();
+    public KNNLibraryIndex resolve(KNNLibraryIndexConfig knnLibraryIndexConfig) {
+        KNNLibraryIndex.Builder builder = KNNLibraryIndex.builder();
+        builder.addValidationErrorMessage(
+            validateDimension(
+                knnLibraryIndexConfig.getDimension(),
+                knnLibraryIndexConfig.getVectorDataType(),
+                knnLibraryIndexConfig.getKnnEngine()
+            )
+        );
+        builder.addValidationErrorMessage(
+            validateSpaceType(knnLibraryIndexConfig.getSpaceType(), knnLibraryIndexConfig.getVectorDataType())
+        );
+        String methodName = resolveMethod(knnLibraryIndexConfig);
+        builder.addValidationErrorMessage(validateMethodExists(methodName), true);
+        KNNMethod knnMethod = methods.get(methodName);
+        knnMethod.resolve(knnLibraryIndexConfig, builder);
+        return builder.build();
     }
 
-    @Override
-    public KNNLibraryIndexingContext getKNNLibraryIndexingContext(
-        KNNMethodContext knnMethodContext,
-        KNNMethodConfigContext knnMethodConfigContext
-    ) {
-        String method = knnMethodContext.getMethodComponentContext().getName();
-        throwIllegalArgOnNonNull(validateMethodExists(method));
-        KNNMethod knnMethod = methods.get(method);
-        return knnMethod.getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext);
+    protected String resolveMethod(KNNLibraryIndexConfig resolvedRequiredParameters) {
+        MethodComponentContext methodComponentContext = resolvedRequiredParameters.getMethodComponentContext();
+        if (methodComponentContext.getName().isPresent()) {
+            return methodComponentContext.getName().get();
+        }
+        return doResolveMethod(resolvedRequiredParameters);
     }
 
-    @Override
-    public ValidationException validateMethod(KNNMethodContext knnMethodContext, KNNMethodConfigContext knnMethodConfigContext) {
-        String methodName = knnMethodContext.getMethodComponentContext().getName();
-        ValidationException validationException = null;
-        String invalidErrorMessage = validateMethodExists(methodName);
-        if (invalidErrorMessage != null) {
-            validationException = new ValidationException();
-            validationException.addValidationError(invalidErrorMessage);
-            return validationException;
-        }
-        invalidErrorMessage = validateDimension(knnMethodContext, knnMethodConfigContext);
-        if (invalidErrorMessage != null) {
-            validationException = new ValidationException();
-            validationException.addValidationError(invalidErrorMessage);
-        }
+    protected abstract String doResolveMethod(KNNLibraryIndexConfig resolvedRequiredParameters);
 
-        validateSpaceType(knnMethodContext, knnMethodConfigContext);
-        ValidationException methodValidation = methods.get(methodName).validate(knnMethodContext, knnMethodConfigContext);
-        if (methodValidation != null) {
-            validationException = validationException == null ? new ValidationException() : validationException;
-            validationException.addValidationErrors(methodValidation.validationErrors());
+    private String validateSpaceType(SpaceType spaceType, VectorDataType vectorDataType) {
+        try {
+            spaceType.validateVectorDataType(vectorDataType);
+        } catch (IllegalArgumentException e) {
+            return e.getMessage();
         }
-
-        return validationException;
+        return null;
     }
 
-    private void validateSpaceType(final KNNMethodContext knnMethodContext, KNNMethodConfigContext knnMethodConfigContext) {
-        if (knnMethodContext == null) {
-            return;
-        }
-        knnMethodContext.getSpaceType().validateVectorDataType(knnMethodConfigContext.getVectorDataType());
-    }
-
-    private String validateDimension(final KNNMethodContext knnMethodContext, KNNMethodConfigContext knnMethodConfigContext) {
-        if (knnMethodContext == null) {
-            return null;
-        }
-        int dimension = knnMethodConfigContext.getDimension();
-        if (dimension > KNNEngine.getMaxDimensionByEngine(knnMethodContext.getKnnEngine())) {
+    private String validateDimension(int dimension, VectorDataType vectorDataType, KNNEngine knnEngine) {
+        int maxDimension = KNNEngine.getMaxDimensionByEngine(knnEngine);
+        if (dimension > KNNEngine.getMaxDimensionByEngine(knnEngine)) {
             return String.format(
                 Locale.ROOT,
-                "Dimension value cannot be greater than %s for vector with engine: %s",
-                KNNEngine.getMaxDimensionByEngine(knnMethodContext.getKnnEngine()),
-                knnMethodContext.getKnnEngine().getName()
+                "Dimension value cannot be greater than %s for vector with library: %s",
+                maxDimension,
+                knnEngine.getName()
             );
         }
 
-        if (VectorDataType.BINARY == knnMethodConfigContext.getVectorDataType() && dimension % 8 != 0) {
+        if (VectorDataType.BINARY == vectorDataType && dimension % 8 != 0) {
             return "Dimension should be multiply of 8 for binary vector data type";
         }
 
         return null;
     }
 
-    @Override
-    public boolean isTrainingRequired(KNNMethodContext knnMethodContext) {
-        String methodName = knnMethodContext.getMethodComponentContext().getName();
-        throwIllegalArgOnNonNull(validateMethodExists(methodName));
-        return methods.get(methodName).isTrainingRequired(knnMethodContext);
-    }
-
     private String validateMethodExists(String methodName) {
         KNNMethod method = methods.get(methodName);
         if (method == null) {
-            return String.format("Invalid method name: %s", methodName);
+            return String.format(Locale.ROOT, "Invalid method name: %s", methodName);
         }
         return null;
-    }
-
-    private void throwIllegalArgOnNonNull(String errorMessage) {
-        if (errorMessage != null) {
-            throw new IllegalArgumentException(errorMessage);
-        }
     }
 }
