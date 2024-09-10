@@ -57,14 +57,11 @@ public class DefaultIndexBuildStrategyTests extends OpenSearchTestCase {
         final KNNVectorValues<byte[]> knnVectorValues = KNNVectorValuesFactory.getVectorValues(VectorDataType.FLOAT, randomVectorValues);
 
         try (
-            MockedStatic<KNNSettings> mockedKNNSettings = mockStatic(KNNSettings.class);
             MockedStatic<JNIService> mockedJNIService = mockStatic(JNIService.class);
             MockedStatic<OffHeapVectorTransferFactory> mockedOffHeapVectorTransferFactory = mockStatic(OffHeapVectorTransferFactory.class)
         ) {
-
-            mockedKNNSettings.when(KNNSettings::getVectorStreamingMemoryLimit).thenReturn(new ByteSizeValue(16));
             OffHeapVectorTransfer offHeapVectorTransfer = mock(OffHeapVectorTransfer.class);
-            mockedOffHeapVectorTransferFactory.when(() -> OffHeapVectorTransferFactory.getVectorTransfer(VectorDataType.FLOAT, 2))
+            mockedOffHeapVectorTransferFactory.when(() -> OffHeapVectorTransferFactory.getVectorTransfer(VectorDataType.FLOAT, 8, 3))
                 .thenReturn(offHeapVectorTransfer);
 
             when(offHeapVectorTransfer.getVectorAddress()).thenReturn(200L);
@@ -131,7 +128,7 @@ public class DefaultIndexBuildStrategyTests extends OpenSearchTestCase {
             mockedJNIService.when(() -> JNIService.initIndex(3, 2, Map.of("index", "param"), KNNEngine.FAISS)).thenReturn(100L);
 
             OffHeapVectorTransfer offHeapVectorTransfer = mock(OffHeapVectorTransfer.class);
-            mockedOffHeapVectorTransferFactory.when(() -> OffHeapVectorTransferFactory.getVectorTransfer(VectorDataType.FLOAT, 2))
+            mockedOffHeapVectorTransferFactory.when(() -> OffHeapVectorTransferFactory.getVectorTransfer(VectorDataType.FLOAT, 8, 3))
                 .thenReturn(offHeapVectorTransfer);
 
             QuantizationService quantizationService = mock(QuantizationService.class);
@@ -141,7 +138,7 @@ public class DefaultIndexBuildStrategyTests extends OpenSearchTestCase {
             ArgumentCaptor<float[]> vectorCaptor = ArgumentCaptor.forClass(float[].class);
             // New: Create QuantizationOutput and mock the quantization process
             QuantizationOutput<byte[]> quantizationOutput = mock(QuantizationOutput.class);
-            when(quantizationOutput.getQuantizedVector()).thenReturn(new byte[] { 1, 2 });
+            when(quantizationOutput.getQuantizedVectorCopy()).thenReturn(new byte[] { 1, 2 });
             when(quantizationService.createQuantizationOutput(eq(quantizationState.getQuantizationParams()))).thenReturn(
                 quantizationOutput
             );
@@ -149,8 +146,8 @@ public class DefaultIndexBuildStrategyTests extends OpenSearchTestCase {
             // Quantize the vector with the quantization output
             when(quantizationService.quantize(eq(quantizationState), vectorCaptor.capture(), eq(quantizationOutput))).thenAnswer(
                 invocation -> {
-                    quantizationOutput.getQuantizedVector();
-                    return quantizationOutput.getQuantizedVector();
+                    quantizationOutput.getQuantizedVectorCopy();
+                    return quantizationOutput.getQuantizedVectorCopy();
                 }
             );
             when(quantizationState.getDimensions()).thenReturn(2);
@@ -237,14 +234,12 @@ public class DefaultIndexBuildStrategyTests extends OpenSearchTestCase {
             docs
         );
         try (
-            MockedStatic<KNNSettings> mockedKNNSettings = mockStatic(KNNSettings.class);
             MockedStatic<JNIService> mockedJNIService = mockStatic(JNIService.class);
             MockedStatic<OffHeapVectorTransferFactory> mockedOffHeapVectorTransferFactory = mockStatic(OffHeapVectorTransferFactory.class)
         ) {
 
-            mockedKNNSettings.when(KNNSettings::getVectorStreamingMemoryLimit).thenReturn(new ByteSizeValue(16));
             OffHeapVectorTransfer offHeapVectorTransfer = mock(OffHeapVectorTransfer.class);
-            mockedOffHeapVectorTransferFactory.when(() -> OffHeapVectorTransferFactory.getVectorTransfer(VectorDataType.FLOAT, 2))
+            mockedOffHeapVectorTransferFactory.when(() -> OffHeapVectorTransferFactory.getVectorTransfer(VectorDataType.FLOAT, 8, 3))
                 .thenReturn(offHeapVectorTransfer);
 
             when(offHeapVectorTransfer.getVectorAddress()).thenReturn(200L);
