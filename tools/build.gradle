@@ -1,0 +1,36 @@
+/*
+ * Copyright OpenSearch Contributors
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+apply plugin: 'opensearch.build'
+apply plugin: 'application'
+
+base {
+    group = 'org.opensearchknn'
+    archivesName = 'opensearch-knn-lucene'
+}
+
+assemble.enabled = true
+
+application {
+    mainClass = 'org.opensearchknn.lucene.attach.CustomQuery'
+}
+
+run {
+    standardInput = System.in
+}
+
+test.enabled = false
+dependenciesInfo.enabled = false
+tasks.named("dependencyLicenses").configure { it.enabled = false }
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    api(project(':'))
+}
+tasks.named("dependencyLicenses").configure { it.enabled = false }
+dependenciesInfo.enabled = false
