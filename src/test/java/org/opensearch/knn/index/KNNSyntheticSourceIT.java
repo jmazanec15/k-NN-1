@@ -22,8 +22,8 @@ import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
-import org.opensearch.knn.index.util.KNNEngine;
 
 import java.io.IOException;
 
@@ -318,8 +318,6 @@ public class KNNSyntheticSourceIT extends KNNRestTestCase {
         String indexNameWithSynthetic = "test-index-synthetic";
         String fieldName = "test-field-1";
         Integer dimension = 2;
-
-        KNNMethod hnswMethod = KNNEngine.FAISS.getMethod(KNNConstants.METHOD_HNSW);
         SpaceType spaceType = SpaceType.L2;
 
         // Create an index
@@ -335,7 +333,7 @@ public class KNNSyntheticSourceIT extends KNNRestTestCase {
             .field("type", "knn_vector")
             .field("dimension", dimension)
             .startObject(KNNConstants.KNN_METHOD)
-            .field(KNNConstants.NAME, hnswMethod.getMethodComponent().getName())
+            .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
             .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
             .field(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName())
             .endObject()
@@ -374,8 +372,6 @@ public class KNNSyntheticSourceIT extends KNNRestTestCase {
         String fieldName = "test-field-1";
         String fieldName2 = "test-field-2";
         Integer dimension = 2;
-
-        KNNMethod hnswMethod = KNNEngine.FAISS.getMethod(KNNConstants.METHOD_HNSW);
         SpaceType spaceType = SpaceType.L2;
 
         // Create an index
@@ -391,7 +387,7 @@ public class KNNSyntheticSourceIT extends KNNRestTestCase {
             .field("type", "knn_vector")
             .field("dimension", dimension)
             .startObject(KNNConstants.KNN_METHOD)
-            .field(KNNConstants.NAME, hnswMethod.getMethodComponent().getName())
+            .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
             .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
             .field(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName())
             .endObject()
@@ -400,7 +396,7 @@ public class KNNSyntheticSourceIT extends KNNRestTestCase {
             .field("type", "knn_vector")
             .field("dimension", dimension)
             .startObject(KNNConstants.KNN_METHOD)
-            .field(KNNConstants.NAME, hnswMethod.getMethodComponent().getName())
+            .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
             .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
             .field(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName())
             .endObject()
@@ -521,8 +517,6 @@ public class KNNSyntheticSourceIT extends KNNRestTestCase {
 
     private XContentBuilder constructNestedMappingBuilder() throws IOException {
         Integer dimension = 2;
-
-        KNNMethod hnswMethod = KNNEngine.FAISS.getMethod(KNNConstants.METHOD_HNSW);
         SpaceType spaceType = SpaceType.L2;
         /*
           "mappings":{
@@ -557,7 +551,7 @@ public class KNNSyntheticSourceIT extends KNNRestTestCase {
             .field("type", "knn_vector")
             .field("dimension", dimension)
             .startObject(KNNConstants.KNN_METHOD)
-            .field(KNNConstants.NAME, hnswMethod.getMethodComponent().getName())
+            .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
             .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
             .field(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName())
             .endObject()
@@ -572,7 +566,6 @@ public class KNNSyntheticSourceIT extends KNNRestTestCase {
     private XContentBuilder constructMappingBuilder() throws IOException {
         Integer dimension = 2;
 
-        KNNMethod hnswMethod = KNNEngine.FAISS.getMethod(KNNConstants.METHOD_HNSW);
         SpaceType spaceType = SpaceType.L2;
 
         // Create an index
@@ -588,7 +581,7 @@ public class KNNSyntheticSourceIT extends KNNRestTestCase {
             .field("type", "knn_vector")
             .field("dimension", dimension)
             .startObject(KNNConstants.KNN_METHOD)
-            .field(KNNConstants.NAME, hnswMethod.getMethodComponent().getName())
+            .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
             .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
             .field(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName())
             .endObject()

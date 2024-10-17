@@ -10,6 +10,7 @@ import org.apache.lucene.search.DocValuesFieldExistsQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.util.BytesRef;
 import org.opensearch.index.fielddata.IndexFieldData;
+import org.opensearch.index.mapper.DocValueFetcher;
 import org.opensearch.index.mapper.MappedFieldType;
 import org.opensearch.index.mapper.TextSearchInfo;
 import org.opensearch.index.mapper.ValueFetcher;
@@ -51,7 +52,9 @@ public class KNNVectorFieldType extends MappedFieldType {
 
     @Override
     public ValueFetcher valueFetcher(QueryShardContext context, SearchLookup searchLookup, String format) {
-        throw new UnsupportedOperationException("KNN Vector do not support fields search");
+        // TODO: Can we optimize by customizing docValueFormat?
+        // See if this fixes https://github.com/opensearch-project/k-NN/issues/1633
+        return new DocValueFetcher(docValueFormat(format, null), searchLookup.doc().getForField(this));
     }
 
     @Override

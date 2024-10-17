@@ -25,9 +25,8 @@ import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.index.shard.IndexShard;
 import org.opensearch.knn.KNNSingleNodeTestCase;
 import org.opensearch.knn.common.KNNConstants;
-import org.opensearch.knn.index.KNNMethod;
 import org.opensearch.knn.index.SpaceType;
-import org.opensearch.knn.index.util.KNNEngine;
+import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.fetch.FetchContext;
 import org.opensearch.search.fetch.FetchSubPhase;
@@ -42,6 +41,7 @@ import java.util.concurrent.ExecutionException;
 import static java.util.Collections.emptyMap;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.index.KNNSettings.KNN_SYNTHETIC_SOURCE_ENABLED_SETTING;
 
 public class KNNFetchSubPhaseTests extends KNNSingleNodeTestCase {
@@ -53,7 +53,7 @@ public class KNNFetchSubPhaseTests extends KNNSingleNodeTestCase {
         IndexSettings indexSettings = mock(IndexSettings.class);
         when(indexSettings.getValue(KNN_SYNTHETIC_SOURCE_ENABLED_SETTING)).thenReturn(false);
         when(fetchContext.getIndexSettings()).thenReturn(indexSettings);
-        KNNFetchSubPhase phase = new KNNFetchSubPhase();
+        SyntheticVectorSourceFetchSubPhase phase = new SyntheticVectorSourceFetchSubPhase();
         FetchSubPhaseProcessor processor = phase.getProcessor(fetchContext);
         assertNull(processor);
     }
@@ -73,11 +73,12 @@ public class KNNFetchSubPhaseTests extends KNNSingleNodeTestCase {
         SearchLookup searchLookup = queryShardContext.newFetchLookup();
         when(fetchContext.searchLookup()).thenReturn(searchLookup);
 
-        KNNFetchSubPhase phase = new KNNFetchSubPhase();
+        SyntheticVectorSourceFetchSubPhase phase = new SyntheticVectorSourceFetchSubPhase();
         FetchSubPhaseProcessor processor = phase.getProcessor(fetchContext);
         assertNotNull(processor);
-        assertTrue(processor instanceof KNNFetchSubPhase.KNNFetchSubPhaseProcessor);
-        KNNFetchSubPhase.KNNFetchSubPhaseProcessor fetchProcessor = (KNNFetchSubPhase.KNNFetchSubPhaseProcessor) processor;
+        assertTrue(processor instanceof SyntheticVectorSourceFetchSubPhase.SyntheticVectorSourceFetchSubPhaseProcessor);
+        SyntheticVectorSourceFetchSubPhase.SyntheticVectorSourceFetchSubPhaseProcessor fetchProcessor =
+            (SyntheticVectorSourceFetchSubPhase.SyntheticVectorSourceFetchSubPhaseProcessor) processor;
         assertNotNull(fetchProcessor.getFields());
         assertEquals(fetchProcessor.getFields().get(0).getField(), fieldName);
     }
@@ -99,7 +100,7 @@ public class KNNFetchSubPhaseTests extends KNNSingleNodeTestCase {
         SearchLookup searchLookup = queryShardContext.newFetchLookup();
         when(fetchContext.searchLookup()).thenReturn(searchLookup);
 
-        KNNFetchSubPhase phase = new KNNFetchSubPhase();
+        SyntheticVectorSourceFetchSubPhase phase = new SyntheticVectorSourceFetchSubPhase();
         FetchSubPhaseProcessor processor = phase.getProcessor(fetchContext);
 
         List<LeafReaderContext> listLeafReadContext = queryShardContext.getIndexReader().leaves();
@@ -137,7 +138,6 @@ public class KNNFetchSubPhaseTests extends KNNSingleNodeTestCase {
     private XContentBuilder constructMappingBuilder() throws IOException {
         Integer dimension = 2;
 
-        KNNMethod hnswMethod = KNNEngine.FAISS.getMethod(KNNConstants.METHOD_HNSW);
         SpaceType spaceType = SpaceType.L2;
 
         // Create an index
@@ -153,7 +153,7 @@ public class KNNFetchSubPhaseTests extends KNNSingleNodeTestCase {
             .field("type", "knn_vector")
             .field("dimension", dimension)
             .startObject(KNNConstants.KNN_METHOD)
-            .field(KNNConstants.NAME, hnswMethod.getMethodComponent().getName())
+            .field(KNNConstants.NAME, METHOD_HNSW)
             .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
             .field(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName())
             .endObject()

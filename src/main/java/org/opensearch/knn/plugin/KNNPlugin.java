@@ -15,7 +15,7 @@ import org.opensearch.indices.SystemIndexDescriptor;
 import org.opensearch.knn.index.KNNCircuitBreaker;
 import org.opensearch.knn.plugin.search.KNNConcurrentSearchRequestDecider;
 import org.opensearch.knn.index.util.KNNClusterUtil;
-import org.opensearch.knn.index.fetch.KNNFetchSubPhase;
+import org.opensearch.knn.index.fetch.SyntheticVectorSourceFetchSubPhase;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
@@ -179,7 +179,7 @@ public class KNNPlugin extends Plugin
 
     @Override
     public List<FetchSubPhase> getFetchSubPhases(FetchPhaseConstructionContext context) {
-        return singletonList(new KNNFetchSubPhase());
+        return singletonList(new SyntheticVectorSourceFetchSubPhase());
     }
 
     @Override
