@@ -97,17 +97,26 @@ public class KNNVectorDVLeafFieldData implements LeafFieldData {
 
             @Override
             public boolean advanceExact(int docId) throws IOException {
+                if (copyVectorValues == null) {
+                    return false;
+                }
                 return vectorValues.advance(docId) == docId;
             }
 
             @Override
             public int docValueCount() {
+                if (copyVectorValues == null) {
+                    return 0;
+                }
                 // This will always be one because knn_vector does not support multi-fields yet.
                 return 1;
             }
 
             @Override
             public Object nextValue() throws IOException {
+                if (copyVectorValues == null) {
+                    return null;
+                }
                 return vectorValues.getVector();
             }
         };
