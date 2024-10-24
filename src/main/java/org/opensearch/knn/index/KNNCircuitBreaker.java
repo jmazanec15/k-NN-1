@@ -62,7 +62,7 @@ public class KNNCircuitBreaker {
             if (KNNSettings.state().getSettingValue(KNNSettings.KNN_CACHE_ITEM_EXPIRY_ENABLED)) {
                 // Comment this out to verify test fails
                 logger.info("CLeaning up cache");
-                //nativeMemoryCacheManager.cleanUp();
+                nativeMemoryCacheManager.cleanUp();
             }
 
             if (nativeMemoryCacheManager.isCacheCapacityReached() && clusterService.localNode().isDataNode()) {
