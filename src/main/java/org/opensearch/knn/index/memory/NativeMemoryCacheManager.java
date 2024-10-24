@@ -320,6 +320,13 @@ public class NativeMemoryCacheManager implements Closeable {
     }
 
     /**
+     * Cleans up cache. Call will invoke pending maintenance on cache, such as evicted expired entries
+     */
+    public void cleanUp() {
+        cache.cleanUp();
+    }
+
+    /**
      * Returns whether or not the capacity of the cache has been reached
      *
      * @return Boolean of whether cache limit has been reached
@@ -371,7 +378,7 @@ public class NativeMemoryCacheManager implements Closeable {
             setCacheCapacityReached(true);
         }
 
-        logger.debug("[KNN] Cache evicted. Key {}, Reason: {}", removalNotification.getKey(), removalNotification.getCause());
+        logger.info("[KNN] Cache evicted. Key {}, Reason: {}", removalNotification.getKey(), removalNotification.getCause());
     }
 
     private Float getSizeAsPercentage(long size) {

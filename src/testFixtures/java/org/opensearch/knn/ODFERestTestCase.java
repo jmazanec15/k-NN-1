@@ -159,39 +159,44 @@ public abstract class ODFERestTestCase extends OpenSearchRestTestCase {
         return true;
     }
 
-    @SuppressWarnings("unchecked")
-    @After
-    protected void wipeAllODFEIndices() throws Exception {
-        Response response = adminClient().performRequest(new Request("GET", "/_cat/indices?format=json&expand_wildcards=all"));
-        MediaType xContentType = MediaType.fromMediaType(response.getEntity().getContentType().getValue());
-        try (
-            XContentParser parser = xContentType.xContent()
-                .createParser(
-                    NamedXContentRegistry.EMPTY,
-                    DeprecationHandler.THROW_UNSUPPORTED_OPERATION,
-                    response.getEntity().getContent()
-                )
-        ) {
-            XContentParser.Token token = parser.nextToken();
-            List<Map<String, Object>> parserList = null;
-            if (token == XContentParser.Token.START_ARRAY) {
-                parserList = parser.listOrderedMap().stream().map(obj -> (Map<String, Object>) obj).collect(Collectors.toList());
-            } else {
-                parserList = Collections.singletonList(parser.mapOrdered());
-            }
-
-            for (Map<String, Object> index : parserList) {
-                final String indexName = (String) index.get("index");
-                if (isIndexCleanupRequired(indexName)) {
-                    wipeIndexContent(indexName);
-                    continue;
-                }
-                if (!skipDeleteIndex(indexName)) {
-                    adminClient().performRequest(new Request("DELETE", "/" + indexName));
-                }
-            }
-        }
+    @Override
+    protected boolean preserveClusterUponCompletion() {
+        return true;
     }
+//
+//    @SuppressWarnings("unchecked")
+//    @After
+//    protected void wipeAllODFEIndices() throws Exception {
+//        Response response = adminClient().performRequest(new Request("GET", "/_cat/indices?format=json&expand_wildcards=all"));
+//        MediaType xContentType = MediaType.fromMediaType(response.getEntity().getContentType().getValue());
+//        try (
+//            XContentParser parser = xContentType.xContent()
+//                .createParser(
+//                    NamedXContentRegistry.EMPTY,
+//                    DeprecationHandler.THROW_UNSUPPORTED_OPERATION,
+//                    response.getEntity().getContent()
+//                )
+//        ) {
+//            XContentParser.Token token = parser.nextToken();
+//            List<Map<String, Object>> parserList = null;
+//            if (token == XContentParser.Token.START_ARRAY) {
+//                parserList = parser.listOrderedMap().stream().map(obj -> (Map<String, Object>) obj).collect(Collectors.toList());
+//            } else {
+//                parserList = Collections.singletonList(parser.mapOrdered());
+//            }
+//
+//            for (Map<String, Object> index : parserList) {
+//                final String indexName = (String) index.get("index");
+//                if (isIndexCleanupRequired(indexName)) {
+//                    wipeIndexContent(indexName);
+//                    continue;
+//                }
+//                if (!skipDeleteIndex(indexName)) {
+//                    adminClient().performRequest(new Request("DELETE", "/" + indexName));
+//                }
+//            }
+//        }
+//    }
 
     private boolean isIndexCleanupRequired(final String index) {
         return MODEL_INDEX_NAME.equals(index) && !getSkipDeleteModelIndexFlag();

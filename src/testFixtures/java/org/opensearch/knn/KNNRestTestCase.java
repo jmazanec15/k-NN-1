@@ -103,6 +103,7 @@ import static org.opensearch.knn.TestUtils.computeGroundTruthValues;
 import static org.opensearch.knn.index.SpaceType.L2;
 import static org.opensearch.knn.index.memory.NativeMemoryCacheManager.GRAPH_COUNT;
 import static org.opensearch.knn.index.util.KNNEngine.FAISS;
+import static org.opensearch.knn.plugin.stats.StatNames.EVICTION_COUNT;
 import static org.opensearch.knn.plugin.stats.StatNames.INDICES_IN_CACHE;
 
 /**
@@ -626,6 +627,24 @@ public class KNNRestTestCase extends ODFERestTestCase {
                     .sum()
             )
             .sum();
+    }
+
+    /**
+     * Get the total number of graphs in the cache across all nodes
+     */
+    @SuppressWarnings("unchecked")
+    protected int getTotalEvictionCount() throws IOException {
+        Response response = getKnnStats(Collections.emptyList(), Collections.emptyList());
+        String responseBody = EntityUtils.toString(response.getEntity());
+
+        List<Map<String, Object>> nodesStats = parseNodeStatsResponse(responseBody);
+
+        logger.info("[KNN] Node stats:  " + nodesStats);
+
+        return nodesStats.stream()
+                .filter(nodeStats -> nodeStats.get(EVICTION_COUNT.getName()) != null)
+                .mapToInt(nodeStats -> (int) nodeStats.get(EVICTION_COUNT.getName()))
+                .sum();
     }
 
     /**

@@ -26,7 +26,7 @@ import java.util.List;
  */
 public class KNNCircuitBreaker {
     private static Logger logger = LogManager.getLogger(KNNCircuitBreaker.class);
-    public static int CB_TIME_INTERVAL = 2 * 60; // seconds
+    public static int CB_TIME_INTERVAL = 60; // seconds
 
     private static KNNCircuitBreaker INSTANCE;
     private ThreadPool threadPool;
@@ -57,6 +57,14 @@ public class KNNCircuitBreaker {
         this.client = client;
         NativeMemoryCacheManager nativeMemoryCacheManager = NativeMemoryCacheManager.getInstance();
         Runnable runnable = () -> {
+
+            // For time based evictions, periodically cleanup the cache
+            if (KNNSettings.state().getSettingValue(KNNSettings.KNN_CACHE_ITEM_EXPIRY_ENABLED)) {
+                // Comment this out to verify test fails
+                logger.info("CLeaning up cache");
+                //nativeMemoryCacheManager.cleanUp();
+            }
+
             if (nativeMemoryCacheManager.isCacheCapacityReached() && clusterService.localNode().isDataNode()) {
                 long currentSizeKiloBytes = nativeMemoryCacheManager.getCacheSizeInKilobytes();
                 long circuitBreakerLimitSizeKiloBytes = KNNSettings.getCircuitBreakerLimit().getKb();
