@@ -9,11 +9,22 @@ import lombok.Builder;
 import org.apache.lucene.codecs.Codec;
 import org.apache.lucene.codecs.CompoundFormat;
 import org.apache.lucene.codecs.DocValuesFormat;
+import org.apache.lucene.codecs.DocValuesProducer;
 import org.apache.lucene.codecs.FilterCodec;
 import org.apache.lucene.codecs.KnnVectorsFormat;
+import org.apache.lucene.codecs.KnnVectorsReader;
+import org.apache.lucene.codecs.StoredFieldsFormat;
 import org.apache.lucene.codecs.perfield.PerFieldKnnVectorsFormat;
+import org.apache.lucene.index.FieldInfo;
+import org.apache.lucene.index.SegmentReadState;
+import org.opensearch.knn.index.codec.KNN990Codec.SyntheticSourceStoredFieldsFormat;
 import org.opensearch.knn.index.codec.KNNCodecVersion;
 import org.opensearch.knn.index.codec.KNNFormatFacade;
+import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
+import org.opensearch.knn.index.vectorvalues.KNNVectorValuesFactory;
+
+import java.io.IOException;
+import java.util.function.Function;
 
 /**
  * KNN Codec that wraps the Lucene Codec which is part of Lucene 9.12
@@ -57,5 +68,25 @@ public class KNN9120Codec extends FilterCodec {
     @Override
     public KnnVectorsFormat knnVectorsFormat() {
         return perFieldKnnVectorsFormat;
+    }
+
+    @Override
+    public StoredFieldsFormat storedFieldsFormat() {
+        Function<SegmentReadState, Function<FieldInfo, KNNVectorValues<?>>> vectorValuesSupplierByField = (segmentReadState) -> {
+            try {
+                KnnVectorsReader knnVectorsReader = knnVectorsFormat().fieldsReader(segmentReadState);
+                DocValuesProducer docValuesProducer = docValuesFormat().fieldsProducer(segmentReadState);
+                return fieldInfo -> {
+                    try {
+                        return KNNVectorValuesFactory.getVectorValues(fieldInfo, docValuesProducer, knnVectorsReader);
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+                };
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        };
+        return new SyntheticSourceStoredFieldsFormat(delegate.storedFieldsFormat(), vectorValuesSupplierByField);
     }
 }
