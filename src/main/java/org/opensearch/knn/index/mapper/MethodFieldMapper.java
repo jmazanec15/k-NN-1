@@ -50,7 +50,8 @@ public class MethodFieldMapper extends KNNVectorFieldMapper {
         Explicit<Boolean> ignoreMalformed,
         boolean stored,
         boolean hasDocValues,
-        OriginalMappingParameters originalMappingParameters
+        OriginalMappingParameters originalMappingParameters,
+        boolean isDerivedSourceEnabled
     ) {
 
         KNNMethodContext knnMethodContext = originalMappingParameters.getResolvedKnnMethodContext();
@@ -103,7 +104,8 @@ public class MethodFieldMapper extends KNNVectorFieldMapper {
             stored,
             hasDocValues,
             knnMethodConfigContext,
-            originalMappingParameters
+            originalMappingParameters,
+            isDerivedSourceEnabled
         );
     }
 
@@ -116,7 +118,8 @@ public class MethodFieldMapper extends KNNVectorFieldMapper {
         boolean stored,
         boolean hasDocValues,
         KNNMethodConfigContext knnMethodConfigContext,
-        OriginalMappingParameters originalMappingParameters
+        OriginalMappingParameters originalMappingParameters,
+        boolean isDerivedSourceEnabled
     ) {
 
         super(
@@ -128,7 +131,8 @@ public class MethodFieldMapper extends KNNVectorFieldMapper {
             stored,
             hasDocValues,
             knnMethodConfigContext.getVersionCreated(),
-            originalMappingParameters
+            originalMappingParameters,
+            isDerivedSourceEnabled
         );
         this.useLuceneBasedVectorField = KNNVectorFieldMapperUtil.useLuceneKNNVectorsFormat(indexCreatedVersion);
         KNNMappingConfig knnMappingConfig = mappedFieldType.getKnnMappingConfig();
@@ -150,7 +154,9 @@ public class MethodFieldMapper extends KNNVectorFieldMapper {
 
         this.fieldType.putAttribute(VECTOR_DATA_TYPE_FIELD, vectorDataType.getValue());
         this.fieldType.putAttribute(KNN_ENGINE, knnEngine.getName());
-
+        if (isDerivedSourceEnabled) {
+            this.fieldType.putAttribute("knn-derived-source", "true");
+        }
         try {
             this.fieldType.putAttribute(
                 PARAMETERS,

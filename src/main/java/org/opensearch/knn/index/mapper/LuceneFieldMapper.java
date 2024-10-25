@@ -48,7 +48,8 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
         Map<String, String> metaValue,
         KNNMethodConfigContext knnMethodConfigContext,
         CreateLuceneFieldMapperInput createLuceneFieldMapperInput,
-        OriginalMappingParameters originalMappingParameters
+        OriginalMappingParameters originalMappingParameters,
+        boolean isDerivedSourceEnabled
     ) {
         final KNNVectorFieldType mappedFieldType = new KNNVectorFieldType(
             fullname,
@@ -82,14 +83,21 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
             }
         );
 
-        return new LuceneFieldMapper(mappedFieldType, createLuceneFieldMapperInput, knnMethodConfigContext, originalMappingParameters);
+        return new LuceneFieldMapper(
+            mappedFieldType,
+            createLuceneFieldMapperInput,
+            knnMethodConfigContext,
+            originalMappingParameters,
+            isDerivedSourceEnabled
+        );
     }
 
     private LuceneFieldMapper(
         final KNNVectorFieldType mappedFieldType,
         final CreateLuceneFieldMapperInput input,
         KNNMethodConfigContext knnMethodConfigContext,
-        OriginalMappingParameters originalMappingParameters
+        OriginalMappingParameters originalMappingParameters,
+        boolean isDerivedSourceEnabled
     ) {
         super(
             input.getName(),
@@ -100,7 +108,8 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
             input.isStored(),
             input.isHasDocValues(),
             knnMethodConfigContext.getVersionCreated(),
-            originalMappingParameters
+            originalMappingParameters,
+            isDerivedSourceEnabled
         );
         KNNMappingConfig knnMappingConfig = mappedFieldType.getKnnMappingConfig();
         KNNMethodContext resolvedKnnMethodContext = originalMappingParameters.getResolvedKnnMethodContext();
@@ -115,6 +124,10 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
             this.vectorFieldType = buildDocValuesFieldType(resolvedKnnMethodContext.getKnnEngine());
         } else {
             this.vectorFieldType = null;
+        }
+
+        if (isDerivedSourceEnabled) {
+            this.fieldType.putAttribute("knn-derived-source", "true");
         }
 
         KNNLibraryIndexingContext knnLibraryIndexingContext = resolvedKnnMethodContext.getKnnEngine()

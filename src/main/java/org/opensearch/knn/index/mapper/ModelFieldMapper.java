@@ -57,7 +57,8 @@ public class ModelFieldMapper extends KNNVectorFieldMapper {
         ModelDao modelDao,
         Version indexCreatedVersion,
         OriginalMappingParameters originalMappingParameters,
-        KNNMethodConfigContext knnMethodConfigContext
+        KNNMethodConfigContext knnMethodConfigContext,
+        boolean isDerivedSourceEnabled
     ) {
 
         final KNNMethodContext knnMethodContext = originalMappingParameters.getKnnMethodContext();
@@ -131,7 +132,8 @@ public class ModelFieldMapper extends KNNVectorFieldMapper {
             hasDocValues,
             modelDao,
             indexCreatedVersion,
-            originalMappingParameters
+            originalMappingParameters,
+            isDerivedSourceEnabled
         );
     }
 
@@ -145,7 +147,8 @@ public class ModelFieldMapper extends KNNVectorFieldMapper {
         boolean hasDocValues,
         ModelDao modelDao,
         Version indexCreatedVersion,
-        OriginalMappingParameters originalMappingParameters
+        OriginalMappingParameters originalMappingParameters,
+        boolean isDerivedSourceEnabled
     ) {
         super(
             simpleName,
@@ -156,7 +159,8 @@ public class ModelFieldMapper extends KNNVectorFieldMapper {
             stored,
             hasDocValues,
             indexCreatedVersion,
-            originalMappingParameters
+            originalMappingParameters,
+            isDerivedSourceEnabled
         );
         KNNMappingConfig annConfig = mappedFieldType.getKnnMappingConfig();
         modelId = annConfig.getModelId().orElseThrow(() -> new IllegalArgumentException("KNN method context cannot be empty"));
@@ -171,6 +175,9 @@ public class ModelFieldMapper extends KNNVectorFieldMapper {
 
         this.fieldType = new FieldType(KNNVectorFieldMapper.Defaults.FIELD_TYPE);
         this.fieldType.putAttribute(MODEL_ID, modelId);
+        if (isDerivedSourceEnabled) {
+            this.fieldType.putAttribute("knn-derived-source", "true");
+        }
         this.useLuceneBasedVectorField = KNNVectorFieldMapperUtil.useLuceneKNNVectorsFormat(this.indexCreatedVersion);
     }
 

@@ -32,7 +32,8 @@ public class FlatVectorFieldMapper extends KNNVectorFieldMapper {
         Explicit<Boolean> ignoreMalformed,
         boolean stored,
         boolean hasDocValues,
-        OriginalMappingParameters originalMappingParameters
+        OriginalMappingParameters originalMappingParameters,
+        boolean isDerivedSourceEnabled
     ) {
         final KNNVectorFieldType mappedFieldType = new KNNVectorFieldType(
             fullname,
@@ -49,7 +50,8 @@ public class FlatVectorFieldMapper extends KNNVectorFieldMapper {
             stored,
             hasDocValues,
             knnMethodConfigContext.getVersionCreated(),
-            originalMappingParameters
+            originalMappingParameters,
+            isDerivedSourceEnabled
         );
     }
 
@@ -62,7 +64,8 @@ public class FlatVectorFieldMapper extends KNNVectorFieldMapper {
         boolean stored,
         boolean hasDocValues,
         Version indexCreatedVersion,
-        OriginalMappingParameters originalMappingParameters
+        OriginalMappingParameters originalMappingParameters,
+        boolean isDerivedSourceEnabled
     ) {
         super(
             simpleName,
@@ -73,13 +76,17 @@ public class FlatVectorFieldMapper extends KNNVectorFieldMapper {
             stored,
             hasDocValues,
             indexCreatedVersion,
-            originalMappingParameters
+            originalMappingParameters,
+            isDerivedSourceEnabled
         );
         // setting it explicitly false here to ensure that when flatmapper is used Lucene based Vector field is not created.
         this.useLuceneBasedVectorField = false;
         this.perDimensionValidator = selectPerDimensionValidator(vectorDataType);
         this.fieldType = new FieldType(KNNVectorFieldMapper.Defaults.FIELD_TYPE);
         this.fieldType.setDocValuesType(DocValuesType.BINARY);
+        if (isDerivedSourceEnabled) {
+            this.fieldType.putAttribute("knn-derived-source", "true");
+        }
         this.fieldType.freeze();
     }
 
