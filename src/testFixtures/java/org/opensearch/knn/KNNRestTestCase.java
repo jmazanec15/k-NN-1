@@ -11,6 +11,7 @@ import com.google.common.primitives.Ints;
 import lombok.SneakyThrows;
 import lombok.extern.log4j.Log4j2;
 import org.apache.commons.lang.StringUtils;
+import org.apache.hc.core5.http.ParseException;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.apache.hc.core5.net.URIBuilder;
 import org.opensearch.core.common.bytes.BytesReference;
@@ -759,6 +760,24 @@ public class KNNRestTestCase extends ODFERestTestCase {
         assertEquals(RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
     }
 
+    protected void reindex(String source, Object destination) throws Exception {
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+                .startObject()
+                .startObject("source")
+                .field("index", source)
+                .endObject()
+                .startObject("dest")
+                .field("index", destination)
+                .endObject()
+                .endObject();
+        Request request = new Request("POST", "_reindex");
+        request.setJsonEntity(builder.toString());
+        Response response = client().performRequest(request);
+        assertEquals(RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
+    }
+
+
+
     /**
      * Return default index settings for index creation
      */
@@ -827,6 +846,21 @@ public class KNNRestTestCase extends ODFERestTestCase {
         Response response = client().performRequest(request);
         assertEquals(RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
         return response;
+    }
+
+    protected int indexSizeInBytes(String indexName) throws IOException, ParseException {
+        Request request = new Request("GET", indexName + "/_stats" + "/store");
+        Response response = client().performRequest(request);
+        assertEquals(RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
+        String responseBody = EntityUtils.toString(response.getEntity());
+
+        @SuppressWarnings("unchecked")
+        Integer sizeInBytes = (Integer) ((Map<String, Object>)((Map<String, Object>) ((Map<String, Object>) createParser(
+                MediaTypeRegistry.getDefaultMediaType().xContent(),
+                responseBody
+        ).map().get("_all")).get("primaries")).get("store")).get("size_in_bytes");
+
+        return sizeInBytes;
     }
 
     @SneakyThrows
@@ -1158,14 +1192,18 @@ public class KNNRestTestCase extends ODFERestTestCase {
 
     public void bulkIngestRandomVectors(String indexName, String fieldName, int numVectors, int dimension) throws IOException {
         for (int i = 0; i < numVectors; i++) {
-            float[] vector = new float[dimension];
-            for (int j = 0; j < dimension; j++) {
-                vector[j] = randomFloat();
-            }
-
+            float[] vector = randomFloatVector(dimension);
             addKnnDoc(indexName, String.valueOf(i + 1), fieldName, Floats.asList(vector).toArray());
         }
 
+    }
+
+    public float[] randomFloatVector(int dimension) {
+        float[] vector = new float[dimension];
+        for (int j = 0; j < dimension; j++) {
+            vector[j] = randomFloat();
+        }
+        return vector;
     }
 
     /**
@@ -1219,6 +1257,61 @@ public class KNNRestTestCase extends ODFERestTestCase {
             addKnnDocWithNestedField(indexName, String.valueOf(i + 1), nestedFieldPath, Floats.asList(vector).toArray());
         }
     }
+
+    /**
+     * Bulk ingest random vectors with nested field
+     *
+     * @param indexName       index name
+     * @param nestedFieldPath nested field path, e.g. "my_nested_field.my_vector_field"
+     * @param numVectors      number of vectors
+     * @param dimension       vector dimension
+     */
+    public void bulkIngestRandomVectorsWithNestedFieldMultipleDocs(String indexName, String nestedFieldPath, int numVectors, int dimension, int nestedDocs)
+            throws IOException {
+        for (int i = 0; i < numVectors; i++) {
+
+            List<Float[]> nestedVec = new ArrayList<>();
+            for (int l = 0; l < nestedDocs; l++) {
+                Float[] vector = new Float[dimension];
+                for (int j = 0; j < dimension; j++) {
+                    vector[j] = randomFloat();
+                }
+                nestedVec.add(vector);
+            }
+
+
+            addKnnDocWithNestedField(indexName, String.valueOf(i + 1), nestedFieldPath, Floats.asList(vector).toArray());
+        }
+    }
+
+    protected void addKnnDocWithNestedFields(String index, String docId, String nestedFieldPath, List<Object[]> vector) throws IOException {
+        String[] fieldParts = nestedFieldPath.split("\\.");
+
+        XContentBuilder builder = XContentFactory.jsonBuilder().startObject();
+        for (int i = 0; i < fieldParts.length - 1; i++) {
+            builder.startObject(fieldParts[i]);
+        }
+
+        for (Object[] vec : vector) {
+
+        }
+
+        builder.field(fieldParts[fieldParts.length - 1], vector);
+        for (int i = fieldParts.length - 2; i >= 0; i--) {
+            builder.endObject();
+        }
+        builder.endObject();
+
+        Request request = new Request("POST", "/" + index + "/_doc/" + docId + "?refresh=true");
+        request.setJsonEntity(builder.toString());
+        client().performRequest(request);
+
+        request = new Request("POST", "/" + index + "/_refresh");
+        Response response = client().performRequest(request);
+        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
+    }
+
+
 
     // Method that adds multiple documents into the index using Bulk API
     public void bulkAddKnnDocs(String index, String fieldName, float[][] indexVectors, int docCount) throws IOException {

@@ -9,21 +9,19 @@ import lombok.Builder;
 import org.apache.lucene.codecs.Codec;
 import org.apache.lucene.codecs.CompoundFormat;
 import org.apache.lucene.codecs.DocValuesFormat;
-import org.apache.lucene.codecs.DocValuesProducer;
 import org.apache.lucene.codecs.FilterCodec;
 import org.apache.lucene.codecs.KnnVectorsFormat;
-import org.apache.lucene.codecs.KnnVectorsReader;
 import org.apache.lucene.codecs.StoredFieldsFormat;
 import org.apache.lucene.codecs.perfield.PerFieldKnnVectorsFormat;
-import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.SegmentReadState;
+import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.index.codec.KNN990Codec.SyntheticSourceStoredFieldsFormat;
+import org.opensearch.knn.index.codec.KNN990Codec.SyntheticVectorInjector;
 import org.opensearch.knn.index.codec.KNNCodecVersion;
 import org.opensearch.knn.index.codec.KNNFormatFacade;
-import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
-import org.opensearch.knn.index.vectorvalues.KNNVectorValuesFactory;
 
 import java.io.IOException;
+import java.util.Optional;
 import java.util.function.Function;
 
 /**
@@ -34,11 +32,13 @@ public class KNN9120Codec extends FilterCodec {
     private final KNNFormatFacade knnFormatFacade;
     private final PerFieldKnnVectorsFormat perFieldKnnVectorsFormat;
 
+    private final Optional<MapperService> mapperService;
+
     /**
      * No arg constructor that uses Lucene99 as the delegate
      */
     public KNN9120Codec() {
-        this(VERSION.getDefaultCodecDelegate(), VERSION.getPerFieldKnnVectorsFormat());
+        this(VERSION.getDefaultCodecDelegate(), VERSION.getPerFieldKnnVectorsFormat(), null);
     }
 
     /**
@@ -49,10 +49,11 @@ public class KNN9120Codec extends FilterCodec {
      * @param knnVectorsFormat per field format for KnnVector
      */
     @Builder
-    protected KNN9120Codec(Codec delegate, PerFieldKnnVectorsFormat knnVectorsFormat) {
+    protected KNN9120Codec(Codec delegate, PerFieldKnnVectorsFormat knnVectorsFormat, MapperService mapperService) {
         super(VERSION.getCodecName(), delegate);
         knnFormatFacade = VERSION.getKnnFormatFacadeSupplier().apply(delegate);
         perFieldKnnVectorsFormat = knnVectorsFormat;
+        this.mapperService = Optional.ofNullable(mapperService);
     }
 
     @Override
@@ -72,21 +73,26 @@ public class KNN9120Codec extends FilterCodec {
 
     @Override
     public StoredFieldsFormat storedFieldsFormat() {
-        Function<SegmentReadState, Function<FieldInfo, KNNVectorValues<?>>> vectorValuesSupplierByField = (segmentReadState) -> {
-            try {
-                KnnVectorsReader knnVectorsReader = knnVectorsFormat().fieldsReader(segmentReadState);
-                DocValuesProducer docValuesProducer = docValuesFormat().fieldsProducer(segmentReadState);
-                return fieldInfo -> {
-                    try {
-                        return KNNVectorValuesFactory.getVectorValues(fieldInfo, docValuesProducer, knnVectorsReader);
-                    } catch (IOException e) {
-                        throw new RuntimeException(e);
-                    }
-                };
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-        };
-        return new SyntheticSourceStoredFieldsFormat(delegate.storedFieldsFormat(), vectorValuesSupplierByField);
+        Function<SegmentReadState, SyntheticVectorInjector> syntheticVectorInjectorSupplier = (
+            segmentReadState) -> new SyntheticVectorInjector(() -> {
+                try {
+                    return knnVectorsFormat().fieldsReader(segmentReadState);
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            }, () -> {
+                try {
+                    return docValuesFormat().fieldsProducer(segmentReadState);
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            }, () -> {
+                try {
+                    return postingsFormat().fieldsProducer(segmentReadState);
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            }, segmentReadState);
+        return new SyntheticSourceStoredFieldsFormat(delegate.storedFieldsFormat(), syntheticVectorInjectorSupplier, mapperService);
     }
 }

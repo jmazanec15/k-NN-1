@@ -15,37 +15,45 @@ import org.apache.lucene.index.SegmentInfo;
 import org.apache.lucene.index.SegmentReadState;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.IOContext;
+import org.opensearch.index.mapper.MappedFieldType;
+import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
-import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
+import org.opensearch.knn.index.mapper.KNNVectorFieldType;
 
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
 import java.util.function.Function;
-import java.util.function.Supplier;
 
 @AllArgsConstructor
 public class SyntheticSourceStoredFieldsFormat extends StoredFieldsFormat {
 
     private final StoredFieldsFormat delegate;
-    private final Function<SegmentReadState, Function<FieldInfo, KNNVectorValues<?>>> vectorValuesSupplierByFieldSupplier;
+    private final Function<SegmentReadState, SyntheticVectorInjector> syntheticVectorInjectorSupplier;
+    private final Optional<MapperService> mapperService;
 
     @Override
     public StoredFieldsReader fieldsReader(Directory directory, SegmentInfo segmentInfo, FieldInfos fieldInfos, IOContext ioContext)
         throws IOException {
+
+        fieldInfos.getSoftDeletesField();
+
         // If any field has this value set, than get its supplier
-        Function<FieldInfo, KNNVectorValues<?>> vectorValuesSupplierByField = vectorValuesSupplierByFieldSupplier.apply(
+        SyntheticVectorInjector syntheticVectorInjector = syntheticVectorInjectorSupplier.apply(
             new SegmentReadState(directory, segmentInfo, fieldInfos, ioContext)
         );
-        Map<String, Supplier<KNNVectorValues<?>>> vectorValuesSuppliers = new HashMap<>();
+        List<PerFieldSyntheticVectorInjector> perFieldSyntheticVectorInjectors = new ArrayList<>();
         for (FieldInfo fieldInfo : fieldInfos) {
             if (Boolean.parseBoolean(fieldInfo.attributes().get(KNNVectorFieldMapper.KNN_FIELD))) {
-                vectorValuesSuppliers.put(fieldInfo.name, () -> vectorValuesSupplierByField.apply(fieldInfo));
+                perFieldSyntheticVectorInjectors.add(syntheticVectorInjector.getPerFieldSyntheticVectorInjector(fieldInfo));
             }
         }
 
         // Build the processor and create the reader
-        SyntheticVectorInjectionConsumer syntheticVectorInjectionConsumer = new SyntheticVectorInjectionConsumer(vectorValuesSuppliers);
+        SyntheticVectorInjectionConsumer syntheticVectorInjectionConsumer = new SyntheticVectorInjectionConsumer(
+            perFieldSyntheticVectorInjectors
+        );
         return new SyntheticSourceStoredFieldsReader(
             delegate.fieldsReader(directory, segmentInfo, fieldInfos, ioContext),
             syntheticVectorInjectionConsumer
@@ -54,6 +62,16 @@ public class SyntheticSourceStoredFieldsFormat extends StoredFieldsFormat {
 
     @Override
     public StoredFieldsWriter fieldsWriter(Directory directory, SegmentInfo segmentInfo, IOContext ioContext) throws IOException {
-        return delegate.fieldsWriter(directory, segmentInfo, ioContext);
+        StoredFieldsWriter delegateWriter = delegate.fieldsWriter(directory, segmentInfo, ioContext);
+        if (mapperService.isPresent()) {
+            List<String> vectorFieldTypes = new ArrayList<>();
+            for (MappedFieldType fieldType : mapperService.get().fieldTypes()) {
+                if (fieldType instanceof KNNVectorFieldType) {
+                    vectorFieldTypes.add(fieldType.name());
+                }
+            }
+            return new SyntheticSourceStoredFieldsWriter(delegateWriter, vectorFieldTypes);
+        }
+        return delegateWriter;
     }
 }
