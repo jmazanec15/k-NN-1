@@ -35,7 +35,23 @@ public class SyntheticVectorInjector {
     }
 
     PerFieldSyntheticVectorInjector getPerFieldSyntheticVectorInjector(FieldInfo fieldInfo) {
-        return new PerFieldSyntheticVectorInjector(() -> {
+        // Not nested
+        if (ParentChildHelper.getParentField(fieldInfo.name) == null) {
+            return new PerFieldSyntheticVectorInjector(() -> {
+                try {
+                    return KNNVectorValuesFactory.getVectorValues(
+                        fieldInfo,
+                        docValuesProducerSupplier.get(),
+                        knnVectorsReaderSupplier.get()
+                    );
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            }, fieldInfo.getName());
+        }
+
+        // Nested
+        return new NestedPerFieldSyntheticVectorInjector(() -> {
             try {
                 return KNNVectorValuesFactory.getVectorValues(fieldInfo, docValuesProducerSupplier.get(), knnVectorsReaderSupplier.get());
             } catch (IOException e) {
@@ -43,6 +59,7 @@ public class SyntheticVectorInjector {
             }
         }, () -> {
             try {
+                // TODO: This only works with one layer of nested. We will build out to work with more.
                 return parentChildHelperSupplier.get()
                     .getParentChildIterator(fieldInfo.name, segmentReadState.fieldInfos.fieldInfo("_primary_term"));
             } catch (IOException e) {

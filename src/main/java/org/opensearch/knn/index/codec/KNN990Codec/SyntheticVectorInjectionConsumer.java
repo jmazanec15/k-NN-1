@@ -49,7 +49,7 @@ public class SyntheticVectorInjectionConsumer implements BiFunction<Integer, byt
 
             Map<String, Object> sourceAsMap = new HashMap<>(mapTuple.v2());
             for (PerFieldSyntheticVectorInjector vectorInjector : vectorInjectors) {
-                //log.info("Injecting vector values for field: " + vectorInjector.getFieldName());
+                // log.info("Injecting vector values for field: " + vectorInjector.getFieldName());
                 vectorInjector.accept(docId, sourceAsMap);
             }
 

@@ -75,8 +75,13 @@ public class SyntheticSourceStoredFieldsWriter extends StoredFieldsWriter {
     public void writeField(FieldInfo fieldInfo, BytesRef bytesRef) throws IOException {
         // Parse out the vectors from the source
         if (Objects.equals(fieldInfo.name, "_source") && !vectorFieldTypes.isEmpty()) {
-            Tuple<? extends MediaType, Map<String, Object>> mapTuple = XContentHelper.convertToMap(BytesReference.fromByteBuffer(ByteBuffer.wrap(bytesRef.bytes)), true, MediaTypeRegistry.JSON);
-            Map<String, Object> filteredSource = XContentMapValues.filter(null, vectorFieldTypes.toArray(new String[0])).apply(mapTuple.v2());
+            Tuple<? extends MediaType, Map<String, Object>> mapTuple = XContentHelper.convertToMap(
+                BytesReference.fromByteBuffer(ByteBuffer.wrap(bytesRef.bytes)),
+                true,
+                MediaTypeRegistry.JSON
+            );
+            Map<String, Object> filteredSource = XContentMapValues.filter(null, vectorFieldTypes.toArray(new String[0]))
+                .apply(mapTuple.v2());
             BytesStreamOutput bStream = new BytesStreamOutput();
             MediaType actualContentType = mapTuple.v1();
             XContentBuilder builder = MediaTypeRegistry.contentBuilder(actualContentType, bStream).map(filteredSource);

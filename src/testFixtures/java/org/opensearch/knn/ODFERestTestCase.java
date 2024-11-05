@@ -151,41 +151,41 @@ public abstract class ODFERestTestCase extends OpenSearchRestTestCase {
         return true;
     }
 
-//    @SuppressWarnings("unchecked")
-//    @After
-//    protected void wipeAllODFEIndices() throws Exception {
-//        Response response = adminClient().performRequest(new Request("GET", "/_cat/indices?format=json&expand_wildcards=all"));
-//        MediaType mediaType = MediaType.fromMediaType(response.getEntity().getContentType());
-//        try (
-//            XContentParser parser = mediaType.xContent()
-//                .createParser(
-//                    NamedXContentRegistry.EMPTY,
-//                    DeprecationHandler.THROW_UNSUPPORTED_OPERATION,
-//                    response.getEntity().getContent()
-//                )
-//        ) {
-//            XContentParser.Token token = parser.nextToken();
-//            List<Map<String, Object>> parserList = null;
-//            if (token == XContentParser.Token.START_ARRAY) {
-//                parserList = parser.listOrderedMap().stream().map(obj -> (Map<String, Object>) obj).collect(Collectors.toList());
-//            } else {
-//                parserList = Collections.singletonList(parser.mapOrdered());
-//            }
-//
-//            for (Map<String, Object> index : parserList) {
-//                final String indexName = (String) index.get("index");
-//                if (MODEL_INDEX_NAME.equals(indexName)) {
-//                    if (!getSkipDeleteModelIndexFlag()) {
-//                        deleteModels(getModelIds());
-//                    }
-//                    continue;
-//                }
-//                if (!skipDeleteIndex(indexName)) {
-//                    adminClient().performRequest(new Request("DELETE", "/" + indexName));
-//                }
-//            }
-//        }
-//    }
+    @SuppressWarnings("unchecked")
+    @After
+    protected void wipeAllODFEIndices() throws Exception {
+        Response response = adminClient().performRequest(new Request("GET", "/_cat/indices?format=json&expand_wildcards=all"));
+        MediaType mediaType = MediaType.fromMediaType(response.getEntity().getContentType());
+        try (
+            XContentParser parser = mediaType.xContent()
+                .createParser(
+                    NamedXContentRegistry.EMPTY,
+                    DeprecationHandler.THROW_UNSUPPORTED_OPERATION,
+                    response.getEntity().getContent()
+                )
+        ) {
+            XContentParser.Token token = parser.nextToken();
+            List<Map<String, Object>> parserList = null;
+            if (token == XContentParser.Token.START_ARRAY) {
+                parserList = parser.listOrderedMap().stream().map(obj -> (Map<String, Object>) obj).collect(Collectors.toList());
+            } else {
+                parserList = Collections.singletonList(parser.mapOrdered());
+            }
+
+            for (Map<String, Object> index : parserList) {
+                final String indexName = (String) index.get("index");
+                if (MODEL_INDEX_NAME.equals(indexName)) {
+                    if (!getSkipDeleteModelIndexFlag()) {
+                        deleteModels(getModelIds());
+                    }
+                    continue;
+                }
+                if (!skipDeleteIndex(indexName)) {
+                    adminClient().performRequest(new Request("DELETE", "/" + indexName));
+                }
+            }
+        }
+    }
 
     private List<String> getModelIds() throws IOException, ParseException {
         final String restURIGetModels = String.join("/", KNNPlugin.KNN_BASE_URI, MODELS, "_search");

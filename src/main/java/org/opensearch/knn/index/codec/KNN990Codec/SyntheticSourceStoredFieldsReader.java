@@ -8,7 +8,6 @@ package org.opensearch.knn.index.codec.KNN990Codec;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 import org.apache.lucene.codecs.StoredFieldsReader;
-import org.apache.lucene.index.MergeState;
 import org.apache.lucene.index.StoredFieldVisitor;
 
 import java.io.IOException;
@@ -26,8 +25,8 @@ public class SyntheticSourceStoredFieldsReader extends StoredFieldsReader {
     public void document(int docId, StoredFieldVisitor storedFieldVisitor) throws IOException {
         if (shouldInject) {
             delegate.document(
-                    docId,
-                    new SyntheticSourceStoredFieldVisitor(storedFieldVisitor, bytes -> syntheticVectorInjectionConsumer.apply(docId, bytes))
+                docId,
+                new SyntheticSourceStoredFieldVisitor(storedFieldVisitor, bytes -> syntheticVectorInjectionConsumer.apply(docId, bytes))
             );
             return;
         }

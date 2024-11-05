@@ -17,7 +17,7 @@ import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.IOContext;
 import org.opensearch.index.mapper.MappedFieldType;
 import org.opensearch.index.mapper.MapperService;
-import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
+import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.mapper.KNNVectorFieldType;
 
 import java.io.IOException;
@@ -31,21 +31,19 @@ public class SyntheticSourceStoredFieldsFormat extends StoredFieldsFormat {
 
     private final StoredFieldsFormat delegate;
     private final Function<SegmentReadState, SyntheticVectorInjector> syntheticVectorInjectorSupplier;
+    // IMPORTANT Do not rely on this for the reader, it will be null if SPI is used
     private final Optional<MapperService> mapperService;
 
     @Override
     public StoredFieldsReader fieldsReader(Directory directory, SegmentInfo segmentInfo, FieldInfos fieldInfos, IOContext ioContext)
         throws IOException {
-
-        fieldInfos.getSoftDeletesField();
-
         // If any field has this value set, than get its supplier
         SyntheticVectorInjector syntheticVectorInjector = syntheticVectorInjectorSupplier.apply(
             new SegmentReadState(directory, segmentInfo, fieldInfos, ioContext)
         );
         List<PerFieldSyntheticVectorInjector> perFieldSyntheticVectorInjectors = new ArrayList<>();
         for (FieldInfo fieldInfo : fieldInfos) {
-            if (Boolean.parseBoolean(fieldInfo.attributes().get(KNNVectorFieldMapper.KNN_FIELD))) {
+            if (Boolean.parseBoolean(fieldInfo.attributes().get("knn-syn-source"))) {
                 perFieldSyntheticVectorInjectors.add(syntheticVectorInjector.getPerFieldSyntheticVectorInjector(fieldInfo));
             }
         }
@@ -63,7 +61,7 @@ public class SyntheticSourceStoredFieldsFormat extends StoredFieldsFormat {
     @Override
     public StoredFieldsWriter fieldsWriter(Directory directory, SegmentInfo segmentInfo, IOContext ioContext) throws IOException {
         StoredFieldsWriter delegateWriter = delegate.fieldsWriter(directory, segmentInfo, ioContext);
-        if (mapperService.isPresent()) {
+        if (mapperService.isPresent() && KNNSettings.isKNNSyntheticSourceEnabled(mapperService.get().getIndexSettings().getSettings())) {
             List<String> vectorFieldTypes = new ArrayList<>();
             for (MappedFieldType fieldType : mapperService.get().fieldTypes()) {
                 if (fieldType instanceof KNNVectorFieldType) {

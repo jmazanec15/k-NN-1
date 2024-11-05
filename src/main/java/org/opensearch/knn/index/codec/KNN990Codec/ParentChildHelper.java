@@ -29,6 +29,7 @@ public class ParentChildHelper {
     private final FieldsProducer fieldsProducer;
     private final DocValuesProducer docValuesProducer;
 
+    // TODO: Big comment
     public ParentChildIterator getParentChildIterator(String childField, FieldInfo seqTermsFieldInfo) throws IOException {
         String parentField = getParentField(childField);
 
@@ -79,6 +80,16 @@ public class ParentChildHelper {
     public static class ParentChildIterator {
         private final List<Integer> parentDocIds;
         private final List<Integer> childDocIds;
+
+        public int numChildren(int parent) {
+            int numChildren = 0;
+            int child = firstChild(parent);
+            while (child != -1 && child < parent) {
+                numChildren += 1;
+                child = nextChild(child, parent);
+            }
+            return numChildren;
+        }
 
         public int firstChild(int parentOfChildrenDocId) {
             int parentBefore = -1;
