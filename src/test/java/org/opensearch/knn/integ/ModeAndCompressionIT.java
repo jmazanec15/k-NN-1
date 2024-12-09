@@ -329,6 +329,72 @@ public class ModeAndCompressionIT extends KNNRestTestCase {
     }
 
     @SneakyThrows
+    public void testRescoreDisabled() {
+        String indexName = INDEX_NAME + "rescore-false";
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(FIELD_NAME)
+            .field("type", "knn_vector")
+            .field("dimension", DIMENSION)
+            .field(MODE_PARAMETER, Mode.ON_DISK.getName())
+            .endObject()
+            .endObject()
+            .endObject();
+        String mapping = builder.toString();
+        createKnnIndex(indexName, mapping);
+
+        float[] indexVector = new float[] { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 };
+        float[] queryVector = new float[] { 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10 };
+        addKnnDoc(indexName, "1", FIELD_NAME, indexVector);
+
+        Response response = searchKNNIndex(
+            indexName,
+            XContentFactory.jsonBuilder()
+                .startObject()
+                .startObject("query")
+                .startObject("knn")
+                .startObject(FIELD_NAME)
+                .field("vector", queryVector)
+                .field("k", K)
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject(),
+            1
+        );
+        assertOK(response);
+        String responseBody = EntityUtils.toString(response.getEntity());
+        List<Float> knnResults = parseSearchResponseScore(responseBody, FIELD_NAME);
+        assertEquals(1, knnResults.size());
+        float rescoreScore = knnResults.get(0);
+
+        response = searchKNNIndex(
+            indexName,
+            XContentFactory.jsonBuilder()
+                .startObject()
+                .startObject("query")
+                .startObject("knn")
+                .startObject(FIELD_NAME)
+                .field("vector", queryVector)
+                .field("k", K)
+                .field(RescoreParser.RESCORE_PARAMETER, false)
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject(),
+            1
+        );
+        assertOK(response);
+        responseBody = EntityUtils.toString(response.getEntity());
+        knnResults = parseSearchResponseScore(responseBody, FIELD_NAME);
+        assertEquals(1, knnResults.size());
+        float noRescoreScore = knnResults.get(0);
+
+        assertNotEquals(rescoreScore, noRescoreScore, 0.0001);
+    }
+
+    @SneakyThrows
     private void validateIndex(String indexName, String mapping) {
         createKnnIndex(indexName, mapping);
         addKNNDocs(indexName, FIELD_NAME, DIMENSION, 0, NUM_DOCS);

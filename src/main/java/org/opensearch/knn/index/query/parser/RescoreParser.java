@@ -50,6 +50,10 @@ public final class RescoreParser {
      * @return ValidationException if validation fails, null otherwise
      */
     public static ValidationException validate(RescoreContext rescoreContext) {
+        if (RescoreContext.shouldRescore(rescoreContext) == false) {
+            return null;
+        }
+
         if (rescoreContext.getOversampleFactor() < RescoreContext.MIN_OVERSAMPLE_FACTOR) {
             ValidationException validationException = new ValidationException();
             validationException.addValidationError(
