@@ -37,14 +37,11 @@ public class NestedPerFieldDerivedVectorInjector implements PerFieldDerivedVecto
 
         this.parentField = ParentChildHelper.getParentField(fieldInfo.name);
         this.childField = ParentChildHelper.getChildField(fieldInfo.name);
-
-        ParentChildHelper parentChildHelper = new ParentChildHelper(
-            derivedSourceReaders.getFieldsProducer(),
-            derivedSourceReaders.getDocValuesProducer()
-        );
-        this.parentChildIteratorSupplier = () -> parentChildHelper.getParentChildIterator(
-            fieldInfo.name,
-            segmentReadState.fieldInfos.fieldInfo("_primary_term")
+        this.parentChildIteratorSupplier = () -> ParentChildIterator.getParentChildIterator(
+            fieldInfo,
+            segmentReadState,
+            derivedSourceReaders.getDocValuesProducer(),
+            derivedSourceReaders.getFieldsProducer()
         );
     }
 
@@ -59,12 +56,16 @@ public class NestedPerFieldDerivedVectorInjector implements PerFieldDerivedVecto
     }
 
     private void processNestedField(KNNVectorValues<?> vectorValues, int parentDocId, Map<String, Object> sourceAsMap) throws IOException {
+        // The task is defined as follows: Given a parent doc id and the source, we need to add all of the children
+        // vectors as maps into the source. To do this, we need for a given parentDocId,
+
         // When reconstructing nested source, we will always reconstruct as a list of size number of children
         ParentChildIterator parentChildIterator = parentChildIteratorSupplier.get();
         int numberOfChildren = parentChildIterator.numChildren(parentDocId);
         int child = parentChildIterator.firstChild(parentDocId);
         int firstChild = child;
 
+        // Initialize the individual maps of the children
         List<Map<String, ?>> reconstructedSource = new ArrayList<>(numberOfChildren);
         for (int i = 0; i < numberOfChildren; i++) {
             reconstructedSource.add(null);

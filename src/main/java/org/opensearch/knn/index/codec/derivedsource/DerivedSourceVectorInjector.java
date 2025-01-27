@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.index.codec.derivedsource;
 
+import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.SegmentReadState;
 import org.opensearch.common.collect.Tuple;
@@ -26,6 +27,7 @@ import java.util.Map;
  * This class is responsible for injecting vectors into the source of a document. From a high level, it uses alternative
  *  format readers and information about the fields to inject vectors into the source.
  */
+@Log4j2
 public class DerivedSourceVectorInjector {
 
     private final List<PerFieldDerivedVectorInjector> perFieldDerivedVectorInjectors;
@@ -72,9 +74,10 @@ public class DerivedSourceVectorInjector {
         // For each vector field, add in the source. The per field injectors are responsible for skipping if
         // the field is not present.
         for (PerFieldDerivedVectorInjector vectorInjector : perFieldDerivedVectorInjectors) {
-            // log.info("Injecting vector values for field: " + vectorInjector.getFieldName());
             vectorInjector.inject(docId, sourceAsMap);
         }
+
+        log.info("Injected: " + sourceAsMap);
 
         // At this point, we can serialize the modified source map
         BytesStreamOutput bStream = new BytesStreamOutput(1024);
