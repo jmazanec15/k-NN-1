@@ -153,6 +153,8 @@ public class NativeIndexWriter {
                 totalLiveDocs,
                 knnVectorValuesSupplier.get()
             );
+            //TODO: Figure out proper way to write this. I think we need to delegate to whatever writer we're using
+            // CodecUtil.writeIndexHeader(output, , 0, null, );
             indexBuilder.buildAndWriteIndex(nativeIndexParams);
             CodecUtil.writeFooter(output);
         }

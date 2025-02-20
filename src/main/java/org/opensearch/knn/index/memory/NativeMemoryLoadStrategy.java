@@ -12,6 +12,8 @@
 package org.opensearch.knn.index.memory;
 
 import lombok.extern.log4j.Log4j2;
+import org.apache.lucene.codecs.CodecUtil;
+import org.apache.lucene.index.SegmentReadState;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.IndexInput;
@@ -90,6 +92,9 @@ public interface NativeMemoryLoadStrategy<T extends NativeMemoryAllocation, U ex
             // Try to open an index input then pass it down to native engine for loading an index.
             try (IndexInput readStream = directory.openInput(vectorFileName, IOContext.READONCE)) {
                 final IndexInputWithBuffer indexInputWithBuffer = new IndexInputWithBuffer(readStream);
+                //TODO: We need to optionally read through this input. I think the best way to check is if the segment
+                // was created on or after Lucene 10. whatever. So we will need the segment info as part of this
+
                 final long indexAddress = JNIService.loadIndex(indexInputWithBuffer, indexEntryContext.getParameters(), knnEngine);
 
                 return createIndexAllocation(indexEntryContext, knnEngine, indexAddress, indexSizeKb, vectorFileName);

@@ -15,7 +15,7 @@ import org.apache.lucene.codecs.StoredFieldsFormat;
 import org.apache.lucene.codecs.lucene101.Lucene101Codec;
 import org.apache.lucene.codecs.perfield.PerFieldKnnVectorsFormat;
 import org.opensearch.index.mapper.MapperService;
-import org.opensearch.knn.index.codec.KNN80Codec.KNN80CompoundFormat;
+import org.opensearch.knn.index.codec.compound.KNNCompoundFormat;
 import org.opensearch.knn.index.codec.KNN80Codec.KNN80DocValuesFormat;
 import org.opensearch.knn.index.codec.KNN9120Codec.DerivedSourceStoredFieldsFormat;
 import org.opensearch.knn.index.codec.KNN9120Codec.KNN9120PerFieldKnnVectorsFormat;
@@ -67,7 +67,7 @@ public class KNN10010Codec extends FilterCodec {
 
     @Override
     public CompoundFormat compoundFormat() {
-        return new KNN80CompoundFormat(delegate.compoundFormat());
+        return new KNNCompoundFormat(delegate.compoundFormat());
     }
 
     @Override

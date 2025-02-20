@@ -12,7 +12,7 @@ import org.apache.lucene.codecs.DocValuesFormat;
 import org.apache.lucene.codecs.FilterCodec;
 import org.apache.lucene.codecs.KnnVectorsFormat;
 import org.apache.lucene.codecs.perfield.PerFieldKnnVectorsFormat;
-import org.opensearch.knn.index.codec.KNN80Codec.KNN80CompoundFormat;
+import org.opensearch.knn.index.codec.compound.KNNCompoundFormat;
 import org.opensearch.knn.index.codec.KNN80Codec.KNN80DocValuesFormat;
 
 import java.util.Optional;
@@ -53,7 +53,7 @@ public class KNN990Codec extends FilterCodec {
 
     @Override
     public CompoundFormat compoundFormat() {
-        return new KNN80CompoundFormat(delegate.compoundFormat());
+        return new KNNCompoundFormat(delegate.compoundFormat());
     }
 
     @Override
