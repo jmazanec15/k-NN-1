@@ -28,6 +28,7 @@ import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.memory.NativeMemoryEntryContext;
 import org.opensearch.knn.index.memory.NativeMemoryLoadStrategy;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.query.SegmentLevelQuantizationInfo;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -106,7 +107,8 @@ public class KNNIndexShard {
                                 engineFileContext.getSpaceType(),
                                 KNNEngine.getEngineNameFromPath(engineFileContext.getVectorFileName()),
                                 getIndexName(),
-                                engineFileContext.getVectorDataType()
+                                engineFileContext.getVectorDataType(),
+                                engineFileContext.getSegmentLevelQuantizationInfo()
                             ),
                             getIndexName(),
                             engineFileContext.getModelId()
@@ -184,9 +186,15 @@ public class KNNIndexShard {
                     String spaceTypeName = fieldInfo.attributes().getOrDefault(SPACE_TYPE, SpaceType.L2.getValue());
                     SpaceType spaceType = SpaceType.getSpace(spaceTypeName);
                     String modelId = fieldInfo.attributes().getOrDefault(MODEL_ID, null);
+                    SegmentLevelQuantizationInfo segmentLevelQuantizationInfo = SegmentLevelQuantizationInfo.build(
+                        reader,
+                        fieldInfo,
+                        fieldInfo.name
+                    );
                     engineFiles.addAll(
                         getEngineFileContexts(
                             reader.getSegmentInfo(),
+                            segmentLevelQuantizationInfo,
                             fieldInfo.name,
                             fileExtension,
                             spaceType,
@@ -207,6 +215,7 @@ public class KNNIndexShard {
     @VisibleForTesting
     List<EngineFileContext> getEngineFileContexts(
         SegmentCommitInfo segmentCommitInfo,
+        SegmentLevelQuantizationInfo segmentLevelQuantizationInfo,
         String fieldName,
         String fileExtension,
         SpaceType spaceType,
@@ -221,7 +230,16 @@ public class KNNIndexShard {
             .stream()
             .filter(fileName -> fileName.startsWith(prefix))
             .filter(fileName -> fileName.endsWith(suffix))
-            .map(vectorFileName -> new EngineFileContext(spaceType, modelId, vectorFileName, vectorDataType, segmentCommitInfo.info))
+            .map(
+                vectorFileName -> new EngineFileContext(
+                    spaceType,
+                    modelId,
+                    vectorFileName,
+                    vectorDataType,
+                    segmentCommitInfo.info,
+                    segmentLevelQuantizationInfo
+                )
+            )
             .collect(Collectors.toList());
     }
 
@@ -234,5 +252,6 @@ public class KNNIndexShard {
         private final String vectorFileName;
         private final VectorDataType vectorDataType;
         private final SegmentInfo segmentInfo;
+        private final SegmentLevelQuantizationInfo segmentLevelQuantizationInfo;
     }
 }
