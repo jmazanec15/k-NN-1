@@ -13,10 +13,10 @@ buildscript {
     ext {
         // build.version_qualifier parameter applies to knn plugin artifacts only. OpenSearch version must be set
         // explicitly as 'opensearch.version' property, for instance opensearch.version=2.0.0-rc1-SNAPSHOT
-        opensearch_version = System.getProperty("opensearch.version", "2.17.1-SNAPSHOT")
+        opensearch_version = System.getProperty("opensearch.version", "2.17.1")
         version_qualifier = System.getProperty("build.version_qualifier", "")
         opensearch_group = "org.opensearch"
-        isSnapshot = "true" == System.getProperty("build.snapshot", "true")
+        isSnapshot = "true" == System.getProperty("build.snapshot", "false")
         simd_enabled = System.getProperty("simd.enabled", "true")
         nproc_count = System.getProperty("nproc.count", "1")
         // This flag determines whether the CMake build system should apply a custom patch. It prevents build failures
@@ -310,11 +310,11 @@ task windowsPatches(type:Exec) {
     commandLine 'cmd', '/c', "Powershell -File $rootDir\\scripts\\windowsScript.ps1"
 }
 
-task cmakeJniLib(type:Exec) {
-    workingDir 'jni'
+tasks.register('cmakeJniLib', Exec) {
     def args = []
     args.add("cmake")
-    args.add(".")
+    args.add("-S jni") // CMakelists.txt directory
+    args.add("-B jni/build") // Build directory
     args.add("-DKNN_PLUGIN_VERSION=${opensearch_version}")
     args.add("-DSIMD_ENABLED=${simd_enabled}")
     args.add("-DCOMMIT_LIB_PATCHES=${commit_lib_patches}")
@@ -329,10 +329,28 @@ task cmakeJniLib(type:Exec) {
     commandLine args
 }
 
-task buildJniLib(type:Exec) {
+// Makes sure that `./gradlew clean` removes all JNI build artifacts
+tasks.clean.doFirst {
+    // Delete JNI build directory
+    delete "${projectDir}/jni/build"
+}
+
+tasks.register('buildJniLib', Exec) {
     dependsOn cmakeJniLib
-    workingDir 'jni'
-    commandLine 'make', 'opensearchknn_nmslib', 'opensearchknn_faiss', 'opensearchknn_common', '-j', "${nproc_count}"
+    def args = []
+    args.add("cmake")
+    args.add("--build")
+    args.add("jni/build")
+    args.add("--target")
+    def knn_libs = ['opensearchknn_faiss', 'opensearchknn_common', 'opensearchknn_nmslib']
+    if (project.hasProperty('knn_libs')) {
+        knn_libs = ['opensearchknn_common'] + project.knn_libs.split(',').collect { it.trim() }
+    }
+    args.addAll(knn_libs)
+    args.add("--parallel")
+    args.add("${nproc_count}")
+    logger.lifecycle("Build command: ${args.join(' ')}")
+    commandLine args
 }
 
 test {

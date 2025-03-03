@@ -108,6 +108,7 @@ public enum KNNCodecVersion {
         (userCodec, mapperService) -> KNN990Codec.builder()
             .delegate(userCodec)
             .knnVectorsFormat(new KNN990PerFieldKnnVectorsFormat(Optional.ofNullable(mapperService)))
+            .mapperService(mapperService)
             .build(),
         KNN990Codec::new
     );

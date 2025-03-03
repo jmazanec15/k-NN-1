@@ -18,10 +18,11 @@ function usage() {
     echo -e "-p PLATFORM\t[Optional] Platform, ignored."
     echo -e "-a ARCHITECTURE\t[Optional] Build architecture, ignored."
     echo -e "-o OUTPUT\t[Optional] Output path, default is 'artifacts'."
+    echo -e "-j NPROC_COUNT\t[Optional] Number of CPUs to use when building JNI library. Default is 1."
     echo -e "-h help"
 }
 
-while getopts ":h:v:q:s:o:p:a:" arg; do
+while getopts ":h:v:q:s:o:p:a:j:" arg; do
     case $arg in
         h)
             usage
@@ -44,6 +45,9 @@ while getopts ":h:v:q:s:o:p:a:" arg; do
             ;;
         a)
             ARCHITECTURE=$OPTARG
+            ;;
+        j)
+            NPROC_COUNT=$OPTARG
             ;;
         :)
             echo "Error: -${OPTARG} requires an argument"
@@ -107,8 +111,16 @@ fi
 # https://github.com/opensearch-project/k-NN/issues/975
 # https://github.com/opensearch-project/k-NN/issues/1138
 # https://github.com/opensearch-project/opensearch-build/issues/4386
+# 20250127: Require at least GCC 12 to support avx512_spr on x64, while keep GCC 10 on arm64
+# https://github.com/opensearch-project/opensearch-build/issues/5226
 GCC_VERSION=`gcc --version | head -n 1 | cut -d ' ' -f3`
-GCC_REQUIRED_VERSION=9.0.0
+if [ "$ARCHITECTURE" = "x64" ]; then
+  # https://github.com/opensearch-project/opensearch-build/issues/5226
+  # We need gcc version >=12.4 to build Faiss Sapphire library(avx512_spr)
+  GCC_REQUIRED_VERSION=12.4
+else
+  GCC_REQUIRED_VERSION=9.0.0
+fi
 COMPARE_VERSION=`echo $GCC_REQUIRED_VERSION $GCC_VERSION | tr ' ' '\n' | sort -V | uniq | head -n 1`
 if [ "$COMPARE_VERSION" != "$GCC_REQUIRED_VERSION" ]; then
     echo "gcc version on this env is older than $GCC_REQUIRED_VERSION, exit 1"
@@ -118,13 +130,27 @@ fi
 # Build k-NN lib and plugin through gradle tasks
 cd $work_dir
 ./gradlew build --no-daemon --refresh-dependencies -x integTest -x test -Dopensearch.version=$VERSION -Dbuild.snapshot=$SNAPSHOT -Dbuild.version_qualifier=$QUALIFIER -Dbuild.lib.commit_patches=false
-./gradlew :buildJniLib -Dsimd.enabled=false -Dbuild.lib.commit_patches=false
+./gradlew :buildJniLib -Pknn_libs=opensearchknn_faiss -Davx512.enabled=false -Davx512_spr.enabled=false -Davx2.enabled=false -Dbuild.lib.commit_patches=false -Dnproc.count=${NPROC_COUNT:-1}
 
 if [ "$PLATFORM" != "windows" ] && [ "$ARCHITECTURE" = "x64" ]; then
+  echo "Building k-NN library nmslib with gcc 10 on non-windows x64"
+  rm -rf jni/CMakeCache.txt jni/CMakeFiles
+  env CC=gcc10-gcc CXX=gcc10-g++ FC=gcc10-gfortran ./gradlew :buildJniLib -Pknn_libs=opensearchknn_nmslib -Dbuild.lib.commit_patches=false -Dbuild.lib.apply_patches=false
+
   echo "Building k-NN library after enabling AVX2"
   # Skip applying patches as patches were applied already from previous :buildJniLib task
   # If we apply patches again, it fails with conflict
-  ./gradlew :buildJniLib -Dsimd.enabled=true -Dbuild.lib.commit_patches=false -Dbuild.lib.apply_patches=false
+  rm -rf jni/CMakeCache.txt jni/CMakeFiles
+  ./gradlew :buildJniLib -Pknn_libs=opensearchknn_faiss -Davx2.enabled=true -Davx512.enabled=false -Davx512_spr.enabled=false -Dbuild.lib.commit_patches=false -Dbuild.lib.apply_patches=false
+
+  echo "Building k-NN library after enabling AVX512"
+  ./gradlew :buildJniLib -Pknn_libs=opensearchknn_faiss -Davx512.enabled=true -Davx512_spr.enabled=false -Dbuild.lib.commit_patches=false -Dbuild.lib.apply_patches=false
+
+  echo "Building k-NN library after enabling AVX512_SPR"
+  ./gradlew :buildJniLib -Pknn_libs=opensearchknn_faiss -Davx512_spr.enabled=true -Dbuild.lib.commit_patches=false -Dbuild.lib.apply_patches=false
+
+else
+  ./gradlew :buildJniLib -Pknn_libs=opensearchknn_nmslib -Dbuild.lib.commit_patches=false -Dbuild.lib.apply_patches=false
 fi
 
 ./gradlew publishPluginZipPublicationToZipStagingRepository -Dopensearch.version=$VERSION -Dbuild.snapshot=$SNAPSHOT -Dbuild.version_qualifier=$QUALIFIER
@@ -133,7 +159,7 @@ fi
 # Add lib to zip
 zipPath=$(find "$(pwd)/build/distributions" -path \*.zip)
 distributions="$(dirname "${zipPath}")"
-mkdir $distributions/lib
+mkdir -p $distributions/lib
 libPrefix="libopensearchknn"
 if [ "$PLATFORM" = "windows" ]; then
     libPrefix="opensearchknn"
@@ -148,7 +174,7 @@ else
    ompPath=$(ldconfig -p | grep libgomp | cut -d ' ' -f 4)
    cp -v $ompPath $distributions/lib
 fi
-cp -v ./jni/release/${libPrefix}* $distributions/lib
+cp -v ./jni/build/release/${libPrefix}* $distributions/lib
 ls -l $distributions/lib
 
 # Add lib directory to the k-NN plugin zip

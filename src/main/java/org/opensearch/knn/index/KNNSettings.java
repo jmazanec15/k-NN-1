@@ -14,6 +14,7 @@ import org.opensearch.action.admin.cluster.settings.ClusterUpdateSettingsRespons
 import org.opensearch.client.Client;
 import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.Booleans;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
@@ -34,12 +35,14 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static java.util.stream.Collectors.toUnmodifiableMap;
 import static org.opensearch.common.settings.Setting.Property.Dynamic;
+import static org.opensearch.common.settings.Setting.Property.Final;
 import static org.opensearch.common.settings.Setting.Property.IndexScope;
 import static org.opensearch.common.settings.Setting.Property.NodeScope;
 import static org.opensearch.common.unit.MemorySizeValue.parseBytesSizeValueOrHeapRatio;
@@ -86,6 +89,7 @@ public class KNNSettings {
     public static final String KNN_FAISS_AVX2_DISABLED = "knn.faiss.avx2.disabled";
     public static final String QUANTIZATION_STATE_CACHE_SIZE_LIMIT = "knn.quantization.cache.size.limit";
     public static final String QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES = "knn.quantization.cache.expiry.minutes";
+    public static final String KNN_DERIVED_SOURCE_ENABLED = "index.knn.derived_source.enabled";
 
     /**
      * Default setting values
@@ -225,6 +229,31 @@ public class KNNSettings {
      * This setting identifies KNN index.
      */
     public static final Setting<Boolean> IS_KNN_INDEX_SETTING = Setting.boolSetting(KNN_INDEX, false, IndexScope);
+
+    public static final Setting<Boolean> KNN_DERIVED_SOURCE_ENABLED_SETTING = new Setting<>(
+        KNN_DERIVED_SOURCE_ENABLED,
+        (s) -> Boolean.toString(false),
+        (b) -> Booleans.parseBooleanStrict(b, false),
+        IndexScope,
+        Final
+    ) {
+        @Override
+        public Set<Setting.SettingDependency> getSettingsDependencies(String key) {
+            return Set.of(new Setting.SettingDependency() {
+                @Override
+                public Setting<Boolean> getSetting() {
+                    return IS_KNN_INDEX_SETTING;
+                }
+
+                @Override
+                public void validate(String key, Object value, Object dependency) {
+                    if (dependency instanceof Boolean && (Boolean) dependency == false) {
+                        throw new IllegalArgumentException("Index setting \"index.knn\" must be true in order to enabled derived source");
+                    }
+                }
+            });
+        }
+    };
 
     /**
      * index_thread_quantity - the parameter specifies how many threads the nms library should use to create the graph.
@@ -441,6 +470,10 @@ public class KNNSettings {
             return QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES_SETTING;
         }
 
+        if (KNN_DERIVED_SOURCE_ENABLED.equals(key)) {
+            return KNN_DERIVED_SOURCE_ENABLED_SETTING;
+        }
+
         throw new IllegalArgumentException("Cannot find setting by key [" + key + "]");
     }
 
@@ -461,7 +494,8 @@ public class KNNSettings {
             KNN_FAISS_AVX2_DISABLED_SETTING,
             KNN_VECTOR_STREAMING_MEMORY_LIMIT_PCT_SETTING,
             QUANTIZATION_STATE_CACHE_SIZE_LIMIT_SETTING,
-            QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES_SETTING
+            QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES_SETTING,
+            KNN_DERIVED_SOURCE_ENABLED_SETTING
         );
         return Stream.concat(settings.stream(), Stream.concat(getFeatureFlags().stream(), dynamicCacheSettings.values().stream()))
             .collect(Collectors.toList());
@@ -497,6 +531,10 @@ public class KNNSettings {
             );
             return KNN_DEFAULT_FAISS_AVX2_DISABLED_VALUE;
         }
+    }
+
+    public static boolean isKNNDerivedSourceEnabled(Settings settings) {
+        return KNN_DERIVED_SOURCE_ENABLED_SETTING.get(settings);
     }
 
     public static Integer getFilteredExactSearchThreshold(final String indexName) {

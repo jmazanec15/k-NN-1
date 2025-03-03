@@ -8,6 +8,7 @@ package org.opensearch.knn.common;
 import lombok.experimental.UtilityClass;
 import org.apache.commons.lang.StringUtils;
 import org.apache.lucene.index.FieldInfo;
+import org.apache.lucene.index.VectorEncoding;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
@@ -19,7 +20,6 @@ import static org.opensearch.knn.indices.ModelUtil.getModelMetadata;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfigParser;
 
-import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.common.KNNConstants.QFRAMEWORK_CONFIG;
 import org.opensearch.knn.indices.ModelDao;
 
@@ -55,10 +55,14 @@ public class FieldInfoExtractor {
     public static VectorDataType extractVectorDataType(final FieldInfo fieldInfo) {
         String vectorDataTypeString = fieldInfo.getAttribute(KNNConstants.VECTOR_DATA_TYPE_FIELD);
         if (StringUtils.isEmpty(vectorDataTypeString)) {
-            final ModelMetadata modelMetadata = ModelUtil.getModelMetadata(fieldInfo.getAttribute(MODEL_ID));
+            final ModelMetadata modelMetadata = ModelUtil.getModelMetadata(fieldInfo.getAttribute(KNNConstants.MODEL_ID));
             if (modelMetadata != null) {
                 VectorDataType vectorDataType = modelMetadata.getVectorDataType();
                 vectorDataTypeString = vectorDataType == null ? null : vectorDataType.getValue();
+            } else if (fieldInfo.hasVectorValues()) {
+                vectorDataTypeString = fieldInfo.getVectorEncoding() == VectorEncoding.FLOAT32
+                    ? VectorDataType.FLOAT.toString()
+                    : VectorDataType.BYTE.toString();
             }
         }
         return StringUtils.isNotEmpty(vectorDataTypeString) ? VectorDataType.get(vectorDataTypeString) : VectorDataType.DEFAULT;
