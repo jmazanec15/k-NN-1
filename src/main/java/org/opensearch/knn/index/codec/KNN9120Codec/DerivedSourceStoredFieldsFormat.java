@@ -41,17 +41,27 @@ public class DerivedSourceStoredFieldsFormat extends StoredFieldsFormat {
     @Override
     public StoredFieldsReader fieldsReader(Directory directory, SegmentInfo segmentInfo, FieldInfos fieldInfos, IOContext ioContext)
         throws IOException {
-        List<FieldInfo> derivedVectorFields = DerivedSourceSegmentAttributeHelper.parseDerivedVectorFields(segmentInfo, fieldInfos);
+        List<String> derivedVectorFields = DerivedSourceSegmentAttributeHelper.parseDerivedVectorFields(segmentInfo, fieldInfos);
         if (derivedVectorFields == null || derivedVectorFields.isEmpty()) {
             return delegate.fieldsReader(directory, segmentInfo, fieldInfos, ioContext);
         }
-        Map<String, List<String>> nestedLineageMap = DerivedSourceSegmentAttributeHelper.parseNestedLineageMap(
+        Map<String, Boolean> nestedLineageMap = DerivedSourceSegmentAttributeHelper.parseNestedMap(
             derivedVectorFields,
             segmentInfo
         );
+
+        List<FieldInfo> fieldsForThisSegment = new ArrayList<>();
+        for (String field : derivedVectorFields) {
+            if (fieldInfos.fieldInfo(field) != null) {
+                fieldsForThisSegment.add(fieldInfos.fieldInfo(field));
+            } else {
+                nestedLineageMap.remove(field);
+            }
+        }
+
         return new DerivedSourceStoredFieldsReader(
             delegate.fieldsReader(directory, segmentInfo, fieldInfos, ioContext),
-            derivedVectorFields,
+            fieldsForThisSegment,
             nestedLineageMap,
             derivedSourceReadersSupplier,
             new SegmentReadState(directory, segmentInfo, fieldInfos, ioContext)
@@ -82,7 +92,7 @@ public class DerivedSourceStoredFieldsFormat extends StoredFieldsFormat {
         }
 
         List<String> vectorFieldTypes = new ArrayList<>();
-        List<List<String>> nestedLineagesForAllFields = new ArrayList<>();
+        List<Boolean> nestedLineagesForAllFields = new ArrayList<>();
         for (MappedFieldType fieldType : mapperService.fieldTypes()) {
             if (fieldType instanceof KNNVectorFieldType == false) {
                 continue;
@@ -100,21 +110,8 @@ public class DerivedSourceStoredFieldsFormat extends StoredFieldsFormat {
                 }
             }
 
-            List<String> nestedLineageForField = new ArrayList<>();
-            for (String parentPath = mapperService.documentMapper()
-                .mappers()
-                .getNestedScope(vectorFieldType.name()); parentPath != null; parentPath = mapperService.documentMapper()
-                    .mappers()
-                    .getNestedScope(parentPath)) {
-                nestedLineageForField.add(parentPath);
-            }
-
-            // Only support one level of nesting
-            if (nestedLineageForField.size() > 1) {
-                continue;
-            }
-
-            nestedLineagesForAllFields.add(nestedLineageForField);
+            boolean isNested = mapperService.documentMapper().mappers().getNestedScope(fieldType.name()) != null;
+            nestedLineagesForAllFields.add(isNested);
             vectorFieldTypes.add(vectorFieldType.name());
         }
 

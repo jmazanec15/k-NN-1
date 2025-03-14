@@ -5,6 +5,8 @@
 
 package org.opensearch.knn.index.mapper;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.apache.lucene.document.FieldType;
 import org.apache.lucene.index.DocValuesType;
 import org.apache.lucene.index.VectorEncoding;
@@ -36,6 +38,7 @@ import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
  */
 public class MethodFieldMapper extends KNNVectorFieldMapper {
 
+    private static final Logger log = LogManager.getLogger(MethodFieldMapper.class);
     private final PerDimensionProcessor perDimensionProcessor;
     private final PerDimensionValidator perDimensionValidator;
     private final VectorValidator vectorValidator;

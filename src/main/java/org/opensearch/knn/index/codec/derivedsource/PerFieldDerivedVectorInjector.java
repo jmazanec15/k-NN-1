@@ -6,20 +6,19 @@
 package org.opensearch.knn.index.codec.derivedsource;
 
 import java.io.IOException;
-import java.util.Map;
+import java.util.function.Function;
 
 /**
- * Interface for injecting derived vectors into a source map per field.
+ * Interface for providing a transformer for a given parent doc
  */
 public interface PerFieldDerivedVectorInjector {
 
     /**
-     * Injects the derived vector for this field into the sourceAsMap. Implementing classes must handle the case where
-     * a document does not have a value for their field.
+     * Create a transformer for a given  parent doc
      *
-     * @param docId Document ID
-     * @param sourceAsMap Source as map
-     * @throws IOException if there is an issue reading from the formats
+     * @param rootDocId  The root doc id of the parent doc
+     * @param firstChild The first child doc id of the parent doc. -1 if not applicable
+     * @return a function that takes an object and returns the transformed object
      */
-    void inject(int docId, Map<String, Object> sourceAsMap) throws IOException;
+    Function<Object, Object> createTransformer(int rootDocId, int firstChild) throws IOException;
 }

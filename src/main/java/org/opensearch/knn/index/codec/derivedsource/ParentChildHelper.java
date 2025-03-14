@@ -8,6 +8,7 @@ package org.opensearch.knn.index.codec.derivedsource;
 /**
  * Helper class for working with nested fields.
  */
+// TODO: Delete me
 public class ParentChildHelper {
 
     /**
@@ -44,43 +45,6 @@ public class ParentChildHelper {
             return null;
         }
         return field.substring(lastDot + 1);
-    }
-
-    /**
-     * Get the child field given a prefix
-     *
-     * @param field field to extract child from
-     * @param prefix prefix to remove up until
-     * @return Child field
-     */
-    public static String getChildField(String field, String prefix) {
-        if (field == null) {
-            return null;
-        }
-        if (prefix == null) {
-            return getChildField(field);
-        }
-        if (field.length() <= prefix.length()) {
-            return null;
-        }
-
-        return field.substring(prefix.length() + 1);
-    }
-
-    /**
-     * Construct a sibling field path. For instance, if the field is "parent.to.child" and the sibling is "sibling", this
-     * would return "parent.to.sibling".
-     *
-     * @param field   nested field path
-     * @param sibling sibling field
-     * @return sibling field path
-     */
-    public static String constructSiblingField(String field, String sibling) {
-        String parent = getParentField(field);
-        if (parent == null) {
-            return sibling;
-        }
-        return parent + "." + sibling;
     }
 
     /**

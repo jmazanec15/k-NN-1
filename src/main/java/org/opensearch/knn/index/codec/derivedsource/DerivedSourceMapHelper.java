@@ -6,10 +6,12 @@
 package org.opensearch.knn.index.codec.derivedsource;
 
 import lombok.extern.log4j.Log4j2;
-import org.opensearch.common.xcontent.support.XContentMapValues;
 
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 
 /**
  * Utility class for manipulating the source map
@@ -17,51 +19,48 @@ import java.util.Map;
 @Log4j2
 public class DerivedSourceMapHelper {
 
-    /**
-     * Removes all fields in the array from the source
-     *
-     * @param fields Fields to remove
-     * @param source Source map to remove from
-     * @return Map with filtered fields
-     */
-    public static Map<String, Object> filterFields(String[] fields, Map<String, Object> source) {
-        return XContentMapValues.filter(null, fields).apply(source);
+    public static Map<String, Object> transform(Map<String, Object> source, List<String> paths, List<Function<Object, Object>> transformers) {
+        Map<String, Object> copy = new HashMap<>(source);
+        for (int i = 0; i < paths.size(); i++) {
+            String path = paths.get(i);
+            Function<Object, Object> transformer = transformers.get(i);
+            if (path == null || path.isEmpty()) {
+                continue;
+            }
+            String[] pathElements = path.split("\\.");
+            transformRecursive(copy, pathElements, 0, transformer);
+        }
+        return copy;
     }
 
-    /**
-     * Check whether field exists in the document
-     *
-     * @param source source document
-     * @param fieldName field to check. Field should be flattened. i.e. my.path.field
-     * @return whether or not the field exists in the object
-     */
-    public static boolean fieldExists(Map<String, Object> source, String fieldName) {
-        return XContentMapValues.extractValue(fieldName, source, NullValue.INSTANCE) != null;
-    }
-
-    /**
-     * Injects object into source, handling object field path if necessary
-     *
-     * @param sourceAsMap source to be injected into
-     * @param object object to inject
-     * @param fieldName field name injecting at
-     */
-    public static void injectObject(Map<String, Object> sourceAsMap, Object object, String fieldName) {
-        // If a field contains ".", we need to ensure that we properly nest it.
-        String[] fields = ParentChildHelper.splitPath(fieldName);
-        if (fields.length < 2) {
-            sourceAsMap.put(fieldName, object);
+    private static void transformRecursive(Object current, String[] pathElements, int index, Function<Object, Object> transformer) {
+        if (index == pathElements.length) {
+            return;
         }
 
-        Map<String, Object> currentMap = sourceAsMap;
-        for (int i = 0; i < fields.length - 1; i++) {
-            String field = fields[i];
-            currentMap = (Map<String, Object>) currentMap.computeIfAbsent(field, k -> new HashMap<>());
-        }
-        currentMap.put(fields[fields.length - 1], object);
-    }
+        if (current instanceof Map) {
+            Map<String, Object> map = (Map<String, Object>) current;
+            // Handle case where the remaining path elements form a single key
+            String remainingPath = String.join(".", Arrays.copyOfRange(pathElements, index, pathElements.length));
+            if (map.containsKey(remainingPath)) {
+                map.compute(remainingPath, (k, value) -> transformer.apply(value));
+                return;
+            }
 
-    private static class NullValue {
-        private static final NullValue INSTANCE = new NullValue();
+            String key = pathElements[index];
+            Object value = map.get(key);
+            if (value != null) {
+                transformRecursive(value, pathElements, index + 1, transformer);
+            }
+        } else if (current instanceof List) {
+            // Handle arrays by recursively transforming each element
+            List<Object> list = (List<Object>) current;
+            for (int i = 0; i < list.size(); i++) {
+                Object item = list.get(i);
+                if (item instanceof Map) {
+                    transformRecursive(item, pathElements, index, transformer);
+                }
+            }
+        }
     }
 }

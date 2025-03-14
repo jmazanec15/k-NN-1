@@ -10,7 +10,7 @@ import org.apache.lucene.index.FieldInfos;
 import org.apache.lucene.index.SegmentInfo;
 
 import java.util.Arrays;
-import java.util.Collections;
+
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -31,7 +31,7 @@ public class DerivedSourceSegmentAttributeHelper {
      * @param fieldInfos {@link FieldInfo}
      * @return List of fields that derived source is enabled for. Potentially null if no fields
      */
-    public static List<FieldInfo> parseDerivedVectorFields(SegmentInfo segmentInfo, FieldInfos fieldInfos) {
+    public static List<String> parseDerivedVectorFields(SegmentInfo segmentInfo, FieldInfos fieldInfos) {
         if (segmentInfo == null) {
             return null;
         }
@@ -40,8 +40,6 @@ public class DerivedSourceSegmentAttributeHelper {
             return null;
         }
         return Arrays.stream(derivedVectorFields.split(","))
-            .filter(field -> fieldInfos.fieldInfo(field) != null)
-            .map(fieldInfos::fieldInfo)
             .collect(Collectors.toList());
     }
 
@@ -52,23 +50,21 @@ public class DerivedSourceSegmentAttributeHelper {
      * @param segmentInfo {@link SegmentInfo}
      * @return Mapping between derived source fields and their nested lineage
      */
-    public static Map<String, List<String>> parseNestedLineageMap(List<FieldInfo> vectorFields, SegmentInfo segmentInfo) {
-        if (vectorFields == null || vectorFields.isEmpty()) {
-            return Collections.emptyMap();
+    public static Map<String, Boolean> parseNestedMap(List<String> vectorFields, SegmentInfo segmentInfo) {
+        if (segmentInfo == null) {
+            return null;
         }
-        String derivedVectorFieldsLineage = segmentInfo.getAttribute(NESTED_LINEAGE);
-        if (derivedVectorFieldsLineage == null || derivedVectorFieldsLineage.isEmpty()) {
-            return Collections.emptyMap();
+        String nestedLineage = segmentInfo.getAttribute(NESTED_LINEAGE);
+        if (nestedLineage == null || nestedLineage.isEmpty()) {
+            return null;
         }
-        List<String> nestedLineageStrings = Arrays.asList(derivedVectorFieldsLineage.split(",", -1));
-        Map<String, List<String>> nestedLineageMap = new HashMap<>();
-        for (int i = 0; i < vectorFields.size(); i++) {
-            nestedLineageMap.put(
-                vectorFields.get(i).name,
-                Arrays.stream(nestedLineageStrings.get(i).split(";")).filter(s -> s.isEmpty() == false).toList()
-            );
+
+        Map<String, Boolean> nestedMap = new HashMap<>();
+        String[] nested = nestedLineage.split(",", -1);
+        for (int i = 0; i < nested.length; i++) {
+            nestedMap.put(vectorFields.get(i), Boolean.valueOf(nested[i]));
         }
-        return nestedLineageMap;
+        return nestedMap;
     }
 
     /**
@@ -85,13 +81,13 @@ public class DerivedSourceSegmentAttributeHelper {
      * Adds {@link SegmentInfo} attribute for nested lineage of all derived source fields
      *
      * @param segmentInfo {@link SegmentInfo}
-     * @param nestedLineageForAllFields List of lists of parent and grandparent fields. Order should match that of the
-     *                                  vector field types
+     * @param isNestedList List of lists of parent and grandparent fields. Order should match that of the
+     *                      ector field types
      */
-    public static void addNestedLineageSegmentInfoAttribute(SegmentInfo segmentInfo, List<List<String>> nestedLineageForAllFields) {
+    public static void addNestedLineageSegmentInfoAttribute(SegmentInfo segmentInfo, List<Boolean> isNestedList) {
         segmentInfo.putAttribute(
             NESTED_LINEAGE,
-            nestedLineageForAllFields.stream().map(f -> String.join(";", f)).collect(Collectors.joining(","))
+            isNestedList.stream().map(Object::toString).collect(Collectors.joining(","))
         );
     }
 }

@@ -11,7 +11,7 @@ import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValuesFactory;
 
 import java.io.IOException;
-import java.util.Map;
+import java.util.function.Function;
 
 /**
  * {@link PerFieldDerivedVectorInjector} for root fields (i.e. non nested fields).
@@ -37,14 +37,19 @@ class RootPerFieldDerivedVectorInjector extends AbstractPerFieldDerivedVectorInj
     }
 
     @Override
-    public void inject(int docId, Map<String, Object> sourceAsMap) throws IOException {
+    public Function<Object, Object> createTransformer(int rootDocId, int firstChild) throws IOException {
         KNNVectorValues<?> vectorValues = vectorValuesSupplier.get();
-        if (vectorValues.docId() == docId || vectorValues.advance(docId) == docId) {
-            DerivedSourceMapHelper.injectObject(
-                sourceAsMap,
-                formatVector(fieldInfo, vectorValues::getVector, vectorValues::conditionalCloneVector),
-                fieldInfo.name
-            );
-        }
+        vectorValues.advance(rootDocId);
+        return o -> {
+            if (o == null || vectorValues.docId() > rootDocId) {
+                return null;
+            }
+
+            try {
+                return formatVector(fieldInfo, vectorValues::getVector, vectorValues::conditionalCloneVector);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        };
     }
 }

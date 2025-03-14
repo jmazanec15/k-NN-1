@@ -22,11 +22,8 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 /**
  * This class is responsible for injecting vectors into the source of a document. From a high level, it uses alternative
@@ -37,7 +34,9 @@ public class DerivedSourceVectorInjector implements Closeable {
 
     private final DerivedSourceReaders derivedSourceReaders;
     private final List<PerFieldDerivedVectorInjector> perFieldDerivedVectorInjectors;
-    private final Set<String> fieldNames;
+    private final List<String> fieldNames;
+    private final boolean isNested;
+    private final DerivedSourceLuceneHelper derivedSourceLuceneHelper;
 
     /**
      * Constructor for DerivedSourceVectorInjector.
@@ -45,28 +44,29 @@ public class DerivedSourceVectorInjector implements Closeable {
      * @param derivedSourceReadersSupplier Supplier for the derived source readers.
      * @param segmentReadState Segment read state
      * @param fieldsToInjectVector List of fields to inject vectors into
-     * @param nestedLineageMap Mapping of field to nested lineage of field.
+     * @param isNestedMap Mapping of field to nested lineage of field.
      */
     public DerivedSourceVectorInjector(
         DerivedSourceReadersSupplier derivedSourceReadersSupplier,
         SegmentReadState segmentReadState,
         List<FieldInfo> fieldsToInjectVector,
-        Map<String, List<String>> nestedLineageMap
+        Map<String, Boolean> isNestedMap
     ) throws IOException {
         this.derivedSourceReaders = derivedSourceReadersSupplier.getReaders(segmentReadState);
         this.perFieldDerivedVectorInjectors = new ArrayList<>();
-        this.fieldNames = new HashSet<>();
+        this.fieldNames = new ArrayList<>();
         for (FieldInfo fieldInfo : fieldsToInjectVector) {
             this.perFieldDerivedVectorInjectors.add(
                 PerFieldDerivedVectorInjectorFactory.create(
                     fieldInfo,
-                    nestedLineageMap.get(fieldInfo.name),
-                    derivedSourceReaders,
-                    segmentReadState
+                    isNestedMap.get(fieldInfo.name),
+                    derivedSourceReaders
                 )
             );
             this.fieldNames.add(fieldInfo.name);
         }
+        this.isNested = isNestedMap != null && isNestedMap.containsValue(true);
+        this.derivedSourceLuceneHelper = new DerivedSourceLuceneHelper(derivedSourceReaders, segmentReadState);
     }
 
     /**
@@ -86,15 +86,26 @@ public class DerivedSourceVectorInjector implements Closeable {
             true,
             MediaTypeRegistry.getDefaultMediaType()
         );
-        // Have to create a copy of the map here to ensure that is mutable
-        Map<String, Object> sourceAsMap = new HashMap<>(mapTuple.v2());
 
-        // For each vector field, add in the source. The per field injectors are responsible for skipping if
-        // the field is not present.
-        for (PerFieldDerivedVectorInjector vectorInjector : perFieldDerivedVectorInjectors) {
-            vectorInjector.inject(docId, sourceAsMap);
+
+        int firstChild;
+        if (isNested) {
+            firstChild = derivedSourceLuceneHelper.getFirstChild(docId);
+        } else {
+            firstChild = -1;
         }
 
+        Map<String, Object> sourceAsMap = DerivedSourceMapHelper.transform(
+                mapTuple.v2(),
+                fieldNames.stream().toList(),
+                perFieldDerivedVectorInjectors.stream().map(f -> {
+                    try {
+                        return f.createTransformer(docId, firstChild);
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+                }).toList()
+        );
         // At this point, we can serialize the modified source map
         // Setting to 1024 based on
         // https://github.com/opensearch-project/OpenSearch/blob/2.18.0/server/src/main/java/org/opensearch/search/fetch/subphase/FetchSourcePhase.java#L106

@@ -26,6 +26,7 @@ import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.Function;
 
 @RequiredArgsConstructor
 public class DerivedSourceStoredFieldsWriter extends StoredFieldsWriter {
@@ -83,10 +84,18 @@ public class DerivedSourceStoredFieldsWriter extends StoredFieldsWriter {
                 true,
                 MediaTypeRegistry.JSON
             );
-            Map<String, Object> filteredSource = DerivedSourceMapHelper.filterFields(
-                vectorFieldTypes.toArray(new String[0]),
-                mapTuple.v2()
+
+            Map<String, Object> filteredSource = DerivedSourceMapHelper.transform(
+                    mapTuple.v2(),
+                    vectorFieldTypes,
+                    vectorFieldTypes.stream().map(v -> (Function<Object, Object>) (o) -> {
+                        if (o == null) {
+                            return null;
+                        }
+                        return "MASK";
+                    }).toList()
             );
+
             BytesStreamOutput bStream = new BytesStreamOutput();
             MediaType actualContentType = mapTuple.v1();
             XContentBuilder builder = MediaTypeRegistry.contentBuilder(actualContentType, bStream).map(filteredSource);
