@@ -1,0 +1,59 @@
+/*
+ * Copyright OpenSearch Contributors
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+plugins {
+    id 'java'
+    id 'java-library'
+    id 'jacoco'
+    id "io.freefair.lombok"
+    id 'com.diffplug.spotless' version '6.25.0'
+    id 'opensearch.build'
+}
+
+repositories {
+    mavenLocal()
+    maven { url = uri("https://aws.oss.sonatype.org/content/repositories/snapshots") }
+    mavenCentral()
+    maven { url = uri("https://plugins.gradle.org/m2/") }
+}
+
+description = "OpenSearch Library for Engine Extensions"
+
+compileJava {
+    options.compilerArgs = ["-processor", 'lombok.launch.AnnotationProcessorHider$AnnotationProcessor']
+}
+compileTestJava {
+    options.compilerArgs = ["-processor", 'lombok.launch.AnnotationProcessorHider$AnnotationProcessor']
+}
+
+dependencies {
+    api "commons-lang:commons-lang:2.6"
+    testImplementation "org.opensearch.test:framework:${opensearch_version}"
+}
+
+check.dependsOn spotlessCheck
+
+publishing {
+    publications {
+        pluginZip(MavenPublication) {
+            pom {
+                name = "opensearch-knn-engine-lib"
+                description = 'OpenSearch Library for Engine Extensions'
+                licenses {
+                    license {
+                        name = "The Apache License, Version 2.0"
+                        url = "http://www.apache.org/licenses/LICENSE-2.0.txt"
+                    }
+                }
+                developers {
+                    developer {
+                        name = "OpenSearch"
+                        url = "https://github.com/opensearch-project/k-NN/lib"
+                    }
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,32 @@
+/*
+ * Copyright OpenSearch Contributors
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+apply plugin: 'opensearch.build'
+
+// Disable a few tasks that come with build
+build.enabled = false
+test.enabled = false
+assemble.enabled = false
+dependenciesInfo.enabled = false
+
+
+allprojects {
+
+    repositories {
+        mavenLocal()
+        maven { url = uri("https://aws.oss.sonatype.org/content/repositories/snapshots") }
+        mavenCentral()
+        maven { url = uri("https://plugins.gradle.org/m2/") }
+    }
+
+    check.dependsOn spotlessCheck
+
+    compileJava {
+        options.compilerArgs = ["-processor", 'lombok.launch.AnnotationProcessorHider$AnnotationProcessor']
+    }
+    compileTestJava {
+        options.compilerArgs = ["-processor", 'lombok.launch.AnnotationProcessorHider$AnnotationProcessor']
+    }
+}

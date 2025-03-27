@@ -303,6 +303,10 @@ task release(type: Copy, group: 'build') {
 dependencies {
     api "org.opensearch:opensearch:${opensearch_version}"
     api project(":remote-index-build-client")
+    api project(":enginelib")
+    api project(":engines:faiss")
+    api project(":engines:lucene")
+    api project(":engines:nmslib")
     compileOnly "org.opensearch.plugin:opensearch-scripting-painless-spi:${versions.opensearch}"
     api group: 'com.google.guava', name: 'failureaccess', version:'1.0.1'
     api group: 'com.google.guava', name: 'guava', version:'32.1.3-jre'

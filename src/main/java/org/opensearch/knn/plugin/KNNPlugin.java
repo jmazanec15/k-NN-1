@@ -25,6 +25,7 @@ import org.opensearch.core.common.settings.SecureString;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.env.Environment;
 import org.opensearch.env.NodeEnvironment;
+import org.opensearch.knn.engine.faiss.FaissEngine;
 import org.opensearch.index.IndexModule;
 import org.opensearch.index.IndexSettings;
 import org.opensearch.index.codec.CodecServiceFactory;
@@ -32,6 +33,7 @@ import org.opensearch.index.engine.EngineFactory;
 import org.opensearch.index.mapper.Mapper;
 import org.opensearch.indices.SystemIndexDescriptor;
 import org.opensearch.knn.common.featureflags.KNNFeatureFlags;
+import org.opensearch.knn.engine.Engine;
 import org.opensearch.knn.index.KNNCircuitBreaker;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.codec.KNNCodecService;
@@ -85,6 +87,8 @@ import org.opensearch.knn.quantization.models.quantizationState.QuantizationStat
 import org.opensearch.knn.training.TrainingJobClusterStateListener;
 import org.opensearch.knn.training.TrainingJobRunner;
 import org.opensearch.knn.training.VectorReader;
+import org.opensearch.knn.engine.lucene.LuceneEngine;
+import org.opensearch.knn.engine.nmslib.NmslibEngine;
 import org.opensearch.plugins.ClusterPlugin;
 import org.opensearch.plugins.ActionPlugin;
 import org.opensearch.plugins.EnginePlugin;
@@ -223,6 +227,12 @@ public class KNNPlugin extends Plugin
         clusterService.addListener(TrainingJobClusterStateListener.getInstance());
 
         knnStats = new KNNStats();
+        Engine faissEngine = new FaissEngine();
+        faissEngine.sayHello();
+        Engine luceneEngine = new LuceneEngine();
+        luceneEngine.sayHello();
+        Engine nmslibEngine = new NmslibEngine();
+        nmslibEngine.sayHello();
         return ImmutableList.of(knnStats);
     }
 
