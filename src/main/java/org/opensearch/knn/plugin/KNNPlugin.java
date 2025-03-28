@@ -25,7 +25,8 @@ import org.opensearch.core.common.settings.SecureString;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.env.Environment;
 import org.opensearch.env.NodeEnvironment;
-import org.opensearch.knn.engine.faiss.FaissEngine;
+import org.opensearch.knn.engine.EngineRegistry;
+import org.opensearch.knn.engine.EnginesService;
 import org.opensearch.index.IndexModule;
 import org.opensearch.index.IndexSettings;
 import org.opensearch.index.codec.CodecServiceFactory;
@@ -87,8 +88,6 @@ import org.opensearch.knn.quantization.models.quantizationState.QuantizationStat
 import org.opensearch.knn.training.TrainingJobClusterStateListener;
 import org.opensearch.knn.training.TrainingJobRunner;
 import org.opensearch.knn.training.VectorReader;
-import org.opensearch.knn.engine.lucene.LuceneEngine;
-import org.opensearch.knn.engine.nmslib.NmslibEngine;
 import org.opensearch.plugins.ClusterPlugin;
 import org.opensearch.plugins.ActionPlugin;
 import org.opensearch.plugins.EnginePlugin;
@@ -176,6 +175,7 @@ public class KNNPlugin extends Plugin
     private KNNStats knnStats;
     private ClusterService clusterService;
     private Supplier<RepositoriesService> repositoriesServiceSupplier;
+    private EnginesService enginesService = null;
 
     @Override
     public Map<String, Mapper.TypeParser> getMappers() {
@@ -227,12 +227,8 @@ public class KNNPlugin extends Plugin
         clusterService.addListener(TrainingJobClusterStateListener.getInstance());
 
         knnStats = new KNNStats();
-        Engine faissEngine = new FaissEngine();
-        faissEngine.sayHello();
-        Engine luceneEngine = new LuceneEngine();
-        luceneEngine.sayHello();
-        Engine nmslibEngine = new NmslibEngine();
-        nmslibEngine.sayHello();
+        assert enginesService != null;
+        enginesService.logEngines();
         return ImmutableList.of(knnStats);
     }
 
@@ -408,5 +404,12 @@ public class KNNPlugin extends Plugin
             SecureString password = KNNSettings.KNN_REMOTE_BUILD_CLIENT_PASSWORD_SETTING.get(settings);
             RemoteIndexHTTPClient.reloadAuthHeader(username, password);
         }
+    }
+
+    @Override
+    public void loadExtensions(ExtensionLoader loader) {
+        EngineRegistry engineRegistry = new EngineRegistry();
+        loader.loadExtensions(Engine.class).forEach(engineRegistry::register);
+        enginesService = engineRegistry.createEngineService();
     }
 }

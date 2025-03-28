@@ -1,0 +1,38 @@
+/*
+ * Copyright OpenSearch Contributors
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+group = 'org.opensearch.knn.plugin'
+apply plugin: 'opensearch.opensearchplugin'
+apply plugin: 'opensearch.testclusters'
+apply plugin: 'opensearch.rest-test'
+apply plugin: 'opensearch.pluginzip'
+
+opensearchplugin {
+    name = project.name
+    description = 'An example plugin implementing brute force k-NN'
+    classname = 'org.opensearch.bruteforce.BruteForceEnginePlugin'
+    licenseFile = rootProject.file('LICENSE.txt')
+    noticeFile = rootProject.file('NOTICE.txt')
+    extendedPlugins = ['opensearch-knn']
+}
+
+dependencies {
+    compileOnly "org.opensearch:opensearch:${opensearch_version}"
+    compileOnly project(":enginelib")
+    testImplementation "org.opensearch.test:framework:${opensearch_version}"
+}
+
+testClusters.integTest {
+    testDistribution = "ARCHIVE"
+
+    plugin(rootProject.tasks.bundlePlugin.archiveFile)
+    plugin(project.tasks.bundlePlugin.archiveFile)
+
+}
+
+run {
+    useCluster project.testClusters.integTest
+}
+

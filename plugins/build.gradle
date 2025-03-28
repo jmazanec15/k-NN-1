@@ -1,0 +1,9 @@
+/*
+ *  Copyright OpenSearch Contributors
+ *  SPDX-License-Identifier: Apache-2.0
+ */
+
+apply plugin: 'opensearch.build'
+
+// Disable a few tasks that come with build
+dependenciesInfo.enabled = false
