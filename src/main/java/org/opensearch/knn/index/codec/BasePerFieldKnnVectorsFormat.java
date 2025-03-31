@@ -97,6 +97,12 @@ public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFor
             )
         ).fieldType(field);
 
+        KnnVectorsFormat knnVectorsFormat = mappedFieldType.getFormatOrNull();
+        if (knnVectorsFormat != null) {
+            log.info("Custom engine picked up... Passing in custom format");
+            return knnVectorsFormat;
+        }
+
         final KNNMappingConfig knnMappingConfig = mappedFieldType.getKnnMappingConfig();
         if (knnMappingConfig.getModelId().isPresent()) {
             return nativeEngineVectorsFormat();

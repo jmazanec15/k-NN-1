@@ -1,3 +1,5 @@
+import org.opensearch.gradle.test.RestIntegTestTask
+
 /*
  * Copyright OpenSearch Contributors
  * SPDX-License-Identifier: Apache-2.0
@@ -22,6 +24,7 @@ dependencies {
     compileOnly "org.opensearch:opensearch:${opensearch_version}"
     compileOnly project(":enginelib")
     testImplementation "org.opensearch.test:framework:${opensearch_version}"
+    testImplementation(testFixtures(rootProject))
 }
 
 testClusters.integTest {
@@ -36,3 +39,23 @@ run {
     useCluster project.testClusters.integTest
 }
 
+task integTestRemote(type: RestIntegTestTask) {
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+
+    systemProperty "https", System.getProperty("https")
+    systemProperty "user", System.getProperty("user")
+    systemProperty "password", System.getProperty("password")
+
+    systemProperty 'cluster.number_of_nodes', "1"
+
+    systemProperty 'tests.security.manager', 'false'
+    systemProperty("test.exhaustive", System.getProperty("test.exhaustive"))
+
+    // Run tests with remote cluster only if rest case is defined
+    if (System.getProperty("tests.rest.cluster") != null) {
+        filter {
+            includeTestsMatching "org.opensearch.bruteforce.*IT"
+        }
+    }
+}

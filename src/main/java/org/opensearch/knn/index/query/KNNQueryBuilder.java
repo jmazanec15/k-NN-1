@@ -433,6 +433,13 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
             throw new IllegalArgumentException(String.format(Locale.ROOT, "Field '%s' is not knn_vector type.", this.fieldName));
         }
         KNNVectorFieldType knnVectorFieldType = (KNNVectorFieldType) mappedFieldType;
+
+        Query engineQuery = knnVectorFieldType.createQueryOrNull(fieldName, vector, k);
+        if (engineQuery != null) {
+            log.info("Custom engine picked up... Switching to lucene query");
+            return engineQuery;
+        }
+
         KNNMappingConfig knnMappingConfig = knnVectorFieldType.getKnnMappingConfig();
         QueryConfigFromMapping queryConfigFromMapping = getQueryConfig(knnMappingConfig, knnVectorFieldType);
 

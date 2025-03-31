@@ -93,6 +93,11 @@ public class MethodFieldMapper extends KNNVectorFieldMapper {
                 public Version getIndexCreatedVersion() {
                     return knnMethodConfigContext.getVersionCreated();
                 }
+
+                @Override
+                public String getEngine() {
+                    return originalMappingParameters.getEngine();
+                }
             }
         );
         return new MethodFieldMapper(

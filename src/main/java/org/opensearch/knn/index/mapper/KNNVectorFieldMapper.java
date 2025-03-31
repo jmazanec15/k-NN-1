@@ -146,6 +146,16 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         );
 
         /**
+         * engine extension point for knn_vector fields
+         */
+        protected final Parameter<String> engine = Parameter.stringParam(
+            KNNConstants.KNN_ENGINE,
+            false,
+            m -> toType(m).originalMappingParameters.getEngine(),
+            null
+        );
+
+        /**
          * knnMethodContext parameter allows a user to define their k-NN library index configuration. Defaults to an L2
          * hnsw default engine index without any parameters set
          */
@@ -229,7 +239,8 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 modelId,
                 mode,
                 compressionLevel,
-                topLevelSpaceType
+                topLevelSpaceType,
+                engine
             );
         }
 

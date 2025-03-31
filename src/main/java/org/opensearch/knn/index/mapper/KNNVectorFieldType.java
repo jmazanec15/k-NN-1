@@ -8,6 +8,7 @@ package org.opensearch.knn.index.mapper;
 import lombok.Getter;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.lucene.codecs.KnnVectorsFormat;
 import org.apache.lucene.search.FieldExistsQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.util.BytesRef;
@@ -18,6 +19,7 @@ import org.opensearch.index.mapper.TextSearchInfo;
 import org.opensearch.index.mapper.ValueFetcher;
 import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.index.query.QueryShardException;
+import org.opensearch.knn.engine.Engine;
 import org.opensearch.knn.index.KNNVectorIndexFieldData;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNMethodContext;
@@ -35,6 +37,7 @@ import java.util.Optional;
 import java.util.function.Supplier;
 
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.deserializeStoredVector;
+import static org.opensearch.knn.plugin.KNNPlugin.ENGINES_SERVICE;
 
 /**
  * A KNNVector field type to represent the vector field in Opensearch
@@ -44,6 +47,7 @@ public class KNNVectorFieldType extends MappedFieldType {
     private static final Logger logger = LogManager.getLogger(KNNVectorFieldType.class);
     KNNMappingConfig knnMappingConfig;
     VectorDataType vectorDataType;
+    Engine.QueryFactory queryFactory;
 
     /**
      * Constructor for KNNVectorFieldType.
@@ -57,6 +61,7 @@ public class KNNVectorFieldType extends MappedFieldType {
         super(name, false, false, true, TextSearchInfo.NONE, metadata);
         this.vectorDataType = vectorDataType;
         this.knnMappingConfig = annConfig;
+        this.queryFactory = null;
     }
 
     @Override
@@ -152,5 +157,34 @@ public class KNNVectorFieldType extends MappedFieldType {
         }
         throw new IllegalStateException("Either KNN method context or Model Id should be configured");
 
+    }
+
+    public KnnVectorsFormat getFormatOrNull() {
+        String engine = knnMappingConfig.getEngine();
+        if (engine == null) {
+            return null;
+        }
+        Engine vecEngine = ENGINES_SERVICE.getEngine(engine);
+
+        return vecEngine.getFormat();
+    }
+
+    public Query createQueryOrNull(String field, float[] vector, int k) {
+        String engine = getEngine();
+        if (engine == null) {
+            return null;
+        }
+        if (queryFactory == null) {
+            queryFactory = ENGINES_SERVICE.getEngine(engine).createQueryFactory();
+        }
+        if (queryFactory == null) {
+            return null;
+        }
+
+        return queryFactory.createKNNQuery(field, vector, k);
+    }
+
+    public String getEngine() {
+        return knnMappingConfig.getEngine();
     }
 }

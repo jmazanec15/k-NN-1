@@ -29,6 +29,7 @@ compileTestJava {
 }
 
 dependencies {
+    compileOnly "org.opensearch:opensearch:${opensearch_version}"
     api "commons-lang:commons-lang:2.6"
     testImplementation "org.opensearch.test:framework:${opensearch_version}"
 }

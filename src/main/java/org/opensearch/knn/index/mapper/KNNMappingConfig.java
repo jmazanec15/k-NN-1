@@ -58,6 +58,10 @@ public interface KNNMappingConfig {
         return QuantizationConfig.EMPTY;
     }
 
+    default String getEngine() {
+        return null;
+    }
+
     /**
      *
      * @return the dimension of the index; for model based indices, it will be null

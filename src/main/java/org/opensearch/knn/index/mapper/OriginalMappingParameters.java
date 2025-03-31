@@ -22,6 +22,7 @@ public final class OriginalMappingParameters {
     private final VectorDataType vectorDataType;
     private final int dimension;
     private final KNNMethodContext knnMethodContext;
+    private final String engine;
 
     // To support our legacy field mapping, on parsing, if index.knn=true and no method is
     // passed, we build a KNNMethodContext using the space type, ef_construction and m that are set in the index
@@ -60,6 +61,7 @@ public final class OriginalMappingParameters {
         this.compressionLevel = builder.compressionLevel.get();
         this.modelId = builder.modelId.get();
         this.topLevelSpaceType = builder.topLevelSpaceType.get();
+        this.engine = builder.engine.get();
     }
 
     /**

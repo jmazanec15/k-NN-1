@@ -175,7 +175,7 @@ public class KNNPlugin extends Plugin
     private KNNStats knnStats;
     private ClusterService clusterService;
     private Supplier<RepositoriesService> repositoriesServiceSupplier;
-    private EnginesService enginesService = null;
+    public static EnginesService ENGINES_SERVICE = null;
 
     @Override
     public Map<String, Mapper.TypeParser> getMappers() {
@@ -227,8 +227,8 @@ public class KNNPlugin extends Plugin
         clusterService.addListener(TrainingJobClusterStateListener.getInstance());
 
         knnStats = new KNNStats();
-        assert enginesService != null;
-        enginesService.logEngines();
+        assert ENGINES_SERVICE != null;
+        ENGINES_SERVICE.logEngines();
         return ImmutableList.of(knnStats);
     }
 
@@ -410,6 +410,6 @@ public class KNNPlugin extends Plugin
     public void loadExtensions(ExtensionLoader loader) {
         EngineRegistry engineRegistry = new EngineRegistry();
         loader.loadExtensions(Engine.class).forEach(engineRegistry::register);
-        enginesService = engineRegistry.createEngineService();
+        ENGINES_SERVICE = engineRegistry.createEngineService();
     }
 }

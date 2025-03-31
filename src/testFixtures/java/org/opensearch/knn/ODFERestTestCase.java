@@ -30,6 +30,7 @@ import org.apache.hc.core5.http.nio.ssl.TlsStrategy;
 import org.apache.hc.core5.reactor.ssl.TlsDetails;
 import org.apache.hc.core5.ssl.SSLContextBuilder;
 import org.apache.hc.core5.util.Timeout;
+import org.junit.After;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.Request;
 import org.opensearch.client.Response;
@@ -47,7 +48,6 @@ import org.opensearch.knn.plugin.KNNPlugin;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.search.SearchHit;
 import org.opensearch.test.rest.OpenSearchRestTestCase;
-import org.junit.After;
 
 import static org.opensearch.knn.TestUtils.KNN_BWC_PREFIX;
 import static org.opensearch.knn.TestUtils.OPENDISTRO_SECURITY;
