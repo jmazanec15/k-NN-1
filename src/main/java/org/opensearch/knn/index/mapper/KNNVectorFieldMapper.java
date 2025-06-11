@@ -272,6 +272,15 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             }
         }
 
+        /**
+         * Expose the protected {@link Builder#buildFullName(BuilderContext)} so
+         * external helpers can retrieve the resolved field name during mapper
+         * creation.
+         */
+        String fullFieldName(BuilderContext context) {
+            return buildFullName(context);
+        }
+
         @Override
         public KNNVectorFieldMapper build(BuilderContext context) {
             if (useFullFieldNameValidation(indexCreatedVersion)) {

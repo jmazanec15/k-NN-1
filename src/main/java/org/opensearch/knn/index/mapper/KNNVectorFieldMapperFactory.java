@@ -10,6 +10,7 @@ import org.opensearch.Version;
 import org.opensearch.common.Explicit;
 import org.opensearch.index.mapper.FieldMapper;
 import org.opensearch.index.mapper.Mapper;
+import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 
 /**
  * Factory class responsible for creating the appropriate {@link KNNVectorFieldMapper}
@@ -34,7 +35,7 @@ final class KNNVectorFieldMapperFactory {
 
         if (builder.modelId.get() != null) {
             return ModelFieldMapper.createFieldMapper(
-                builder.buildFullName(context),
+                builder.fullFieldName(context),
                 builder.name,
                 metaValue,
                 builder.vectorDataType.getValue(),
@@ -45,7 +46,7 @@ final class KNNVectorFieldMapperFactory {
                 builder.hasDocValues.get(),
                 builder.modelDao,
                 builder.indexCreatedVersion,
-                builder.originalParameters,
+                builder.getOriginalParameters(),
                 builder.getKnnMethodConfigContext()
             );
         }
@@ -55,7 +56,7 @@ final class KNNVectorFieldMapperFactory {
             // Ensure docValues are enabled for flat vector fields when required
             builder.adjustDocValuesForFlatMapper();
             return FlatVectorFieldMapper.createFieldMapper(
-                builder.buildFullName(context),
+                builder.fullFieldName(context),
                 builder.name,
                 metaValue,
                 KNNMethodConfigContext.builder()
@@ -68,12 +69,12 @@ final class KNNVectorFieldMapperFactory {
                 ignoreMalformed,
                 builder.stored.get(),
                 builder.hasDocValues.get(),
-                builder.originalParameters
+                builder.getOriginalParameters()
             );
         }
 
         return EngineFieldMapper.createFieldMapper(
-            builder.buildFullName(context),
+            builder.fullFieldName(context),
             builder.name,
             metaValue,
             builder.getKnnMethodConfigContext(),
@@ -82,7 +83,7 @@ final class KNNVectorFieldMapperFactory {
             ignoreMalformed,
             builder.stored.getValue(),
             builder.hasDocValues.get(),
-            builder.originalParameters
+            builder.getOriginalParameters()
         );
     }
 }
