@@ -1856,6 +1856,28 @@ public class KNNRestTestCase extends ODFERestTestCase {
         return searchResults;
     }
 
+    // Method that performs exact vector search using script scoring for multiple queries
+    public List<List<String>> bulkExactSearch(String indexName, String fieldName, float[][] queryVectors, int k)
+        throws Exception {
+        List<List<String>> searchResults = new ArrayList<>();
+        for (float[] queryVector : queryVectors) {
+            QueryBuilder qb = new MatchAllQueryBuilder();
+            Map<String, Object> params = new HashMap<>();
+            params.put(TestUtils.FIELD, fieldName);
+            params.put(TestUtils.QUERY_VALUE, queryVector);
+            params.put(METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue());
+
+            Request request = constructKNNScriptQueryRequest(indexName, qb, params, k, Collections.emptyMap());
+            Response resp = client().performRequest(request);
+            assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(resp.getStatusLine().getStatusCode()));
+
+            List<KNNResult> results = parseSearchResponse(EntityUtils.toString(resp.getEntity()), fieldName);
+            assertEquals(k, results.size());
+            searchResults.add(results.stream().map(KNNResult::getDocId).toList());
+        }
+        return searchResults;
+    }
+
     // Method that waits till the health of nodes in the cluster goes green
     public void waitForClusterHealthGreen(String numOfNodes) throws IOException {
         Request waitForGreen = new Request("GET", "/_cluster/health");

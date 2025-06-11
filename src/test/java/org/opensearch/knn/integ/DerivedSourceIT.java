@@ -164,6 +164,7 @@ public class DerivedSourceIT extends DerivedSourceTestCase {
 
         // Search
         testSearch(indexConfigContexts);
+        validateVectorRecall(indexConfigContexts);
 
         // Reindex
         testReindex(indexConfigContexts);

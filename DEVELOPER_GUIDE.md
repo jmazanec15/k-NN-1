@@ -438,6 +438,7 @@ with `@ExpectRemoteBuildValidation`, for the `@After` method `verifyRemoteIndexB
 - OpenSearchIT
 - SegmentReplicationIT
 - DerivedSourceIT
+- FeatureTestCase (base for new feature tests)
 - ExpandNestedDocsIT
 - FilteredSearchANNSearchIT
 - IndexIT
