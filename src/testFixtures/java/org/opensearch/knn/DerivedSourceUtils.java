@@ -163,6 +163,24 @@ public class DerivedSourceUtils {
         public List<String> collectFieldNames() {
             return fields.stream().map(f -> f.fieldPath).toList();
         }
+
+        @SneakyThrows
+        public List<KNNVectorFieldTypeContext> collectVectorFields() {
+            List<KNNVectorFieldTypeContext> vectors = new ArrayList<>();
+            collectVectorFields(fields, vectors);
+            return vectors;
+        }
+
+        private void collectVectorFields(List<FieldContext> fieldContexts, List<KNNVectorFieldTypeContext> vectors)
+            throws IOException {
+            for (FieldContext context : fieldContexts) {
+                if (context instanceof KNNVectorFieldTypeContext) {
+                    vectors.add((KNNVectorFieldTypeContext) context);
+                } else if (context instanceof CompositeFieldContext) {
+                    collectVectorFields(((CompositeFieldContext) context).children, vectors);
+                }
+            }
+        }
     }
 
     @SuperBuilder
