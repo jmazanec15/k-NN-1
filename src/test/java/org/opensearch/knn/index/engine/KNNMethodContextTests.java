@@ -363,6 +363,29 @@ public class KNNMethodContextTests extends KNNTestCase {
         assertTrue(deserialized.getParameters().isEmpty());
     }
 
+    public void testBuilderDefaults() {
+        MethodComponentContext component = new MethodComponentContext("test", Collections.emptyMap());
+        KNNMethodContext context = KNNMethodContext.builder().methodComponentContext(component).build();
+
+        assertEquals(KNNEngine.DEFAULT, context.getKnnEngine());
+        assertEquals(SpaceType.UNDEFINED, context.getSpaceType());
+        assertFalse(context.isEngineConfigured());
+        assertEquals(component, context.getMethodComponentContext());
+    }
+
+    public void testBuilderKnnEngineSetsFlag() {
+        MethodComponentContext component = new MethodComponentContext("test", Collections.emptyMap());
+        KNNMethodContext context = KNNMethodContext.builder()
+            .knnEngine(KNNEngine.FAISS)
+            .spaceType(SpaceType.L2)
+            .methodComponentContext(component)
+            .build();
+
+        assertTrue(context.isEngineConfigured());
+        assertEquals(KNNEngine.FAISS, context.getKnnEngine());
+        assertEquals(SpaceType.L2, context.getSpaceType());
+    }
+
     private void validateValidateVectorDataType(
         final KNNEngine knnEngine,
         final String methodName,

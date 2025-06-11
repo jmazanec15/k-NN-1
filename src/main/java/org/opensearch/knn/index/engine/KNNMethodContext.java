@@ -5,8 +5,6 @@
 
 package org.opensearch.knn.index.engine;
 
-import lombok.AccessLevel;
-import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NonNull;
 import lombok.Setter;
@@ -35,21 +33,72 @@ import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
  * KNNMethodContext will contain the information necessary to produce a library index from an Opensearch mapping.
  * It will encompass all parameters necessary to build the index.
  */
-@AllArgsConstructor(access = AccessLevel.PACKAGE)
 @Getter
 public class KNNMethodContext implements ToXContentFragment, Writeable {
 
     @NonNull
-    private KNNEngine knnEngine;
+    private KNNEngine knnEngine = KNNEngine.DEFAULT;
     @NonNull
     @Setter
-    private SpaceType spaceType;
+    private SpaceType spaceType = SpaceType.UNDEFINED;
     @NonNull
     private final MethodComponentContext methodComponentContext;
     // Currently, the KNNEngine member variable cannot be null and defaults during parsing to nmslib. However, in order
     // to support disk based engine resolution, this value potentially needs to be updated. Thus, this value is used
     // to determine if the variable can be overridden or not based on whether the user explicitly set the value during parsing
-    private boolean isEngineConfigured;
+    private boolean isEngineConfigured = false;
+
+    private KNNMethodContext(
+        KNNEngine knnEngine,
+        SpaceType spaceType,
+        MethodComponentContext methodComponentContext,
+        boolean isEngineConfigured
+    ) {
+        this.knnEngine = knnEngine;
+        this.spaceType = spaceType;
+        this.methodComponentContext = methodComponentContext;
+        this.isEngineConfigured = isEngineConfigured;
+    }
+
+    public static Builder builder() {
+        return new Builder();
+    }
+
+    public static class Builder {
+        private KNNEngine knnEngine = KNNEngine.DEFAULT;
+        private SpaceType spaceType = SpaceType.UNDEFINED;
+        private MethodComponentContext methodComponentContext;
+        private boolean isEngineConfigured = false;
+
+        private Builder() {}
+
+        public Builder knnEngine(KNNEngine knnEngine) {
+            this.knnEngine = knnEngine;
+            this.isEngineConfigured = true;
+            return this;
+        }
+
+        public Builder spaceType(SpaceType spaceType) {
+            this.spaceType = spaceType;
+            return this;
+        }
+
+        public Builder methodComponentContext(MethodComponentContext methodComponentContext) {
+            this.methodComponentContext = methodComponentContext;
+            return this;
+        }
+
+        public Builder isEngineConfigured(boolean isEngineConfigured) {
+            this.isEngineConfigured = isEngineConfigured;
+            return this;
+        }
+
+        public KNNMethodContext build() {
+            return new KNNMethodContext(knnEngine, spaceType, methodComponentContext, isEngineConfigured);
+        }
+    }
+
+
 
     /**
      * Copy constructor. Useful for creating a deep copy of a {@link KNNMethodContext}. Note that the engine and
@@ -222,7 +271,12 @@ public class KNNMethodContext implements ToXContentFragment, Writeable {
 
         MethodComponentContext method = new MethodComponentContext(name, parameters);
 
-        return new KNNMethodContext(engine, spaceType, method, isEngineConfigured);
+        return KNNMethodContext.builder()
+            .knnEngine(engine)
+            .spaceType(spaceType)
+            .methodComponentContext(method)
+            .isEngineConfigured(isEngineConfigured)
+            .build();
     }
 
     @Override
@@ -258,4 +312,5 @@ public class KNNMethodContext implements ToXContentFragment, Writeable {
         out.writeString(spaceType.getValue());
         this.methodComponentContext.writeTo(out);
     }
+
 }
