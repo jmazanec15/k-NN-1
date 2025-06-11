@@ -15,13 +15,17 @@ import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.index.query.MatchAllQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.IDVectorProducer;
+import org.opensearch.knn.TestUtils;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Random;
+import java.util.Set;
 import java.util.function.Supplier;
 
 public class DerivedSourceTestCase extends KNNRestTestCase {
@@ -923,6 +927,28 @@ public class DerivedSourceTestCase extends KNNRestTestCase {
         Map<String, Object> response1 = getKnnDoc(index1, String.valueOf(docId));
         Map<String, Object> response2 = getKnnDoc(index2, String.valueOf(docId));
         assertEquals("Docs do not match: " + docId, response1, response2);
+    }
+
+    @SneakyThrows
+    protected void validateVectorRecall(List<DerivedSourceUtils.IndexConfigContext> indexConfigContexts) {
+        DerivedSourceUtils.IndexConfigContext enabled = indexConfigContexts.get(0);
+
+        for (DerivedSourceUtils.KNNVectorFieldTypeContext vectorField : enabled.collectVectorFields()) {
+            int dimension = vectorField.dimension;
+            int queryCount = Math.min(5, enabled.docCount);
+            IDVectorProducer producer = new IDVectorProducer(dimension, enabled.docCount + queryCount);
+            float[][] queryVectors = new float[queryCount][dimension];
+            for (int i = 0; i < queryCount; i++) {
+                queryVectors[i] = producer.getVector(enabled.docCount + i);
+            }
+
+            int k = Math.min(3, enabled.docCount);
+            List<List<String>> groundResults = bulkExactSearch(enabled.indexName, vectorField.fieldPath, queryVectors, k);
+            List<List<String>> testResults = bulkSearch(enabled.indexName, vectorField.fieldPath, queryVectors, k);
+            List<Set<String>> groundTruth = groundResults.stream().map(HashSet::new).toList();
+            double recall = TestUtils.calculateRecallValue(testResults, groundTruth, k);
+            assertTrue("Low recall for " + vectorField.fieldPath + ":" + recall, recall >= 0.8d);
+        }
     }
 
     protected String getIndexName(String testPrefix, String indexPrefix, boolean addRandom) {
