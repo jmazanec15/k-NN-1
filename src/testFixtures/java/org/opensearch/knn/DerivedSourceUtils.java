@@ -22,6 +22,7 @@ import org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 import java.util.function.Supplier;

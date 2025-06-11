@@ -945,7 +945,10 @@ public class DerivedSourceTestCase extends KNNRestTestCase {
             int k = Math.min(3, enabled.docCount);
             List<List<String>> groundResults = bulkExactSearch(enabled.indexName, vectorField.fieldPath, queryVectors, k);
             List<List<String>> testResults = bulkSearch(enabled.indexName, vectorField.fieldPath, queryVectors, k);
-            List<Set<String>> groundTruth = groundResults.stream().map(HashSet::new).toList();
+            List<Set<String>> groundTruth = new ArrayList<>();
+            for (List<String> res : groundResults) {
+                groundTruth.add(new HashSet<>(res));
+            }
             double recall = TestUtils.calculateRecallValue(testResults, groundTruth, k);
             assertTrue("Low recall for " + vectorField.fieldPath + ":" + recall, recall >= 0.8d);
         }
