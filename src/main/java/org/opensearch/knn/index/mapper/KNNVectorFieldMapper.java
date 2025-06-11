@@ -260,6 +260,27 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             return KNNVectorFieldMapper.Defaults.IGNORE_MALFORMED;
         }
 
+        /**
+         * Adjust docValues for flat vector mappings. For indices created on or after
+         * 3.0.0, docValues default to false when not explicitly configured. However,
+         * flat vector fields require docValues to be enabled for search
+         * functionality. This helper updates the parameter when necessary.
+         */
+        void adjustDocValuesForFlatMapper() {
+            if (indexCreatedVersion.onOrAfter(Version.V_3_0_0) && hasDocValues.isConfigured() == false) {
+                hasDocValues = Parameter.docValuesParam(m -> ((KNNVectorFieldMapper) m).hasDocValues, true);
+            }
+        }
+
+        /**
+         * Expose the protected {@link Builder#buildFullName(BuilderContext)} so
+         * external helpers can retrieve the resolved field name during mapper
+         * creation.
+         */
+        String fullFieldName(BuilderContext context) {
+            return buildFullName(context);
+        }
+
         @Override
         public KNNVectorFieldMapper build(BuilderContext context) {
             if (useFullFieldNameValidation(indexCreatedVersion)) {
@@ -271,63 +292,13 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             final Explicit<Boolean> ignoreMalformed = ignoreMalformed(context);
             final Map<String, String> metaValue = meta.getValue();
 
-            if (modelId.get() != null) {
-                return ModelFieldMapper.createFieldMapper(
-                    buildFullName(context),
-                    name,
-                    metaValue,
-                    vectorDataType.getValue(),
-                    multiFieldsBuilder,
-                    copyToBuilder,
-                    ignoreMalformed,
-                    stored.get(),
-                    hasDocValues.get(),
-                    modelDao,
-                    indexCreatedVersion,
-                    originalParameters,
-                    knnMethodConfigContext
-                );
-            }
-
-            // return FlatVectorFieldMapper only for indices that are created on or after 2.17.0, for others, use
-            // EngineFieldMapper to maintain backwards compatibility
-            if (originalParameters.getResolvedKnnMethodContext() == null && indexCreatedVersion.onOrAfter(Version.V_2_17_0)) {
-                // Prior to 3.0.0, hasDocValues defaulted to false. However, FlatVectorFieldMapper requires
-                // hasDocValues to be true to maintain proper functionality for vector search operations.
-                // For indices created on or after 3.0.0, we automatically set hasDocValues to true if not
-                // explicitly configured to ensure consistent behavior.
-                if (indexCreatedVersion.onOrAfter(Version.V_3_0_0) && hasDocValues.isConfigured() == false) {
-                    hasDocValues = Parameter.docValuesParam(m -> toType(m).hasDocValues, true);
-                }
-                return FlatVectorFieldMapper.createFieldMapper(
-                    buildFullName(context),
-                    name,
-                    metaValue,
-                    KNNMethodConfigContext.builder()
-                        .vectorDataType(vectorDataType.getValue())
-                        .versionCreated(indexCreatedVersion)
-                        .dimension(dimension.getValue())
-                        .build(),
-                    multiFieldsBuilder,
-                    copyToBuilder,
-                    ignoreMalformed,
-                    stored.get(),
-                    hasDocValues.get(),
-                    originalParameters
-                );
-            }
-
-            return EngineFieldMapper.createFieldMapper(
-                buildFullName(context),
-                name,
+            return KNNVectorFieldMapperFactory.createFieldMapper(
+                this,
+                context,
                 metaValue,
-                knnMethodConfigContext,
                 multiFieldsBuilder,
                 copyToBuilder,
-                ignoreMalformed,
-                stored.getValue(),
-                hasDocValues.get(),
-                originalParameters
+                ignoreMalformed
             );
         }
 

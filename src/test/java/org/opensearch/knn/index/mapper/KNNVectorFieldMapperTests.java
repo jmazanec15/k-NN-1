@@ -1919,6 +1919,28 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         assertTrue(knnVectorFieldMapper instanceof FlatVectorFieldMapper);
     }
 
+    public void testBuilder_adjustDocValuesForFlatMapper_defaulted() {
+        ModelDao modelDao = mock(ModelDao.class);
+        KNNVectorFieldMapper.Builder builder = new KNNVectorFieldMapper.Builder(
+            "test-field-doc-values",
+            modelDao,
+            Version.V_3_0_0,
+            null,
+            null
+        );
+        builder.vectorDataType.setValue(VectorDataType.FLOAT);
+        builder.dimension.setValue(8);
+
+        Settings settings = Settings.builder().put(settings(Version.V_3_0_0).build()).put(KNN_INDEX, false).build();
+
+        builder.setOriginalParameters(new OriginalMappingParameters(builder));
+        Mapper.BuilderContext builderContext = new Mapper.BuilderContext(settings, new ContentPath());
+        KNNVectorFieldMapper knnVectorFieldMapper = builder.build(builderContext);
+
+        assertTrue(knnVectorFieldMapper instanceof FlatVectorFieldMapper);
+        assertTrue(knnVectorFieldMapper.fieldType().hasDocValues());
+    }
+
     public void testTypeParser_whenBinaryWithLegacyKNNEnabled_thenValid() throws IOException {
         // Check legacy is picked up if model context and method context are not set
         ModelDao modelDao = mock(ModelDao.class);
