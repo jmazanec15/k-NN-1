@@ -7,6 +7,8 @@ package org.opensearch.knn.index.engine;
 
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Builder.Default;
 import lombok.Getter;
 import lombok.NonNull;
 import lombok.Setter;
@@ -37,19 +39,25 @@ import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
  */
 @AllArgsConstructor(access = AccessLevel.PACKAGE)
 @Getter
+@Builder
 public class KNNMethodContext implements ToXContentFragment, Writeable {
 
     @NonNull
-    private KNNEngine knnEngine;
+    @Default
+    private KNNEngine knnEngine = KNNEngine.DEFAULT;
     @NonNull
     @Setter
-    private SpaceType spaceType;
+    @Default
+    private SpaceType spaceType = SpaceType.UNDEFINED;
     @NonNull
     private final MethodComponentContext methodComponentContext;
     // Currently, the KNNEngine member variable cannot be null and defaults during parsing to nmslib. However, in order
     // to support disk based engine resolution, this value potentially needs to be updated. Thus, this value is used
     // to determine if the variable can be overridden or not based on whether the user explicitly set the value during parsing
-    private boolean isEngineConfigured;
+    @Default
+    private boolean isEngineConfigured = false;
+
+
 
     /**
      * Copy constructor. Useful for creating a deep copy of a {@link KNNMethodContext}. Note that the engine and
@@ -222,7 +230,12 @@ public class KNNMethodContext implements ToXContentFragment, Writeable {
 
         MethodComponentContext method = new MethodComponentContext(name, parameters);
 
-        return new KNNMethodContext(engine, spaceType, method, isEngineConfigured);
+        return KNNMethodContext.builder()
+            .knnEngine(engine)
+            .spaceType(spaceType)
+            .methodComponentContext(method)
+            .isEngineConfigured(isEngineConfigured)
+            .build();
     }
 
     @Override
@@ -258,4 +271,20 @@ public class KNNMethodContext implements ToXContentFragment, Writeable {
         out.writeString(spaceType.getValue());
         this.methodComponentContext.writeTo(out);
     }
+
+    /**
+     * Custom builder to ensure {@code isEngineConfigured} is set when {@code knnEngine}
+     * is explicitly provided.
+     */
+    public static class KNNMethodContextBuilder {
+        private boolean isEngineConfigured = false;
+
+        public KNNMethodContextBuilder knnEngine(KNNEngine knnEngine) {
+            this.knnEngine = knnEngine;
+            this.isEngineConfigured = true;
+            return this;
+        }
+    }
+
+
 }
